@@ -1,0 +1,1526 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Users\user\AppData\Roaming\npm\node_modules\npm\bin\npm-cli.js
+1 info using npm@10.8.3
+2 info using node@v22.14.0
+3 silly config load:file:C:\Users\user\AppData\Roaming\npm\node_modules\npm\npmrc
+4 silly config load:file:C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\frontend\.npmrc
+5 silly config load:file:C:\Users\user\.npmrc
+6 silly config load:file:C:\Users\user\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install
+8 verbose argv "install" "--prefer-online" "--cache" "..\\.npm-cache" "--no-audit" "--no-fund"
+9 verbose logfile logs-max:10 dir:C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\.npm-cache\_logs\2026-06-07T05_22_32_677Z-
+10 verbose logfile C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\.npm-cache\_logs\2026-06-07T05_22_32_677Z-debug-0.log
+11 silly packumentCache heap:2197815296 maxSize:549453824 maxEntrySize:274726912
+12 silly logfile done cleaning log files
+13 silly idealTree buildDeps
+14 silly fetch manifest yaml@^2.4.2
+15 silly packumentCache full:https://registry.npmjs.org/yaml cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/npm 2052ms
+17 http fetch GET 200 https://registry.npmjs.org/yaml 1238ms (cache miss)
+18 silly placeDep node_modules/tailwindcss yaml@ OK for: postcss-load-config@6.0.1 want: ^2.4.2
+19 warn ERESOLVE overriding peer dependency {
+19 warn ERESOLVE   code: 'ERESOLVE',
+19 warn ERESOLVE   edge: {
+19 warn ERESOLVE     type: 'peerOptional',
+19 warn ERESOLVE     name: 'yaml',
+19 warn ERESOLVE     spec: '^2.4.2',
+19 warn ERESOLVE     error: 'INVALID',
+19 warn ERESOLVE     from: {
+19 warn ERESOLVE       name: 'postcss-load-config',
+19 warn ERESOLVE       version: '6.0.1',
+19 warn ERESOLVE       location: 'node_modules/tailwindcss/node_modules/postcss-load-config',
+19 warn ERESOLVE       isWorkspace: false,
+19 warn ERESOLVE       dependents: [Array]
+19 warn ERESOLVE     }
+19 warn ERESOLVE   },
+19 warn ERESOLVE   dep: {
+19 warn ERESOLVE     name: 'yaml',
+19 warn ERESOLVE     version: undefined,
+19 warn ERESOLVE     errors: [ [FetchError] ],
+19 warn ERESOLVE     package: {},
+19 warn ERESOLVE     whileInstalling: {
+19 warn ERESOLVE       name: 'postcss-load-config',
+19 warn ERESOLVE       version: '6.0.1',
+19 warn ERESOLVE       path: 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tailwindcss\\node_modules\\postcss-load-config'
+19 warn ERESOLVE     },
+19 warn ERESOLVE     location: 'node_modules/yaml',
+19 warn ERESOLVE     isWorkspace: false,
+19 warn ERESOLVE     dependents: [ [Object] ]
+19 warn ERESOLVE   },
+19 warn ERESOLVE   force: false,
+19 warn ERESOLVE   isMine: false,
+19 warn ERESOLVE   strictPeerDeps: false,
+19 warn ERESOLVE   current: {
+19 warn ERESOLVE     name: 'yaml',
+19 warn ERESOLVE     version: undefined,
+19 warn ERESOLVE     errors: [ [FetchError] ],
+19 warn ERESOLVE     package: {},
+19 warn ERESOLVE     location: 'node_modules/tailwindcss/node_modules/yaml',
+19 warn ERESOLVE     isWorkspace: false,
+19 warn ERESOLVE     dependents: []
+19 warn ERESOLVE   }
+19 warn ERESOLVE }
+20 silly reify mark retired [
+20 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn'
+20 silly reify ]
+21 silly reify mark retired [
+21 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-import-phases'
+21 silly reify ]
+22 silly reify mark retired [
+22 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ajv'
+22 silly reify ]
+23 silly reify mark retired [
+23 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\aria-query'
+23 silly reify ]
+24 silly reify mark retired [
+24 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array-includes'
+24 silly reify ]
+25 silly reify mark retired [
+25 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.findlastindex'
+25 silly reify ]
+26 silly reify mark retired [
+26 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.flat'
+26 silly reify ]
+27 silly reify mark retired [
+27 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.flatmap'
+27 silly reify ]
+28 silly reify mark retired [
+28 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.reduce'
+28 silly reify ]
+29 silly reify mark retired [
+29 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\autoprefixer'
+29 silly reify ]
+30 silly reify mark retired [
+30 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\axe-core'
+30 silly reify ]
+31 silly reify mark retired [
+31 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\axios'
+31 silly reify ]
+32 silly reify mark retired [
+32 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-corejs2'
+32 silly reify ]
+33 silly reify mark retired [
+33 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-corejs3'
+33 silly reify ]
+34 silly reify mark retired [
+34 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-regenerator'
+34 silly reify ]
+35 silly reify mark retired [
+35 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-preset-current-node-syntax'
+35 silly reify ]
+36 silly reify mark retired [
+36 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-preset-react-app'
+36 silly reify ]
+37 silly reify mark retired [
+37 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\baseline-browser-mapping'
+37 silly reify ]
+38 silly reify mark retired [
+38 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\body-parser'
+38 silly reify ]
+39 silly reify mark retired [
+39 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\brace-expansion'
+39 silly reify ]
+40 silly reify mark retired [
+40 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\browserslist'
+40 silly reify ]
+41 silly reify mark retired [
+41 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\call-bind'
+41 silly reify ]
+42 silly reify mark retired [
+42 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\caniuse-lite'
+42 silly reify ]
+43 silly reify mark retired [
+43 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\collect-v8-coverage'
+43 silly reify ]
+44 silly reify mark retired [
+44 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\compression'
+44 silly reify ]
+45 silly reify mark retired [
+45 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cookie-signature'
+45 silly reify ]
+46 silly reify mark retired [
+46 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cookie'
+46 silly reify ]
+47 silly reify mark retired [
+47 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js-compat'
+47 silly reify ]
+48 silly reify mark retired [
+48 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js-pure'
+48 silly reify ]
+49 silly reify mark retired [
+49 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js'
+49 silly reify ]
+50 silly reify mark retired [
+50 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-what'
+50 silly reify ]
+51 silly reify mark retired [
+51 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\decimal.js'
+51 silly reify ]
+52 silly reify mark retired [
+52 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\electron-to-chromium'
+52 silly reify ]
+53 silly reify mark retired [
+53 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\enhanced-resolve'
+53 silly reify ]
+54 silly reify mark retired [
+54 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\error-ex'
+54 silly reify ]
+55 silly reify mark retired [
+55 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-abstract'
+55 silly reify ]
+56 silly reify mark retired [
+56 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-iterator-helpers'
+56 silly reify ]
+57 silly reify mark retired [
+57 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-module-lexer'
+57 silly reify ]
+58 silly reify mark retired [
+58 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-shim-unscopables'
+58 silly reify ]
+59 silly reify mark retired [
+59 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-import-resolver-node'
+59 silly reify ]
+60 silly reify mark retired [
+60 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-module-utils'
+60 silly reify ]
+61 silly reify mark retired [
+61 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-import'
+61 silly reify ]
+62 silly reify mark retired [
+62 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-jsx-a11y'
+62 silly reify ]
+63 silly reify mark retired [
+63 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-react'
+63 silly reify ]
+64 silly reify mark retired [
+64 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\express'
+64 silly reify ]
+65 silly reify mark retired [
+65 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fast-uri'
+65 silly reify ]
+66 silly reify mark retired [
+66 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fastq'
+66 silly reify ]
+67 silly reify mark retired [
+67 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\finalhandler'
+67 silly reify ]
+68 silly reify mark retired [
+68 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\filelist'
+68 silly reify ]
+69 silly reify mark retired [
+69 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\flatted'
+69 silly reify ]
+70 silly reify mark retired [
+70 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\follow-redirects'
+70 silly reify ]
+71 silly reify mark retired [
+71 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\form-data'
+71 silly reify ]
+72 silly reify mark retired [
+72 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fraction.js'
+72 silly reify ]
+73 silly reify mark retired [
+73 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fs-monkey'
+73 silly reify ]
+74 silly reify mark retired [
+74 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fsevents'
+74 silly reify ]
+75 silly reify mark retired [
+75 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\generator-function'
+75 silly reify ]
+76 silly reify mark retired [
+76 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\hasown'
+76 silly reify ]
+77 silly reify mark retired [
+77 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-entities'
+77 silly reify ]
+78 silly reify mark retired [
+78 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-webpack-plugin'
+78 silly reify ]
+79 silly reify mark retired [
+79 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-errors'
+79 silly reify ]
+80 silly reify mark retired [
+80 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-parser-js'
+80 silly reify ]
+81 silly reify mark retired [
+81 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-proxy-middleware'
+81 silly reify ]
+82 silly reify mark retired [
+82 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ipaddr.js'
+82 silly reify ]
+83 silly reify mark retired [
+83 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-core-module'
+83 silly reify ]
+84 silly reify mark retired [
+84 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-generator-function'
+84 silly reify ]
+85 silly reify mark retired [
+85 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-reports'
+85 silly reify ]
+86 silly reify mark retired [
+86 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\iterator.prototype'
+86 silly reify ]
+87 silly reify mark retired [
+87 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jake'
+87 silly reify ]
+88 silly reify mark retired [
+88 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jiti'
+88 silly reify ]
+89 silly reify mark retired [
+89 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\js-yaml'
+89 silly reify ]
+90 silly reify mark retired [
+90 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsonfile'
+90 silly reify ]
+91 silly reify mark retired [
+91 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsonpath'
+91 silly reify ]
+92 silly reify mark retired [
+92 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\launch-editor'
+92 silly reify ]
+93 silly reify mark retired [
+93 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\loader-runner'
+93 silly reify ]
+94 silly reify mark retired [
+94 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\lodash'
+94 silly reify ]
+95 silly reify mark retired [
+95 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mini-css-extract-plugin'
+95 silly reify ]
+96 silly reify mark retired [
+96 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\minimatch'
+96 silly reify ]
+97 silly reify mark retired [
+97 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\nanoid'
+97 silly reify ]
+98 silly reify mark retired [
+98 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-exports-info'
+98 silly reify ]
+99 silly reify mark retired [
+99 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-forge'
+99 silly reify ]
+100 silly reify mark retired [
+100 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-releases'
+100 silly reify ]
+101 silly reify mark retired [
+101 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\nwsapi'
+101 silly reify ]
+102 silly reify mark retired [
+102 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.entries'
+102 silly reify ]
+103 silly reify mark retired [
+103 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.values'
+103 silly reify ]
+104 silly reify mark retired [
+104 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.getownpropertydescriptors'
+104 silly reify ]
+105 silly reify mark retired [
+105 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\on-headers'
+105 silly reify ]
+106 silly reify mark retired [
+106 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\path-to-regexp'
+106 silly reify ]
+107 silly reify mark retired [
+107 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\picomatch'
+107 silly reify ]
+108 silly reify mark retired [
+108 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\pirates'
+108 silly reify ]
+109 silly reify mark retired [
+109 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss'
+109 silly reify ]
+110 silly reify mark retired [
+110 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-js'
+110 silly reify ]
+111 silly reify mark retired [
+111 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\proxy-from-env'
+111 silly reify ]
+112 silly reify mark retired [
+112 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\qs'
+112 silly reify ]
+113 silly reify mark retired [
+113 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\raw-body'
+113 silly reify ]
+114 silly reify mark retired [
+114 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react'
+114 silly reify ]
+115 silly reify mark retired [
+115 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-dom'
+115 silly reify ]
+116 silly reify mark retired [
+116 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-error-overlay'
+116 silly reify ]
+117 silly reify mark retired [
+117 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regenerate-unicode-properties'
+117 silly reify ]
+118 silly reify mark retired [
+118 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regex-parser'
+118 silly reify ]
+119 silly reify mark retired [
+119 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regexpu-core'
+119 silly reify ]
+120 silly reify mark retired [
+120 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regjsparser'
+120 silly reify ]
+121 silly reify mark retired [
+121 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\resolve'
+121 silly reify ]
+122 silly reify mark retired [
+122 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\rollup'
+122 silly reify ]
+123 silly reify mark retired [
+123 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\safe-array-concat'
+123 silly reify ]
+124 silly reify mark retired [
+124 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\schema-utils'
+124 silly reify ]
+125 silly reify mark retired [
+125 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\semver'
+125 silly reify ]
+126 silly reify mark retired [
+126 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\send'
+126 silly reify ]
+127 silly reify mark retired [
+127 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\serve-index'
+127 silly reify ]
+128 silly reify mark retired [
+128 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\serve-static'
+128 silly reify ]
+129 silly reify mark retired [
+129 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\shell-quote'
+129 silly reify ]
+130 silly reify mark retired [
+130 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\side-channel-list'
+130 silly reify ]
+131 silly reify mark retired [
+131 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\source-map'
+131 silly reify ]
+132 silly reify mark retired [
+132 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\static-eval'
+132 silly reify ]
+133 silly reify mark retired [
+133 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\statuses'
+133 silly reify ]
+134 silly reify mark retired [
+134 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\string.prototype.includes'
+134 silly reify ]
+135 silly reify mark retired [
+135 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\string.prototype.matchall'
+135 silly reify ]
+136 silly reify mark retired [
+136 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\sucrase'
+136 silly reify ]
+137 silly reify mark retired [
+137 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tailwindcss'
+137 silly reify ]
+138 silly reify mark retired [
+138 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tapable'
+138 silly reify ]
+139 silly reify mark retired [
+139 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\terser'
+139 silly reify ]
+140 silly reify mark retired [
+140 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\terser-webpack-plugin'
+140 silly reify ]
+141 silly reify mark retired [
+141 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tinyglobby'
+141 silly reify ]
+142 silly reify mark retired [
+142 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\underscore'
+142 silly reify ]
+143 silly reify mark retired [
+143 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\undici-types'
+143 silly reify ]
+144 silly reify mark retired [
+144 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\unicode-match-property-value-ecmascript'
+144 silly reify ]
+145 silly reify mark retired [
+145 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\unicode-property-aliases-ecmascript'
+145 silly reify ]
+146 silly reify mark retired [
+146 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\watchpack'
+146 silly reify ]
+147 silly reify mark retired [
+147 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack'
+147 silly reify ]
+148 silly reify mark retired [
+148 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack-sources'
+148 silly reify ]
+149 silly reify mark retired [
+149 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\which-typed-array'
+149 silly reify ]
+150 silly reify mark retired [
+150 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\yaml'
+150 silly reify ]
+151 silly reify mark retired [
+151 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@adobe\\css-tools'
+151 silly reify ]
+152 silly reify mark retired [
+152 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\code-frame'
+152 silly reify ]
+153 silly reify mark retired [
+153 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\compat-data'
+153 silly reify ]
+154 silly reify mark retired [
+154 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\core'
+154 silly reify ]
+155 silly reify mark retired [
+155 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\eslint-parser'
+155 silly reify ]
+156 silly reify mark retired [
+156 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\generator'
+156 silly reify ]
+157 silly reify mark retired [
+157 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-compilation-targets'
+157 silly reify ]
+158 silly reify mark retired [
+158 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-annotate-as-pure'
+158 silly reify ]
+159 silly reify mark retired [
+159 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-create-class-features-plugin'
+159 silly reify ]
+160 silly reify mark retired [
+160 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-create-regexp-features-plugin'
+160 silly reify ]
+161 silly reify mark retired [
+161 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-define-polyfill-provider'
+161 silly reify ]
+162 silly reify mark retired [
+162 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-member-expression-to-functions'
+162 silly reify ]
+163 silly reify mark retired [
+163 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-module-imports'
+163 silly reify ]
+164 silly reify mark retired [
+164 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-module-transforms'
+164 silly reify ]
+165 silly reify mark retired [
+165 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-optimise-call-expression'
+165 silly reify ]
+166 silly reify mark retired [
+166 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-plugin-utils'
+166 silly reify ]
+167 silly reify mark retired [
+167 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-replace-supers'
+167 silly reify ]
+168 silly reify mark retired [
+168 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-remap-async-to-generator'
+168 silly reify ]
+169 silly reify mark retired [
+169 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-skip-transparent-expression-wrappers'
+169 silly reify ]
+170 silly reify mark retired [
+170 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-wrap-function'
+170 silly reify ]
+171 silly reify mark retired [
+171 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helpers'
+171 silly reify ]
+172 silly reify mark retired [
+172 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\parser'
+172 silly reify ]
+173 silly reify mark retired [
+173 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-firefox-class-in-computed-class-key'
+173 silly reify ]
+174 silly reify mark retired [
+174 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-class-field-initializer-scope'
+174 silly reify ]
+175 silly reify mark retired [
+175 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-id-destructuring-collision-in-function-expression'
+175 silly reify ]
+176 silly reify mark retired [
+176 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-rest-destructuring-rhs-array'
+176 silly reify ]
+177 silly reify mark retired [
+177 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-v8-spread-parameters-in-optional-chaining'
+177 silly reify ]
+178 silly reify mark retired [
+178 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-v8-static-class-fields-redefine-readonly'
+178 silly reify ]
+179 silly reify mark retired [
+179 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-proposal-decorators'
+179 silly reify ]
+180 silly reify mark retired [
+180 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-decorators'
+180 silly reify ]
+181 silly reify mark retired [
+181 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-flow'
+181 silly reify ]
+182 silly reify mark retired [
+182 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-import-assertions'
+182 silly reify ]
+183 silly reify mark retired [
+183 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-import-attributes'
+183 silly reify ]
+184 silly reify mark retired [
+184 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-jsx'
+184 silly reify ]
+185 silly reify mark retired [
+185 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-typescript'
+185 silly reify ]
+186 silly reify mark retired [
+186 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-arrow-functions'
+186 silly reify ]
+187 silly reify mark retired [
+187 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-async-generator-functions'
+187 silly reify ]
+188 silly reify mark retired [
+188 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-async-to-generator'
+188 silly reify ]
+189 silly reify mark retired [
+189 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-block-scoped-functions'
+189 silly reify ]
+190 silly reify mark retired [
+190 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-block-scoping'
+190 silly reify ]
+191 silly reify mark retired [
+191 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-class-properties'
+191 silly reify ]
+192 silly reify mark retired [
+192 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-class-static-block'
+192 silly reify ]
+193 silly reify mark retired [
+193 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-classes'
+193 silly reify ]
+194 silly reify mark retired [
+194 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-destructuring'
+194 silly reify ]
+195 silly reify mark retired [
+195 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-computed-properties'
+195 silly reify ]
+196 silly reify mark retired [
+196 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-dotall-regex'
+196 silly reify ]
+197 silly reify mark retired [
+197 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-duplicate-keys'
+197 silly reify ]
+198 silly reify mark retired [
+198 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-duplicate-named-capturing-groups-regex'
+198 silly reify ]
+199 silly reify mark retired [
+199 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-dynamic-import'
+199 silly reify ]
+200 silly reify mark retired [
+200 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-explicit-resource-management'
+200 silly reify ]
+201 silly reify mark retired [
+201 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-exponentiation-operator'
+201 silly reify ]
+202 silly reify mark retired [
+202 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-export-namespace-from'
+202 silly reify ]
+203 silly reify mark retired [
+203 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-flow-strip-types'
+203 silly reify ]
+204 silly reify mark retired [
+204 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-for-of'
+204 silly reify ]
+205 silly reify mark retired [
+205 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-function-name'
+205 silly reify ]
+206 silly reify mark retired [
+206 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-json-strings'
+206 silly reify ]
+207 silly reify mark retired [
+207 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-literals'
+207 silly reify ]
+208 silly reify mark retired [
+208 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-logical-assignment-operators'
+208 silly reify ]
+209 silly reify mark retired [
+209 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-member-expression-literals'
+209 silly reify ]
+210 silly reify mark retired [
+210 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-amd'
+210 silly reify ]
+211 silly reify mark retired [
+211 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-commonjs'
+211 silly reify ]
+212 silly reify mark retired [
+212 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-systemjs'
+212 silly reify ]
+213 silly reify mark retired [
+213 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-umd'
+213 silly reify ]
+214 silly reify mark retired [
+214 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-named-capturing-groups-regex'
+214 silly reify ]
+215 silly reify mark retired [
+215 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-new-target'
+215 silly reify ]
+216 silly reify mark retired [
+216 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-nullish-coalescing-operator'
+216 silly reify ]
+217 silly reify mark retired [
+217 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-numeric-separator'
+217 silly reify ]
+218 silly reify mark retired [
+218 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-object-rest-spread'
+218 silly reify ]
+219 silly reify mark retired [
+219 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-object-super'
+219 silly reify ]
+220 silly reify mark retired [
+220 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-optional-catch-binding'
+220 silly reify ]
+221 silly reify mark retired [
+221 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-optional-chaining'
+221 silly reify ]
+222 silly reify mark retired [
+222 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-parameters'
+222 silly reify ]
+223 silly reify mark retired [
+223 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-private-methods'
+223 silly reify ]
+224 silly reify mark retired [
+224 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-private-property-in-object'
+224 silly reify ]
+225 silly reify mark retired [
+225 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-property-literals'
+225 silly reify ]
+226 silly reify mark retired [
+226 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-constant-elements'
+226 silly reify ]
+227 silly reify mark retired [
+227 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-display-name'
+227 silly reify ]
+228 silly reify mark retired [
+228 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-jsx'
+228 silly reify ]
+229 silly reify mark retired [
+229 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-jsx-development'
+229 silly reify ]
+230 silly reify mark retired [
+230 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-regenerator'
+230 silly reify ]
+231 silly reify mark retired [
+231 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-pure-annotations'
+231 silly reify ]
+232 silly reify mark retired [
+232 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-regexp-modifiers'
+232 silly reify ]
+233 silly reify mark retired [
+233 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-reserved-words'
+233 silly reify ]
+234 silly reify mark retired [
+234 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-runtime'
+234 silly reify ]
+235 silly reify mark retired [
+235 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-shorthand-properties'
+235 silly reify ]
+236 silly reify mark retired [
+236 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-spread'
+236 silly reify ]
+237 silly reify mark retired [
+237 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-sticky-regex'
+237 silly reify ]
+238 silly reify mark retired [
+238 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-template-literals'
+238 silly reify ]
+239 silly reify mark retired [
+239 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-typeof-symbol'
+239 silly reify ]
+240 silly reify mark retired [
+240 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-typescript'
+240 silly reify ]
+241 silly reify mark retired [
+241 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-escapes'
+241 silly reify ]
+242 silly reify mark retired [
+242 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-property-regex'
+242 silly reify ]
+243 silly reify mark retired [
+243 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-regex'
+243 silly reify ]
+244 silly reify mark retired [
+244 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-sets-regex'
+244 silly reify ]
+245 silly reify mark retired [
+245 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-env'
+245 silly reify ]
+246 silly reify mark retired [
+246 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-react'
+246 silly reify ]
+247 silly reify mark retired [
+247 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-typescript'
+247 silly reify ]
+248 silly reify mark retired [
+248 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\runtime'
+248 silly reify ]
+249 silly reify mark retired [
+249 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\template'
+249 silly reify ]
+250 silly reify mark retired [
+250 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\traverse'
+250 silly reify ]
+251 silly reify mark retired [
+251 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\types'
+251 silly reify ]
+252 silly reify mark retired [
+252 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@istanbuljs\\schema'
+252 silly reify ]
+253 silly reify mark retired [
+253 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@jridgewell\\source-map'
+253 silly reify ]
+254 silly reify mark retired [
+254 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@pmmmwh\\react-refresh-webpack-plugin'
+254 silly reify ]
+255 silly reify mark retired [
+255 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\dom'
+255 silly reify ]
+256 silly reify mark retired [
+256 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\jest-dom'
+256 silly reify ]
+257 silly reify mark retired [
+257 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\react'
+257 silly reify ]
+258 silly reify mark retired [
+258 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\estree'
+258 silly reify ]
+259 silly reify mark retired [
+259 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\express'
+259 silly reify ]
+260 silly reify mark retired [
+260 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\http-proxy'
+260 silly reify ]
+261 silly reify mark retired [
+261 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\node'
+261 silly reify ]
+262 silly reify mark retired [
+262 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\node-forge'
+262 silly reify ]
+263 silly reify mark retired [
+263 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@rushstack\\eslint-patch'
+263 silly reify ]
+264 silly reify mark retired [
+264 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\semver'
+264 silly reify ]
+265 silly reify mark retired [
+265 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\serve-static'
+265 silly reify ]
+266 silly reify mark retired [
+266 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\ws'
+266 silly reify ]
+267 silly reify mark retired [
+267 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\yargs'
+267 silly reify ]
+268 silly reify mark retired [
+268 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@ungap\\structured-clone'
+268 silly reify ]
+269 silly reify mark retired [
+269 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\acorn',
+269 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn',
+269 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn.cmd',
+269 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn.ps1'
+269 silly reify ]
+270 silly reify mark retired [
+270 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ajv-formats\\node_modules\\ajv'
+270 silly reify ]
+271 silly reify mark retired [
+271 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ansi-html',
+271 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html',
+271 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.cmd',
+271 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.ps1'
+271 silly reify ]
+272 silly reify mark retired [
+272 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ansi-html-community',
+272 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html',
+272 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.cmd',
+272 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.ps1'
+272 silly reify ]
+273 silly reify mark retired [
+273 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-blank-pseudo',
+273 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo',
+273 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo.cmd',
+273 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo.ps1'
+273 silly reify ]
+274 silly reify mark retired [
+274 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-has-pseudo',
+274 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo',
+274 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo.cmd',
+274 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo.ps1'
+274 silly reify ]
+275 silly reify mark retired [
+275 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-prefers-color-scheme',
+275 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme',
+275 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme.cmd',
+275 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme.ps1'
+275 silly reify ]
+276 silly reify mark retired [
+276 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cssesc',
+276 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc',
+276 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc.cmd',
+276 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc.ps1'
+276 silly reify ]
+277 silly reify mark retired [
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\detect-port-alt',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect.cmd',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect.ps1',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port.cmd',
+277 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port.ps1'
+277 silly reify ]
+278 silly reify mark retired [
+278 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ejs',
+278 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs',
+278 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs.cmd',
+278 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs.ps1'
+278 silly reify ]
+279 silly reify mark retired [
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\escodegen',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate.cmd',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate.ps1',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen.cmd',
+279 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen.ps1'
+279 silly reify ]
+280 silly reify mark retired [
+280 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint',
+280 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint',
+280 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint.cmd',
+280 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint.ps1'
+280 silly reify ]
+281 silly reify mark retired [
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\esprima',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse.cmd',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse.ps1',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate.cmd',
+281 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate.ps1'
+281 silly reify ]
+282 silly reify mark retired [
+282 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\which',
+282 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which',
+282 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which.cmd',
+282 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which.ps1'
+282 silly reify ]
+283 silly reify mark retired [
+283 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\he',
+283 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he',
+283 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he.cmd',
+283 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he.ps1'
+283 silly reify ]
+284 silly reify mark retired [
+284 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-minifier-terser',
+284 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser',
+284 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser.cmd',
+284 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser.ps1'
+284 silly reify ]
+285 silly reify mark retired [
+285 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\import-local',
+285 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture',
+285 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture.cmd',
+285 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture.ps1'
+285 silly reify ]
+286 silly reify mark retired [
+286 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-docker',
+286 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker',
+286 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker.cmd',
+286 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker.ps1'
+286 silly reify ]
+287 silly reify mark retired [
+287 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\semver',
+287 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver',
+287 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver.cmd',
+287 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver.ps1'
+287 silly reify ]
+288 silly reify mark retired [
+288 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest',
+288 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest',
+288 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.cmd',
+288 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.ps1'
+288 silly reify ]
+289 silly reify mark retired [
+289 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-cli',
+289 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest',
+289 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.cmd',
+289 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.ps1'
+289 silly reify ]
+290 silly reify mark retired [
+290 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\strip-ansi'
+290 silly reify ]
+291 silly reify mark retired [
+291 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\@types\\yargs'
+291 silly reify ]
+292 silly reify mark retired [
+292 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsesc',
+292 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc',
+292 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc.cmd',
+292 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc.ps1'
+292 silly reify ]
+293 silly reify mark retired [
+293 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\json5',
+293 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5',
+293 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5.cmd',
+293 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5.ps1'
+293 silly reify ]
+294 silly reify mark retired [
+294 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\loose-envify',
+294 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify',
+294 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify.cmd',
+294 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify.ps1'
+294 silly reify ]
+295 silly reify mark retired [
+295 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\lz-string',
+295 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string',
+295 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string.cmd',
+295 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string.ps1'
+295 silly reify ]
+296 silly reify mark retired [
+296 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\semver',
+296 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver',
+296 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver.cmd',
+296 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver.ps1'
+296 silly reify ]
+297 silly reify mark retired [
+297 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mime',
+297 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime',
+297 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime.cmd',
+297 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime.ps1'
+297 silly reify ]
+298 silly reify mark retired [
+298 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mkdirp',
+298 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp',
+298 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp.cmd',
+298 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp.ps1'
+298 silly reify ]
+299 silly reify mark retired [
+299 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\multicast-dns',
+299 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns',
+299 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns.cmd',
+299 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns.ps1'
+299 silly reify ]
+300 silly reify mark retired [
+300 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-local-by-default\\node_modules\\postcss-selector-parser'
+300 silly reify ]
+301 silly reify mark retired [
+301 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-scope\\node_modules\\postcss-selector-parser'
+301 silly reify ]
+302 silly reify mark retired [
+302 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\sax'
+302 silly reify ]
+303 silly reify mark retired [
+303 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\svgo'
+303 silly reify ]
+304 silly reify mark retired [
+304 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-scripts',
+304 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts',
+304 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts.cmd',
+304 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts.ps1'
+304 silly reify ]
+305 silly reify mark retired [
+305 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\rimraf',
+305 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf',
+305 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf.cmd',
+305 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf.ps1'
+305 silly reify ]
+306 silly reify mark retired [
+306 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\svgo',
+306 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo',
+306 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo.cmd',
+306 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo.ps1'
+306 silly reify ]
+307 silly reify mark retired [
+307 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\json5',
+307 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5',
+307 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5.cmd',
+307 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5.ps1'
+307 silly reify ]
+308 silly reify mark retired [
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\typescript',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc.cmd',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc.ps1',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver.cmd',
+308 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver.ps1'
+308 silly reify ]
+309 silly reify mark retired [
+309 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\update-browserslist-db',
+309 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db',
+309 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db.cmd',
+309 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db.ps1'
+309 silly reify ]
+310 silly reify mark retired [
+310 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\uuid',
+310 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid',
+310 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid.cmd',
+310 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid.ps1'
+310 silly reify ]
+311 silly reify mark retired [
+311 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack-dev-server',
+311 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server',
+311 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server.cmd',
+311 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server.ps1'
+311 silly reify ]
+312 silly reify mark retired [
+312 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\which',
+312 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which',
+312 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which.cmd',
+312 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which.ps1'
+312 silly reify ]
+313 silly reify mark retired [
+313 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\ajv'
+313 silly reify ]
+314 silly reify mark retired [
+314 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\@apideck\\better-ajv-errors'
+314 silly reify ]
+315 silly reify mark retired [
+315 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\js-yaml',
+315 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml',
+315 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml.cmd',
+315 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml.ps1'
+315 silly reify ]
+316 silly reify moves {
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.acorn-gLS6dIfP',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-import-phases': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.acorn-import-phases-nTX7ClVj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ajv': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.ajv-Um2KHvYr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\aria-query': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.aria-query-iQEZK2G0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array-includes': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.array-includes-8GfORMII',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.findlastindex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.array.prototype.findlastindex-uVF3kG0Q',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.flat': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.array.prototype.flat-gJrexjYN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.flatmap': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.array.prototype.flatmap-2jLNGR5e',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\array.prototype.reduce': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.array.prototype.reduce-EE0GUPtJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\autoprefixer': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.autoprefixer-rdo5qSVW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\axe-core': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.axe-core-u2fh4zCO',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\axios': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.axios-WcpFBizY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-corejs2': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.babel-plugin-polyfill-corejs2-59dsWjyW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-corejs3': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.babel-plugin-polyfill-corejs3-ozGc5Le1',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-plugin-polyfill-regenerator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.babel-plugin-polyfill-regenerator-HtPydKzp',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-preset-current-node-syntax': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.babel-preset-current-node-syntax-ymqlSiif',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\babel-preset-react-app': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.babel-preset-react-app-cn3XdWH1',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\baseline-browser-mapping': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.baseline-browser-mapping-hBmW2PAV',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\body-parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.body-parser-c78UWm0s',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\brace-expansion': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.brace-expansion-VZMbuqIo',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\browserslist': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.browserslist-DvwCNDPI',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\call-bind': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.call-bind-1aBYK9Lz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\caniuse-lite': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.caniuse-lite-O7TQ2LwR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\collect-v8-coverage': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.collect-v8-coverage-UbL4kXcJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\compression': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.compression-OS62G7tt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cookie-signature': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.cookie-signature-ziDk6sfI',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cookie': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.cookie-AGcpXgBG',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js-compat': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.core-js-compat-F2zuRT7r',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js-pure': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.core-js-pure-ScmbYt6j',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\core-js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.core-js-e9lKgPKU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-what': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.css-what-ss8IzW3Z',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\decimal.js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.decimal.js-wioQYduz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\electron-to-chromium': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.electron-to-chromium-xmavhB0p',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\enhanced-resolve': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.enhanced-resolve-2ZPltrL2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\error-ex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.error-ex-tZY7vrux',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-abstract': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.es-abstract-OUvkuHHc',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-iterator-helpers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.es-iterator-helpers-T6L66phr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-module-lexer': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.es-module-lexer-mxQLjtrt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\es-shim-unscopables': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.es-shim-unscopables-NY0PQXVg',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-import-resolver-node': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-import-resolver-node-sl2Hy9vR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-module-utils': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-module-utils-eoOeK6gm',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-import': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-plugin-import-vgWcf97y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-jsx-a11y': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-plugin-jsx-a11y-00IKcvbu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint-plugin-react': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-plugin-react-aVj1iKjh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\express': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.express-FGWi0FRK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fast-uri': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.fast-uri-FIeR19br',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fastq': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.fastq-oLhUd9o3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\finalhandler': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.finalhandler-Jr1RMduM',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\filelist': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.filelist-XY2rY4sc',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\flatted': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.flatted-vEziK5kp',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\follow-redirects': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.follow-redirects-lUV1fYDA',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\form-data': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.form-data-iuVRZYxz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fraction.js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.fraction.js-JC36ZV2G',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fs-monkey': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.fs-monkey-ESCpk34d',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\fsevents': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.fsevents-IeBjajTY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\generator-function': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.generator-function-PEQRwYvZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\hasown': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.hasown-kczwokV1',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-entities': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.html-entities-SoSUgnbE',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-webpack-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.html-webpack-plugin-RKP7WY71',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-errors': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.http-errors-ilUSrDUn',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-parser-js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.http-parser-js-SzWGkkOz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\http-proxy-middleware': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.http-proxy-middleware-LKY0K9S0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ipaddr.js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.ipaddr.js-O2UCTRAh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-core-module': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.is-core-module-4SRriC8v',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-generator-function': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.is-generator-function-TS3HZyC6',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-reports': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.istanbul-reports-6WDfn5eU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\iterator.prototype': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.iterator.prototype-k0as0NPr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jake': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jake-D9rPc6YR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jiti': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jiti-MlAHFwe0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\js-yaml': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.js-yaml-9rCpqGEu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsonfile': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jsonfile-ZbqOVdiH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsonpath': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jsonpath-z5ZSP8Jt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\launch-editor': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.launch-editor-rVbSGkvH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\loader-runner': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.loader-runner-rR4ievtu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\lodash': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.lodash-aiYXdNiC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mini-css-extract-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.mini-css-extract-plugin-S0Xi06cl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\minimatch': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.minimatch-pa3FUDHi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\nanoid': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.nanoid-vgxUI78A',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-exports-info': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.node-exports-info-Q2wpTovR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-forge': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.node-forge-V5ommINP',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\node-releases': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.node-releases-1RuuRGuK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\nwsapi': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.nwsapi-oWj1otaT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.entries': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.object.entries-3UglbMR7',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.values': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.object.values-a7zkHyvT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\object.getownpropertydescriptors': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.object.getownpropertydescriptors-uLy3L6No',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\on-headers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.on-headers-4xhBpr8y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\path-to-regexp': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.path-to-regexp-zQjBEMnU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\picomatch': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.picomatch-UULJj2tY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\pirates': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.pirates-ks79xXgN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.postcss-uvSGAb5q',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-js': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.postcss-js-LKn38w9g',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\proxy-from-env': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.proxy-from-env-23SciOnY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\qs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.qs-LSt1KL8g',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\raw-body': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.raw-body-HT2eJjJn',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.react-HWISxHnt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-dom': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.react-dom-b8HP5BEK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-error-overlay': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.react-error-overlay-YKSgJ6E3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regenerate-unicode-properties': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.regenerate-unicode-properties-oay0473B',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regex-parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.regex-parser-wZ3CjA8X',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regexpu-core': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.regexpu-core-rSQdj8JC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\regjsparser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.regjsparser-8CLtzHuS',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\resolve': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.resolve-9Znh9gf5',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\rollup': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.rollup-muydddIC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\safe-array-concat': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.safe-array-concat-ljW3Qx7I',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\schema-utils': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.schema-utils-h0c15bci',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.semver-IcqUjYGD',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\send': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.send-ciRkW3fu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\serve-index': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.serve-index-D99AeL5q',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\serve-static': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.serve-static-tQN3YpOl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\shell-quote': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.shell-quote-vUhY8Cfr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\side-channel-list': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.side-channel-list-cQeaA6sy',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\source-map': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.source-map-CSdSNe4Y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\static-eval': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.static-eval-1k8dVQRu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\statuses': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.statuses-mwJ8f3Zi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\string.prototype.includes': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.string.prototype.includes-55DIHxAL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\string.prototype.matchall': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.string.prototype.matchall-rnPEzodH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\sucrase': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.sucrase-ZJ9yutZt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tailwindcss': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.tailwindcss-EF9oRMwW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tapable': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.tapable-QzXAbCcb',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\terser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.terser-H2xPmyx6',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\terser-webpack-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.terser-webpack-plugin-OGeM97Qm',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tinyglobby': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.tinyglobby-qC5J1Dcw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\underscore': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.underscore-4nOSSzMh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\undici-types': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.undici-types-XUU1Tboh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\unicode-match-property-value-ecmascript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.unicode-match-property-value-ecmascript-6Crq6OIr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\unicode-property-aliases-ecmascript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.unicode-property-aliases-ecmascript-tBkF22H3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\watchpack': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.watchpack-a8vYFnJL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.webpack-QrXWQaRB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack-sources': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.webpack-sources-nHt03UIu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\which-typed-array': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.which-typed-array-ia9lLAS9',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\yaml': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.yaml-BI96FLQw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@adobe\\css-tools': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@adobe\\.css-tools-svpG9oKW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\code-frame': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.code-frame-9HPR53io',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\compat-data': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.compat-data-viLhCClQ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\core': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.core-VzXcJnq9',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\eslint-parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.eslint-parser-7VLrOQBK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\generator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.generator-lFJthigh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-compilation-targets': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-compilation-targets-pOlDljHz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-annotate-as-pure': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-annotate-as-pure-t3YRkTVO',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-create-class-features-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-create-class-features-plugin-iYQUXqXk',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-create-regexp-features-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-create-regexp-features-plugin-CRXCW2p0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-define-polyfill-provider': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-define-polyfill-provider-a4KhTrKl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-member-expression-to-functions': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-member-expression-to-functions-pqThHqNK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-module-imports': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-module-imports-2JkcFX4G',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-module-transforms': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-module-transforms-w9xFd5Zr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-optimise-call-expression': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-optimise-call-expression-tis7hicc',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-plugin-utils': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-plugin-utils-yVtvRnEm',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-replace-supers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-replace-supers-4y6U7rV2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-remap-async-to-generator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-remap-async-to-generator-loEs7np2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-skip-transparent-expression-wrappers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-skip-transparent-expression-wrappers-fBtSk8R7',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helper-wrap-function': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helper-wrap-function-W4Ja3rXe',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\helpers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.helpers-PKuqItUB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.parser-UPR8lkk5',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-firefox-class-in-computed-class-key': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-firefox-class-in-computed-class-key-MW6fMlo4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-class-field-initializer-scope': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-safari-class-field-initializer-scope-dCwiB7Ca',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-id-destructuring-collision-in-function-expression': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-safari-id-destructuring-collision-in-function-expression-6uthvzQo',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-safari-rest-destructuring-rhs-array': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-safari-rest-destructuring-rhs-array-7VinQ7IU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-v8-spread-parameters-in-optional-chaining': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-v8-spread-parameters-in-optional-chaining-LPS64x56',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-bugfix-v8-static-class-fields-redefine-readonly': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-bugfix-v8-static-class-fields-redefine-readonly-vuAYVnal',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-proposal-decorators': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-proposal-decorators-mwvaJbeo',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-decorators': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-decorators-Q5FgZxCW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-flow': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-flow-jZKHS2eP',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-import-assertions': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-import-assertions-hA4EIdi2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-import-attributes': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-import-attributes-mpA5L4tx',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-jsx': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-jsx-CCk70Fq6',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-syntax-typescript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-syntax-typescript-Z9jYblld',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-arrow-functions': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-arrow-functions-u3lAuCIz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-async-generator-functions': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-async-generator-functions-bSR1ioph',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-async-to-generator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-async-to-generator-lzJziX1Q',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-block-scoped-functions': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-block-scoped-functions-cxa9wudf',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-block-scoping': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-block-scoping-piEkrxyJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-class-properties': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-class-properties-YTdgh4Jw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-class-static-block': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-class-static-block-HdetPbsT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-classes': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-classes-7v3nQ5tE',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-destructuring': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-destructuring-kw7ct71i',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-computed-properties': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-computed-properties-ctUga7Xw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-dotall-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-dotall-regex-Nh9bnBBJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-duplicate-keys': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-duplicate-keys-AtQQTpLU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-duplicate-named-capturing-groups-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-duplicate-named-capturing-groups-regex-QhBcrYes',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-dynamic-import': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-dynamic-import-PjsABBVs',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-explicit-resource-management': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-explicit-resource-management-TpfRh76a',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-exponentiation-operator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-exponentiation-operator-mIcZR65C',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-export-namespace-from': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-export-namespace-from-KuJlct8Y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-flow-strip-types': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-flow-strip-types-qhkxTgx2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-for-of': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-for-of-goHXpDcL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-function-name': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-function-name-2iA6moEg',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-json-strings': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-json-strings-kwZ4L6D3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-literals': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-literals-IYu8bE0i',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-logical-assignment-operators': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-logical-assignment-operators-iOY0Lr4T',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-member-expression-literals': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-member-expression-literals-MmAC3fSp',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-amd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-modules-amd-5RxhOlLP',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-commonjs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-modules-commonjs-Cly6UhRU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-systemjs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-modules-systemjs-QFZHJrz0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-modules-umd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-modules-umd-s58zUVkF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-named-capturing-groups-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-named-capturing-groups-regex-f2sepCld',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-new-target': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-new-target-IcOS9AXA',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-nullish-coalescing-operator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-nullish-coalescing-operator-ACWOqpHi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-numeric-separator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-numeric-separator-oFxY9JJR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-object-rest-spread': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-object-rest-spread-ZKzX4BnJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-object-super': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-object-super-brDAfElF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-optional-catch-binding': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-optional-catch-binding-9BcBSYFC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-optional-chaining': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-optional-chaining-of3wBIN6',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-parameters': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-parameters-rrcQjoa8',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-private-methods': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-private-methods-yrDNIFYH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-private-property-in-object': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-private-property-in-object-VefDtiaw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-property-literals': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-property-literals-hmtBYU1w',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-constant-elements': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-react-constant-elements-7JlKvQUX',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-display-name': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-react-display-name-pF86tS75',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-jsx': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-react-jsx-32KWlC1l',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-jsx-development': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-react-jsx-development-MJYhRh9n',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-regenerator': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-regenerator-4vZSh9n3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-react-pure-annotations': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-react-pure-annotations-0K2ZqcGt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-regexp-modifiers': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-regexp-modifiers-yRnKk25x',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-reserved-words': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-reserved-words-Oh3AmS3v',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-runtime': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-runtime-2e6ZP9hW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-shorthand-properties': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-shorthand-properties-g16Hkuy0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-spread': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-spread-jAwNhYOC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-sticky-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-sticky-regex-5fCFg5wt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-template-literals': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-template-literals-yLkC5nH2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-typeof-symbol': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-typeof-symbol-zQRE8S4n',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-typescript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-typescript-viSrVrzw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-escapes': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-unicode-escapes-m7lCcojl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-property-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-unicode-property-regex-uw0hEysl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-unicode-regex-VjlvasIR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\plugin-transform-unicode-sets-regex': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.plugin-transform-unicode-sets-regex-s7AsL5Qw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-env': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.preset-env-a6I7Np8h',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-react': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.preset-react-7DBMmHXr',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\preset-typescript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.preset-typescript-DM6aSnek',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\runtime': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.runtime-h9r0HQxi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\template': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.template-DluGzrX2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\traverse': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.traverse-OhhPXYaS',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\types': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@babel\\.types-7Myvz8dF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@istanbuljs\\schema': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@istanbuljs\\.schema-wyBdX5Es',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@jridgewell\\source-map': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@jridgewell\\.source-map-wl4am6Aw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@pmmmwh\\react-refresh-webpack-plugin': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@pmmmwh\\.react-refresh-webpack-plugin-GTNuCAW9',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\dom': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\.dom-5xaIIy30',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\jest-dom': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\.jest-dom-klmrSRen',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\react': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@testing-library\\.react-icPhlvoy',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\estree': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.estree-5wa3Z1pF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\express': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.express-Ddk0d9YQ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\http-proxy': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.http-proxy-OJTPVrTI',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\node': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.node-QXaoHJDC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\node-forge': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.node-forge-vhPEV7HL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@rushstack\\eslint-patch': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@rushstack\\.eslint-patch-aNu2wiJt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.semver-zQFMswMf',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\serve-static': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.serve-static-bAKkwyDB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\ws': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.ws-HwFm8omY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\yargs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@types\\.yargs-1uK9K39j',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@ungap\\structured-clone': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@ungap\\.structured-clone-2cAY3Fmj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\acorn': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.acorn-A4AVgwDv',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\.acorn-eb1p7goY',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\.acorn.cmd-RxkgXZPV',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\acorn.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn-globals\\node_modules\\.bin\\.acorn.ps1-B0rVJN5p',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ajv-formats\\node_modules\\ajv': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ajv-formats\\node_modules\\.ajv-jtE2S3mp',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ansi-html': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.ansi-html-ESHwaM8A',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ansi-html-6HIkdyhO',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ansi-html.cmd-mFxqJQ5j',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ansi-html.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ansi-html.ps1-R1tT9SNi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ansi-html-community': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.ansi-html-community-dZHjOnwL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-blank-pseudo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.css-blank-pseudo-iqzvF9qF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-blank-pseudo-J1K9imsj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-blank-pseudo.cmd-AjI1IQMT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-blank-pseudo.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-blank-pseudo.ps1-tyAv7gRR',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-has-pseudo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.css-has-pseudo-Zp9QSarN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-has-pseudo-fYhyhMJu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-has-pseudo.cmd-PWinihKm',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-has-pseudo.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-has-pseudo.ps1-gtqNAvlF',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\css-prefers-color-scheme': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.css-prefers-color-scheme-K5ViS1FB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-prefers-color-scheme-x8BSdEwN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-prefers-color-scheme.cmd-K0nHBM8M',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\css-prefers-color-scheme.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.css-prefers-color-scheme.ps1-PlxR1aYf',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\cssesc': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.cssesc-jVgGWD0z',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.cssesc-A5G8Gwmq',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.cssesc.cmd-vGKtAMfE',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\cssesc.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.cssesc.ps1-18VVUSBq',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\detect-port-alt': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.detect-port-alt-nLj5nVAA',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect-Gx1JrYZW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect.cmd-6avNI0aN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect.ps1-7pRbJiuc',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect-port-KPxxshXB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect-port.cmd-S0cEF6IZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\detect-port.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.detect-port.ps1-fwOCUIXM',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\ejs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.ejs-1jAsqc6l',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ejs-O3Z5cwkx',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ejs.cmd-gF6VMrYW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\ejs.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.ejs.ps1-seH4AKok',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\escodegen': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.escodegen-PUplesEB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esgenerate-ZHBdzIMf',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esgenerate.cmd-2w9WoTlc',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esgenerate.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esgenerate.ps1-BAggzpvZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.escodegen-7c0ZAkQ0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.escodegen.cmd-cR7KyaPh',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\escodegen.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.escodegen.ps1-7R3BoISu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\eslint': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.eslint-1QJBch6P',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.eslint-3wMa1Eyl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.eslint.cmd-T7K7RMIG',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\eslint.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.eslint.ps1-cDbjTERe',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\esprima': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.esprima-gSiEoUO4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esparse-0HbP692g',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esparse.cmd-lICl1VWp',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esparse.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esparse.ps1-VVyJdIiv',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esvalidate-8KulHnM4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esvalidate.cmd-WcjbTL6l',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\esvalidate.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.esvalidate.ps1-lacGpCET',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\which': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.which-T51vvee4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\.which-HRLFqksw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\.which.cmd-JaQCKEz4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\which.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\global-prefix\\node_modules\\.bin\\.which.ps1-EoNSgk5K',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\he': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.he-5FM2yIT5',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.he-ezvwuEfn',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.he.cmd-w5GiiTEw',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\he.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.he.ps1-Y0wuOuX3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\html-minifier-terser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.html-minifier-terser-FTsLut1K',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.html-minifier-terser-NEvV5ncK',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.html-minifier-terser.cmd-w6xpzyfZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\html-minifier-terser.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.html-minifier-terser.ps1-WoIiU8Ik',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\import-local': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.import-local-rI4VpX6z',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.import-local-fixture-jyylBijL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.import-local-fixture.cmd-jInvvhJg',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\import-local-fixture.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.import-local-fixture.ps1-XwQwO52R',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\is-docker': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.is-docker-2HeSdvKJ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.is-docker-OKUnN9Pv',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.is-docker.cmd-aL19pvfD',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\is-docker.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.is-docker.ps1-9ifXXBXE',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.semver-AbUgiZwu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\.semver-i2soobT2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\.semver.cmd-wCdkSelW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\semver.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\istanbul-lib-instrument\\node_modules\\.bin\\.semver.ps1-l3EgjS7v',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jest-vsFc9Ccm',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jest-GXWHTMC3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jest.cmd-kR4wxMUt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jest.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jest.ps1-QcJuypVG',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-cli': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jest-cli-p9y6sBgL',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\strip-ansi': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\.strip-ansi-S1W9Pd4r',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\@types\\yargs': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jest-watch-typeahead\\node_modules\\@types\\.yargs-Opd8AyIW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\jsesc': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.jsesc-yxiTyCZe',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jsesc-cvD7wyg2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jsesc.cmd-7VEMIVD0',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\jsesc.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.jsesc.ps1-SxlePjoQ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\json5': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.json5-8PIuyfoq',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.json5-zbJJWvJy',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.json5.cmd-3OGa9EZT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\json5.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.json5.ps1-nikWdqfv',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\loose-envify': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.loose-envify-nlDqdb5B',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.loose-envify-kKoIYW7Y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.loose-envify.cmd-GHKjpoiC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\loose-envify.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.loose-envify.ps1-WWbqMpVt',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\lz-string': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.lz-string-qLkZzsJk',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.lz-string-anrLZf4C',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.lz-string.cmd-yQ7qsdJj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\lz-string.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.lz-string.ps1-A7g89QFn',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.semver-mMrVE0Iz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\.semver-w02GNQ8a',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\.semver.cmd-emMux60t',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\semver.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\make-dir\\node_modules\\.bin\\.semver.ps1-LzoSkMK2',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mime': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.mime-LKTUEzBy',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mime-vUsGnmFx',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mime.cmd-04aM1jqC',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mime.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mime.ps1-NYdw3hsl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\mkdirp': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.mkdirp-VL7UzSGO',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mkdirp-5XivDtsS',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mkdirp.cmd-uQ0vh19d',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\mkdirp.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.mkdirp.ps1-Yioo1DHT',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\multicast-dns': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.multicast-dns-7aBmzmmq',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.multicast-dns-3DtzMywj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.multicast-dns.cmd-bDCAWbai',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\multicast-dns.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.multicast-dns.ps1-mxwPkedS',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-local-by-default\\node_modules\\postcss-selector-parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-local-by-default\\node_modules\\.postcss-selector-parser-il86ePer',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-scope\\node_modules\\postcss-selector-parser': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-modules-scope\\node_modules\\.postcss-selector-parser-r5kqrk18',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\sax': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\.sax-dHdvIV4y',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\svgo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\postcss-svgo\\node_modules\\.svgo-k34xLpI5',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\react-scripts': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.react-scripts-XE9iL7ES',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.react-scripts-3qmjeQfx',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.react-scripts.cmd-BXGPta1X',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\react-scripts.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.react-scripts.ps1-Evh9uMem',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\rimraf': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.rimraf-3udjfPyg',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.rimraf-qkXEzdWI',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.rimraf.cmd-1AO9doqW',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\rimraf.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.rimraf.ps1-Oj1ZcHWl',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\svgo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.svgo-R6uVfxMZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.svgo-eQzoSR7u',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.svgo.cmd-snQyutfU',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\svgo.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.svgo.ps1-oDzDSBu1',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\json5': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.json5-k4NwohsM',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\.json5-q7ASiWRy',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\.json5.cmd-dBRpXfLe',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\json5.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\tsconfig-paths\\node_modules\\.bin\\.json5.ps1-yjXgixx3',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\typescript': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.typescript-NBA2ggY5',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsc-AGixptsv',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsc.cmd-alaVMf6J',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsc.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsc.ps1-D37VVkJ4',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsserver-n36H2KyH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsserver.cmd-OjEKM6cX',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\tsserver.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.tsserver.ps1-UkWetf2j',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\update-browserslist-db': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.update-browserslist-db-Ny18i5Uj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.update-browserslist-db-BQ9QYJrH',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.update-browserslist-db.cmd-2Kdcbnip',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\update-browserslist-db.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.update-browserslist-db.ps1-af5LkjDi',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\uuid': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.uuid-kUwXxDo9',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.uuid-NvwW5Eft',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.uuid.cmd-FUx7FKCq',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\uuid.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.uuid.ps1-ViGdNucB',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\webpack-dev-server': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.webpack-dev-server-aeLtr9sE',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.webpack-dev-server-79gF7CYS',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.webpack-dev-server.cmd-ROAgdx4n',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\webpack-dev-server.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.webpack-dev-server.ps1-4XvqxRSN',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\which': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.which-9UaY5M5g',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.node-which-t8uYa1ht',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.node-which.cmd-CjOsYrSu',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\node-which.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\.bin\\.node-which.ps1-m6rzQT2L',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\ajv': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\.ajv-zbZ0V7KZ',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\@apideck\\better-ajv-errors': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\workbox-build\\node_modules\\@apideck\\.better-ajv-errors-PoE0YDjM',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\js-yaml': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.js-yaml-tflXSwtM',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\.js-yaml-eOAuavUj',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml.cmd': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\.js-yaml.cmd-H7numUsz',
+316 silly reify   'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\js-yaml.ps1': 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\@eslint\\eslintrc\\node_modules\\.bin\\.js-yaml.ps1-VOIbSXZZ'
+316 silly reify }
+317 verbose stack Error: EPERM: operation not permitted, rmdir 'C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\frontend\node_modules\acorn'
+318 error code EPERM
+319 error syscall rmdir
+320 error path C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\frontend\node_modules\acorn
+321 error errno -4048
+322 error [Error: EPERM: operation not permitted, rmdir 'C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\frontend\node_modules\acorn'] {
+322 error   errno: -4048,
+322 error   code: 'EPERM',
+322 error   syscall: 'rmdir',
+322 error   path: 'C:\\Users\\user\\OneDrive\\เดสก์ท็อป\\clothing-store-app\\frontend\\node_modules\\acorn'
+322 error }
+323 error
+323 error The operation was rejected by your operating system.
+323 error It's possible that the file was already in use (by a text editor or antivirus),
+323 error or that you lack permissions to access it.
+323 error
+323 error If you believe this might be a permissions issue, please double-check the
+323 error permissions of the file and its containing directories, or try running
+323 error the command again as root/Administrator.
+324 silly unfinished npm timer reify 1780809753481
+325 silly unfinished npm timer reify:retireShallow 1780809755886
+326 verbose cwd C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\frontend
+327 verbose os Windows_NT 10.0.26200
+328 verbose node v22.14.0
+329 verbose npm  v10.8.3
+330 notice
+330 notice New major version of npm available! 10.8.3 -> 11.16.0
+330 notice Changelog: https://github.com/npm/cli/releases/tag/v11.16.0
+330 notice To update run: npm install -g npm@11.16.0
+330 notice  { force: true, [Symbol(proc-log.meta)]: true }
+331 verbose exit -4048
+332 verbose code -4048
+333 error A complete log of this run can be found in: C:\Users\user\OneDrive\เดสก์ท็อป\clothing-store-app\.npm-cache\_logs\2026-06-07T05_22_32_677Z-debug-0.log
