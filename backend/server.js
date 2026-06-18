@@ -83,6 +83,25 @@ const getDefaultCategoryId = async () => {
     return result.insertId;
 };
 
+const resolveActiveCategoryId = async ({ categoryId, categoryName }) => {
+    if (categoryId) {
+        const [rows] = await query(
+            'SELECT category_id FROM category WHERE category_id = ? AND status_category = 1 LIMIT 1',
+            [categoryId],
+        );
+        return rows[0]?.category_id || null;
+    }
+
+    const cleanName = String(categoryName || '').trim();
+    if (!cleanName) return null;
+
+    const [rows] = await query(
+        'SELECT category_id FROM category WHERE category_name = ? AND status_category = 1 LIMIT 1',
+        [cleanName],
+    );
+    return rows[0]?.category_id || null;
+};
+
 const writeSystemLog = async (userId, action, remark = '') => {
     if (!userId) return;
 
@@ -368,21 +387,21 @@ app.get('/api/categories', async (req, res) => {
 app.post('/api/admin/categories', async (req, res) => {
     try {
         const categoryName = String(req.body.category_name || '').trim();
-        if (!categoryName) return res.status(400).json({ error: 'กรุณากรอกชื่อประเภทสินค้า' });
+        if (!categoryName) return res.status(400).json({ error: 'กรุณากรอกชื่อหมวดหมู่สินค้า' });
 
         const [existing] = await query('SELECT category_id FROM category WHERE category_name = ? LIMIT 1', [categoryName]);
         if (existing.length > 0) {
             await query('UPDATE category SET status_category = 1 WHERE category_id = ?', [existing[0].category_id]);
-            return res.json({ success: true, message: 'เปิดใช้งานประเภทสินค้านี้แล้ว', id: existing[0].category_id });
+            return res.json({ success: true, message: 'เปิดใช้งานหมวดหมู่สินค้านี้แล้ว', id: existing[0].category_id });
         }
 
         const [result] = await query(
             'INSERT INTO category (category_name, status_category) VALUES (?, 1)',
             [categoryName],
         );
-        res.json({ success: true, message: 'เพิ่มประเภทสินค้าสำเร็จ', id: result.insertId });
+        res.json({ success: true, message: 'เพิ่มหมวดหมู่สินค้าสำเร็จ', id: result.insertId });
     } catch (err) {
-        respondError(res, err, 'เพิ่มประเภทสินค้าไม่สำเร็จ');
+        respondError(res, err, 'เพิ่มหมวดหมู่สินค้าไม่สำเร็จ');
     }
 });
 
@@ -392,28 +411,28 @@ app.put('/api/admin/categories/:id', async (req, res) => {
         const categoryName = String(req.body.category_name || '').trim();
         const statusCategory = req.body.status_category;
 
-        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสประเภทสินค้า' });
-        if (!categoryName) return res.status(400).json({ error: 'กรุณากรอกชื่อประเภทสินค้า' });
+        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสหมวดหมู่สินค้า' });
+        if (!categoryName) return res.status(400).json({ error: 'กรุณากรอกชื่อหมวดหมู่สินค้า' });
 
         await query(
             'UPDATE category SET category_name = ?, status_category = COALESCE(?, status_category) WHERE category_id = ?',
             [categoryName, statusCategory ?? null, id],
         );
-        res.json({ success: true, message: 'อัปเดตประเภทสินค้าสำเร็จ' });
+        res.json({ success: true, message: 'อัปเดตหมวดหมู่สินค้าสำเร็จ' });
     } catch (err) {
-        respondError(res, err, 'อัปเดตประเภทสินค้าไม่สำเร็จ');
+        respondError(res, err, 'อัปเดตหมวดหมู่สินค้าไม่สำเร็จ');
     }
 });
 
 app.delete('/api/admin/categories/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสประเภทสินค้า' });
+        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสหมวดหมู่สินค้า' });
 
         await query('UPDATE category SET status_category = 0 WHERE category_id = ?', [id]);
-        res.json({ success: true, message: 'ปิดใช้งานประเภทสินค้าแล้ว' });
+        res.json({ success: true, message: 'ปิดใช้งานหมวดหมู่สินค้าแล้ว' });
     } catch (err) {
-        respondError(res, err, 'ปิดใช้งานประเภทสินค้าไม่สำเร็จ');
+        respondError(res, err, 'ปิดใช้งานหมวดหมู่สินค้าไม่สำเร็จ');
     }
 });
 
@@ -433,21 +452,8 @@ app.post('/api/products/upload-image', (req, res) => {
 app.post('/api/products', async (req, res) => {
     try {
         const { name, description, price, image_url, stock, category_id, category_name, user_id, has_size, has_color } = req.body;
-        let categoryId = category_id || null;
-
-        if (!categoryId && category_name) {
-            const [existing] = await query('SELECT category_id FROM category WHERE category_name = ? LIMIT 1', [category_name]);
-            categoryId = existing[0]?.category_id;
-            if (!categoryId) {
-                const [categoryResult] = await query(
-                    'INSERT INTO category (category_name, status_category) VALUES (?, 1)',
-                    [category_name],
-                );
-                categoryId = categoryResult.insertId;
-            }
-        }
-
-        if (!categoryId) categoryId = await getDefaultCategoryId();
+        const categoryId = await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name });
+        if (!categoryId) return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
 
         const stockAmount = Number(stock);
         if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
@@ -952,18 +958,12 @@ app.post('/api/admin/stock-logs/delete', async (req, res) => {
 app.post('/api/admin/products/edit', async (req, res) => {
     try {
         const { id, name, price, description, image_url, category_id, category_name, product_status, has_size, has_color } = req.body;
-        let categoryId = category_id || null;
-
-        if (!categoryId && category_name) {
-            const [existing] = await query('SELECT category_id FROM category WHERE category_name = ? LIMIT 1', [category_name]);
-            categoryId = existing[0]?.category_id;
-            if (!categoryId) {
-                const [categoryResult] = await query(
-                    'INSERT INTO category (category_name, status_category) VALUES (?, 1)',
-                    [category_name],
-                );
-                categoryId = categoryResult.insertId;
-            }
+        const shouldUpdateCategory = Boolean(category_id || String(category_name || '').trim());
+        const categoryId = shouldUpdateCategory
+            ? await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name })
+            : null;
+        if (shouldUpdateCategory && !categoryId) {
+            return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
         }
 
         await query(

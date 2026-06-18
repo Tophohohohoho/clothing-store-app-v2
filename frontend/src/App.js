@@ -29,6 +29,7 @@ const emptyProduct = {
     image_name: '',
     stock: '',
     stock_remark: 'สต็อกเริ่มต้น',
+    category_id: '',
     category_name: 'ทั่วไป',
     has_size: 1,
     has_color: 0,
@@ -120,6 +121,16 @@ function App() {
     });
 
     const total = getCartTotal(cart);
+    const findActiveCategory = useCallback((categoryId, categoryName) => {
+        const cleanName = String(categoryName || '').trim();
+        return categories.find((category) => (
+            Number(category.status_category ?? 1) === 1
+            && (
+                (categoryId && String(category.category_id) === String(categoryId))
+                || (cleanName && category.category_name === cleanName)
+            )
+        ));
+    }, [categories]);
 
     const fetchProducts = useCallback(async (includeInactive = false) => {
         try {
@@ -328,6 +339,11 @@ function App() {
                 alert('กรุณากรอกสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป');
                 return;
             }
+            const selectedCategory = findActiveCategory(newProduct.category_id, newProduct.category_name);
+            if (!selectedCategory) {
+                alert('กรุณาเลือกหมวดหมู่สินค้า');
+                return;
+            }
 
             let imageUrl = newProduct.image_url;
 
@@ -340,6 +356,8 @@ function App() {
             }
 
             const productData = { ...newProduct };
+            productData.category_id = selectedCategory.category_id;
+            productData.category_name = selectedCategory.category_name;
             delete productData.image_data;
             delete productData.image_preview;
             delete productData.image_name;
@@ -400,6 +418,12 @@ function App() {
 
     const handleSaveEditProduct = async () => {
         try {
+            const selectedCategory = findActiveCategory(editProduct.category_id, editProduct.category_name);
+            if (!selectedCategory) {
+                alert('กรุณาเลือกหมวดหมู่สินค้า');
+                return;
+            }
+
             let imageUrl = editProduct.image_url;
 
             if (editProduct.image_data) {
@@ -411,6 +435,8 @@ function App() {
             }
 
             const productData = { ...editProduct, image_url: imageUrl };
+            productData.category_id = selectedCategory.category_id;
+            productData.category_name = selectedCategory.category_name;
             delete productData.image_data;
             delete productData.image_preview;
             delete productData.image_name;
@@ -441,7 +467,7 @@ function App() {
     const handleAddCategory = async (categoryName) => {
         const cleanName = String(categoryName || '').trim();
         if (!cleanName) {
-            return { success: false, message: 'กรุณากรอกชื่อประเภทสินค้า' };
+            return { success: false, message: 'กรุณากรอกชื่อหมวดหมู่สินค้า' };
         }
 
         try {
@@ -453,8 +479,8 @@ function App() {
             return {
                 success: false,
                 message: isMissingRoute
-                    ? 'เพิ่มประเภทสินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
-                    : err.response?.data?.error || 'เพิ่มประเภทสินค้าไม่สำเร็จ',
+                    ? 'เพิ่มหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'เพิ่มหมวดหมู่สินค้าไม่สำเร็จ',
             };
         }
     };
@@ -462,7 +488,7 @@ function App() {
     const handleUpdateCategory = async (categoryId, payload) => {
         const cleanName = String(payload.category_name || '').trim();
         if (!cleanName) {
-            return { success: false, message: 'กรุณากรอกชื่อประเภทสินค้า' };
+            return { success: false, message: 'กรุณากรอกชื่อหมวดหมู่สินค้า' };
         }
 
         try {
@@ -478,14 +504,14 @@ function App() {
             return {
                 success: false,
                 message: isMissingRoute
-                    ? 'อัปเดตประเภทสินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
-                    : err.response?.data?.error || 'อัปเดตประเภทสินค้าไม่สำเร็จ',
+                    ? 'อัปเดตหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'อัปเดตหมวดหมู่สินค้าไม่สำเร็จ',
             };
         }
     };
 
     const handleDeleteCategory = async (categoryId) => {
-        if (!window.confirm('ยืนยันปิดใช้งานประเภทสินค้านี้? สินค้าเดิมจะยังอยู่ แต่ประเภทนี้จะไม่แสดงเป็นตัวเลือกใหม่')) {
+        if (!window.confirm('ยืนยันปิดใช้งานหมวดหมู่สินค้านี้? สินค้าเดิมจะยังอยู่ แต่หมวดหมู่นี้จะไม่แสดงเป็นตัวเลือกใหม่')) {
             return { success: false };
         }
 
@@ -498,8 +524,8 @@ function App() {
             return {
                 success: false,
                 message: isMissingRoute
-                    ? 'ปิดใช้งานประเภทสินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
-                    : err.response?.data?.error || 'ปิดใช้งานประเภทสินค้าไม่สำเร็จ',
+                    ? 'ปิดใช้งานหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'ปิดใช้งานหมวดหมู่สินค้าไม่สำเร็จ',
             };
         }
     };

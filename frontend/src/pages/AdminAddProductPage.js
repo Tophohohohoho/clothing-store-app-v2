@@ -12,7 +12,7 @@ function AdminAddProductPage({
     newProduct,
     setNewProduct,
     onSubmit,
-    products,
+    products = [],
     editProduct,
     setEditProduct,
     onSaveEditProduct,
@@ -31,15 +31,30 @@ function AdminAddProductPage({
     const [editingCategoryName, setEditingCategoryName] = useState('');
     const [categoryError, setCategoryError] = useState('');
     const activeCategories = categories.filter((category) => Number(category.status_category ?? 1) === 1);
-    const categoryOptions = Array.from(new Set(
+    const productCategoryOptions = [...activeCategories].sort((a, b) => a.category_name.localeCompare(b.category_name, 'th'));
+    const categoryFilterOptions = Array.from(new Set(
         [
-            ...activeCategories.map((category) => category.category_name),
+            ...productCategoryOptions.map((category) => category.category_name),
             ...products.map((product) => product.category_name || 'ทั่วไป'),
         ].filter(Boolean),
     )).sort((a, b) => a.localeCompare(b, 'th'));
     const visibleProducts = categoryFilter === 'all'
         ? products
         : products.filter((product) => (product.category_name || 'ทั่วไป') === categoryFilter);
+    const findCategoryById = (categoryId) => productCategoryOptions.find((category) => String(category.category_id) === String(categoryId));
+    const selectedNewCategoryId = String(
+        newProduct.category_id || productCategoryOptions.find((category) => category.category_name === newProduct.category_name)?.category_id || '',
+    );
+    const selectedEditCategoryId = String(
+        editProduct.category_id || productCategoryOptions.find((category) => category.category_name === editProduct.category_name)?.category_id || '',
+    );
+    const getCategorySelection = (categoryId) => {
+        const selectedCategory = findCategoryById(categoryId);
+        return {
+            category_id: selectedCategory?.category_id || '',
+            category_name: selectedCategory?.category_name || '',
+        };
+    };
 
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
@@ -115,7 +130,7 @@ function AdminAddProductPage({
             return;
         }
 
-        setCategoryError(result?.message || 'เพิ่มประเภทสินค้าไม่สำเร็จ');
+        setCategoryError(result?.message || 'เพิ่มหมวดหมู่สินค้าไม่สำเร็จ');
     };
 
     const startEditCategory = (category) => {
@@ -137,7 +152,7 @@ function AdminAddProductPage({
             return;
         }
 
-        setCategoryError(result?.message || 'บันทึกประเภทสินค้าไม่สำเร็จ');
+        setCategoryError(result?.message || 'บันทึกหมวดหมู่สินค้าไม่สำเร็จ');
     };
 
     const toggleCategoryStatus = async (category) => {
@@ -157,20 +172,14 @@ function AdminAddProductPage({
 
     return (
         <>
-            <datalist id="product-category-options">
-                {categoryOptions.map((category) => (
-                    <option key={category} value={category} />
-                ))}
-            </datalist>
-
             <div className="card border-0 shadow-sm rounded-4 p-5 mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
-                        <h3 className="fw-bold mb-1">{productAdminView === 'products' ? 'จัดการสินค้า' : 'จัดการประเภทสินค้า'}</h3>
+                        <h3 className="fw-bold mb-1">{productAdminView === 'products' ? 'จัดการสินค้า' : 'จัดการหมวดหมู่สินค้า'}</h3>
                         <p className="text-muted mb-0">
                             {productAdminView === 'products'
                                 ? 'เพิ่มสินค้า ปรับข้อมูล และดูรายการสินค้าในคลัง'
-                                : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานประเภทสินค้า'}
+                                : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานหมวดหมู่สินค้า'}
                         </p>
                     </div>
                     <div className="admin-subtabs">
@@ -186,18 +195,10 @@ function AdminAddProductPage({
                             className={productAdminView === 'categories' ? 'active' : ''}
                             onClick={() => setProductAdminView('categories')}
                         >
-                            จัดการประเภท
+                            จัดการหมวดหมู่
                         </button>
                     </div>
                 </div>
-
-                {productAdminView === 'products' && (
-                    <div className="text-end mt-4">
-                        <button type="button" className="btn btn-primary rounded-pill fw-bold px-4" onClick={() => setShowAddForm((current) => !current)}>
-                            {showAddForm ? 'ซ่อนฟอร์ม' : 'เพิ่มสินค้า'}
-                        </button>
-                    </div>
-                )}
 
                 {productAdminView === 'products' && showAddForm && (
                     <form onSubmit={onSubmit} className="row g-4 mt-1">
@@ -224,15 +225,20 @@ function AdminAddProductPage({
                         </div>
                         <div className="col-md-6">
                             <label className="small fw-bold">หมวดหมู่สินค้า</label>
-                            <input
-                                type="text"
+                            <select
                                 className="form-control"
-                                list="product-category-options"
-                                value={newProduct.category_name}
-                                onChange={(e) => setNewProduct({ ...newProduct, category_name: e.target.value })}
-                                placeholder="เช่น เสื้อ, กางเกง, เครื่องประดับ"
+                                value={selectedNewCategoryId}
+                                onChange={(e) => setNewProduct({ ...newProduct, ...getCategorySelection(e.target.value) })}
                                 required
-                            />
+                                disabled={productCategoryOptions.length === 0}
+                            >
+                                <option value="">เลือกหมวดหมู่สินค้า</option>
+                                {productCategoryOptions.map((category) => (
+                                    <option key={category.category_id} value={category.category_id}>
+                                        {category.category_name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                         <div className="col-md-6">
                             <div className="form-check form-switch fw-bold">
@@ -314,17 +320,22 @@ function AdminAddProductPage({
                         <h2>จัดการคลังสินค้า</h2>
                         <p>ปรับสต็อก แก้ไขรายละเอียด และยกเลิกสินค้า</p>
                     </div>
-                    <div className="admin-panel-tools">
-                        <select
-                            value={categoryFilter}
-                            onChange={(event) => setCategoryFilter(event.target.value)}
-                        >
-                            <option value="all">ทุกประเภทสินค้า</option>
-                            {categoryOptions.map((category) => (
-                                <option key={category} value={category}>{category}</option>
-                            ))}
-                        </select>
-                        <span>{visibleProducts.length} สินค้า</span>
+                    <div className="admin-panel-tools inventory-panel-tools">
+                        <div className="admin-panel-filter-row">
+                            <select
+                                value={categoryFilter}
+                                onChange={(event) => setCategoryFilter(event.target.value)}
+                            >
+                                <option value="all">ทุกหมวดหมู่สินค้า</option>
+                                {categoryFilterOptions.map((category) => (
+                                    <option key={category} value={category}>{category}</option>
+                                ))}
+                            </select>
+                            <span>{visibleProducts.length} สินค้า</span>
+                        </div>
+                        <button type="button" className="btn btn-primary rounded-pill fw-bold px-4 inventory-add-button" onClick={() => setShowAddForm((current) => !current)}>
+                            {showAddForm ? 'ซ่อนฟอร์ม' : 'เพิ่มสินค้า'}
+                        </button>
                     </div>
                 </div>
 
@@ -379,6 +390,7 @@ function AdminAddProductPage({
                                                             name: product.name,
                                                             price: product.price,
                                                             stock: product.stock,
+                                                            category_id: product.category_id || '',
                                                             category_name: product.category_name || 'ทั่วไป',
                                                             description: product.description || '',
                                                             image_url: product.image_url || '',
@@ -402,7 +414,7 @@ function AdminAddProductPage({
                             ) : (
                                 <tr>
                                     <td colSpan="5">
-                                        <div className="admin-empty">ไม่พบสินค้าในประเภทนี้</div>
+                                        <div className="admin-empty">ไม่พบสินค้าในหมวดหมู่นี้</div>
                                     </td>
                                 </tr>
                             )}
@@ -416,28 +428,28 @@ function AdminAddProductPage({
                 <section className="admin-panel">
                     <div className="admin-panel-header">
                         <div>
-                            <h2>จัดการประเภทสินค้า</h2>
-                            <p>เพิ่ม แก้ไข หรือปิดใช้งานประเภทสินค้า</p>
+                            <h2>จัดการหมวดหมู่สินค้า</h2>
+                            <p>เพิ่ม แก้ไข หรือปิดใช้งานหมวดหมู่สินค้า</p>
                         </div>
-                        <span>{categories.length} ประเภท</span>
+                        <div className="category-header-tools">
+                            <div className="category-create-row">
+                                <input
+                                    className="form-control category-create-input"
+                                    value={newCategoryName}
+                                    onChange={(event) => {
+                                        setCategoryError('');
+                                        setNewCategoryName(event.target.value);
+                                    }}
+                                    placeholder="ชื่อหมวดหมู่สินค้าใหม่"
+                                />
+                                <button type="button" className="admin-action success" onClick={submitNewCategory}>
+                                    เพิ่มหมวดหมู่
+                                </button>
+                            </div>
+                            <span className="category-count-badge">{categories.length} หมวดหมู่</span>
+                        </div>
                     </div>
                     <div className="p-4">
-                                <div className="d-flex flex-wrap gap-2 mb-3">
-                                    <input
-                                        className="form-control"
-                                        style={{ minWidth: '220px', flex: '1 1 220px' }}
-                                        value={newCategoryName}
-                                        onChange={(event) => {
-                                            setCategoryError('');
-                                            setNewCategoryName(event.target.value);
-                                        }}
-                                        placeholder="ชื่อประเภทสินค้าใหม่"
-                                    />
-                                    <button type="button" className="admin-action success" onClick={submitNewCategory}>
-                                        เพิ่มประเภท
-                                    </button>
-                                </div>
-
                                 {categoryError && (
                                     <div className="alert alert-danger py-2 small fw-bold">
                                         {categoryError}
@@ -445,12 +457,17 @@ function AdminAddProductPage({
                                 )}
 
                                 <div className="admin-table-wrap">
-                                    <table className="admin-table">
+                                    <table className="admin-table category-table">
+                                        <colgroup>
+                                            <col className="category-name-col" />
+                                            <col className="category-status-col" />
+                                            <col className="category-actions-col" />
+                                        </colgroup>
                                         <thead>
                                             <tr>
-                                                <th>ประเภทสินค้า</th>
+                                                <th>หมวดหมู่สินค้า</th>
                                                 <th>สถานะ</th>
-                                                <th className="text-center">จัดการ</th>
+                                                <th>จัดการ</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -506,7 +523,7 @@ function AdminAddProductPage({
                                             ) : (
                                                 <tr>
                                                     <td colSpan="3">
-                                                        <div className="admin-empty">ยังไม่มีประเภทสินค้า</div>
+                                                        <div className="admin-empty">ยังไม่มีหมวดหมู่สินค้า</div>
                                                     </td>
                                                 </tr>
                                             )}
@@ -537,13 +554,20 @@ function AdminAddProductPage({
                                     </div>
                                     <div className="col-md-6">
                                         <label className="small fw-bold">หมวดหมู่สินค้า</label>
-                                        <input
+                                        <select
                                             className="form-control"
-                                            list="product-category-options"
-                                            value={editProduct.category_name || ''}
-                                            onChange={(e) => setEditProduct({ ...editProduct, category_name: e.target.value })}
-                                            placeholder="เช่น เสื้อ, กางเกง, เครื่องประดับ"
-                                        />
+                                            value={selectedEditCategoryId}
+                                            onChange={(e) => setEditProduct({ ...editProduct, ...getCategorySelection(e.target.value) })}
+                                            required
+                                            disabled={productCategoryOptions.length === 0}
+                                        >
+                                            <option value="">เลือกหมวดหมู่สินค้า</option>
+                                            {productCategoryOptions.map((category) => (
+                                                <option key={category.category_id} value={category.category_id}>
+                                                    {category.category_name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="col-md-3">
                                         <div className="form-check form-switch fw-bold pt-4">

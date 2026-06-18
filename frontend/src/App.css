@@ -333,12 +333,53 @@ body {
     white-space: nowrap;
 }
 
+.category-header-tools {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+    max-width: min(100%, 760px);
+}
+
+.category-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    background: #f1f4f7;
+    color: #59616d;
+    font-size: 0.95rem;
+    font-weight: 800;
+    white-space: nowrap;
+    align-self: flex-start;
+}
+
 .admin-panel-tools {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.inventory-panel-tools {
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.admin-panel-filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.inventory-add-button {
+    min-height: 46px;
 }
 
 .admin-panel-tools select {
@@ -365,6 +406,22 @@ body {
     font-size: 0.95rem;
     font-weight: 800;
     white-space: nowrap;
+}
+
+.category-create-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: auto;
+    text-align: right;
+}
+
+.category-create-input {
+    width: min(100%, 360px);
+    min-width: 220px;
+    flex: 0 1 360px;
 }
 
 .admin-customer-tools {
@@ -409,6 +466,45 @@ body {
 
 .admin-table tbody tr:hover td {
     background: #fbfcfd;
+}
+
+.category-table {
+    min-width: 760px;
+    table-layout: fixed;
+}
+
+.category-table .category-name-col {
+    width: 30%;
+}
+
+.category-table .category-status-col {
+    width: 30%;
+}
+
+.category-table .category-actions-col {
+    width: 40%;
+}
+
+.category-table th:nth-child(1),
+.category-table td:nth-child(1),
+.category-table th:nth-child(2),
+.category-table td:nth-child(2) {
+    text-align: left;
+}
+
+.category-table th:nth-child(3),
+.category-table td:nth-child(3) {
+    text-align: center;
+}
+
+.category-table td:first-child strong {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.category-table td:first-child .form-control {
+    max-width: 360px;
 }
 
 .admin-summary-row {
