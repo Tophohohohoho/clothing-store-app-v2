@@ -1,5 +1,14 @@
-import { useState } from 'react';
-import { getAddressOptions } from '../utils/addressOptions';
+import { useEffect, useMemo, useState } from 'react';
+
+const emptyThaiAddressData = {
+    provinces: [],
+    districts: [],
+    subDistricts: [],
+};
+
+const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
+const getName = (item) => item?.name_th || '';
+const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
 
 function ProfileModal({
     user,
@@ -26,10 +35,91 @@ function ProfileModal({
     const [activeTab, setActiveTab] = useState('account');
     const [showAccountForm, setShowAccountForm] = useState(false);
     const [showAddressForm, setShowAddressForm] = useState(false);
-    const subdistrictOptions = getAddressOptions(addresses, 'subdistrict');
-    const districtOptions = getAddressOptions(addresses, 'district');
-    const provinceOptions = getAddressOptions(addresses, 'province');
-    const postalCodeOptions = getAddressOptions(addresses, 'postal_code');
+    const [thaiAddressData, setThaiAddressData] = useState(emptyThaiAddressData);
+    const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        Promise.all([
+            fetch(getPublicJsonPath('provinces.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('districts.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('sub_districts.json')).then((response) => response.json()),
+        ])
+            .then(([provinces, districts, subDistricts]) => {
+                if (!isMounted) return;
+                setThaiAddressData({
+                    provinces: provinces.filter((province) => !province.deleted_at),
+                    districts: districts.filter((district) => !district.deleted_at),
+                    subDistricts: subDistricts.filter((subDistrict) => !subDistrict.deleted_at),
+                });
+            })
+            .catch(() => {
+                if (isMounted) setThaiAddressData(emptyThaiAddressData);
+            })
+            .finally(() => {
+                if (isMounted) setIsThaiAddressLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const selectedProvince = useMemo(
+        () => thaiAddressData.provinces.find((province) => getName(province) === addressForm.province),
+        [addressForm.province, thaiAddressData.provinces]
+    );
+
+    const districtChoices = useMemo(
+        () => selectedProvince ? thaiAddressData.districts.filter((district) => district.province_id === selectedProvince.id) : [],
+        [selectedProvince, thaiAddressData.districts]
+    );
+
+    const selectedDistrict = useMemo(
+        () => districtChoices.find((district) => getName(district) === addressForm.district),
+        [addressForm.district, districtChoices]
+    );
+
+    const subDistrictChoices = useMemo(
+        () => selectedDistrict ? thaiAddressData.subDistricts.filter((subDistrict) => subDistrict.district_id === selectedDistrict.id) : [],
+        [selectedDistrict, thaiAddressData.subDistricts]
+    );
+
+    const postalCodeChoices = useMemo(() => {
+        const postalCodes = subDistrictChoices.map(getZipCode).filter(Boolean);
+        return [...new Set(postalCodes)];
+    }, [subDistrictChoices]);
+
+    const hasThaiAddressData = thaiAddressData.provinces.length > 0;
+
+    const handleProvinceChange = (provinceName) => {
+        setAddressForm({
+            ...addressForm,
+            province: provinceName,
+            district: '',
+            subdistrict: '',
+            postal_code: '',
+        });
+    };
+
+    const handleDistrictChange = (districtName) => {
+        setAddressForm({
+            ...addressForm,
+            district: districtName,
+            subdistrict: '',
+            postal_code: '',
+        });
+    };
+
+    const handleSubDistrictChange = (subDistrictName) => {
+        const selectedSubDistrict = subDistrictChoices.find((subDistrict) => getName(subDistrict) === subDistrictName);
+        setAddressForm({
+            ...addressForm,
+            subdistrict: subDistrictName,
+            postal_code: getZipCode(selectedSubDistrict),
+        });
+    };
 
     const handleNewAddress = () => {
         onNewAddress();
@@ -147,32 +237,76 @@ function ProfileModal({
                                                 <textarea className="form-control" rows="3" value={addressForm.address_detail} onChange={(e) => setAddressForm({ ...addressForm, address_detail: e.target.value })} required />
                                             </div>
                                             <div className="col-md-6">
-                                                <label className="form-label fw-bold text-secondary small">ตำบล/แขวง</label>
-                                                <input className="form-control" list="profile-subdistrict-options" value={addressForm.subdistrict} onChange={(e) => setAddressForm({ ...addressForm, subdistrict: e.target.value })} />
-                                                <datalist id="profile-subdistrict-options">
-                                                    {subdistrictOptions.map((value) => <option key={value} value={value} />)}
-                                                </datalist>
+                                                <label className="form-label fw-bold text-secondary small">จังหวัด</label>
+                                                <select
+                                                    className="form-select"
+                                                    value={addressForm.province}
+                                                    onChange={(e) => handleProvinceChange(e.target.value)}
+                                                    disabled={isThaiAddressLoading || !hasThaiAddressData}
+                                                    required
+                                                >
+                                                    <option value="">{isThaiAddressLoading ? 'กำลังโหลดจังหวัด' : 'เลือกจังหวัด'}</option>
+                                                    {addressForm.province && !thaiAddressData.provinces.some((province) => getName(province) === addressForm.province) && (
+                                                        <option value={addressForm.province}>{addressForm.province}</option>
+                                                    )}
+                                                    {thaiAddressData.provinces.map((province) => (
+                                                        <option key={province.id} value={getName(province)}>{getName(province)}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="col-md-6">
                                                 <label className="form-label fw-bold text-secondary small">อำเภอ/เขต</label>
-                                                <input className="form-control" list="profile-district-options" value={addressForm.district} onChange={(e) => setAddressForm({ ...addressForm, district: e.target.value })} />
-                                                <datalist id="profile-district-options">
-                                                    {districtOptions.map((value) => <option key={value} value={value} />)}
-                                                </datalist>
+                                                <select
+                                                    className="form-select"
+                                                    value={addressForm.district}
+                                                    onChange={(e) => handleDistrictChange(e.target.value)}
+                                                    disabled={!selectedProvince}
+                                                    required
+                                                >
+                                                    <option value="">{selectedProvince ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                                    {addressForm.district && !districtChoices.some((district) => getName(district) === addressForm.district) && (
+                                                        <option value={addressForm.district}>{addressForm.district}</option>
+                                                    )}
+                                                    {districtChoices.map((district) => (
+                                                        <option key={district.id} value={getName(district)}>{getName(district)}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="col-md-6">
-                                                <label className="form-label fw-bold text-secondary small">จังหวัด</label>
-                                                <input className="form-control" list="profile-province-options" value={addressForm.province} onChange={(e) => setAddressForm({ ...addressForm, province: e.target.value })} />
-                                                <datalist id="profile-province-options">
-                                                    {provinceOptions.map((value) => <option key={value} value={value} />)}
-                                                </datalist>
+                                                <label className="form-label fw-bold text-secondary small">ตำบล/แขวง</label>
+                                                <select
+                                                    className="form-select"
+                                                    value={addressForm.subdistrict}
+                                                    onChange={(e) => handleSubDistrictChange(e.target.value)}
+                                                    disabled={!selectedDistrict}
+                                                    required
+                                                >
+                                                    <option value="">{selectedDistrict ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอ/เขตก่อน'}</option>
+                                                    {addressForm.subdistrict && !subDistrictChoices.some((subDistrict) => getName(subDistrict) === addressForm.subdistrict) && (
+                                                        <option value={addressForm.subdistrict}>{addressForm.subdistrict}</option>
+                                                    )}
+                                                    {subDistrictChoices.map((subDistrict) => (
+                                                        <option key={subDistrict.id} value={getName(subDistrict)}>{getName(subDistrict)}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="col-md-6">
                                                 <label className="form-label fw-bold text-secondary small">รหัสไปรษณีย์</label>
-                                                <input className="form-control" list="profile-postal-code-options" value={addressForm.postal_code} onChange={(e) => setAddressForm({ ...addressForm, postal_code: e.target.value })} />
-                                                <datalist id="profile-postal-code-options">
-                                                    {postalCodeOptions.map((value) => <option key={value} value={value} />)}
-                                                </datalist>
+                                                <select
+                                                    className="form-select"
+                                                    value={addressForm.postal_code}
+                                                    onChange={(e) => setAddressForm({ ...addressForm, postal_code: e.target.value })}
+                                                    disabled={!selectedDistrict}
+                                                    required
+                                                >
+                                                    <option value="">{selectedDistrict ? 'เลือกรหัสไปรษณีย์' : 'เลือกอำเภอ/เขตก่อน'}</option>
+                                                    {addressForm.postal_code && !postalCodeChoices.includes(String(addressForm.postal_code)) && (
+                                                        <option value={addressForm.postal_code}>{addressForm.postal_code}</option>
+                                                    )}
+                                                    {postalCodeChoices.map((postalCode) => (
+                                                        <option key={postalCode} value={postalCode}>{postalCode}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                             <div className="col-md-6">
                                                 <label className="form-label fw-bold text-secondary small">ประเภทที่อยู่</label>
