@@ -294,10 +294,12 @@ const initializeDatabase = async () => {
             change_type varchar(50) NOT NULL,
             quantity int NOT NULL,
             order_detail_id int DEFAULT NULL,
+            user_id int DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (stock_log_id),
             KEY fk_stock_product (product_id),
-            KEY fk_stock_orderdetail (order_detail_id)
+            KEY fk_stock_orderdetail (order_detail_id),
+            KEY fk_stock_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
         `CREATE TABLE IF NOT EXISTS system_log (
             log_id int NOT NULL AUTO_INCREMENT,
@@ -325,6 +327,9 @@ const initializeDatabase = async () => {
     }
     if (!(await columnExists('product', 'has_color'))) {
         await query('ALTER TABLE product ADD COLUMN has_color tinyint DEFAULT 0 AFTER has_size');
+    }
+    if (!(await columnExists('stock_logs', 'user_id'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN user_id int DEFAULT NULL AFTER order_detail_id');
     }
 
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
@@ -468,8 +473,8 @@ app.post('/api/products', async (req, res) => {
         );
 
         await query(
-            'INSERT INTO stock_logs (product_id, change_type, quantity) VALUES (?, ?, ?)',
-            [result.insertId, 'รับเข้า', stockAmount],
+            'INSERT INTO stock_logs (product_id, change_type, quantity, user_id) VALUES (?, ?, ?, ?)',
+            [result.insertId, 'รับเข้า', stockAmount, user_id || null],
         );
         await writeSystemLog(user_id, 'เพิ่มสินค้า', `เพิ่มสินค้า ${name}`);
 
@@ -864,10 +869,40 @@ app.get('/api/admin/stock-logs', async (req, res) => {
                 l.quantity AS amount,
                 l.quantity,
                 l.order_detail_id,
+                l.user_id,
                 l.created_at,
-                p.product_name AS product_name
+                p.product_name AS product_name,
+                COALESCE(
+                    CASE WHEN stock_user.role = 'admin' THEN COALESCE(stock_user.full_name, stock_user.username) END,
+                    CASE WHEN order_user.role = 'admin' THEN COALESCE(order_user.full_name, order_user.username) END,
+                    CASE WHEN inferred_user.role = 'admin' THEN COALESCE(inferred_user.full_name, inferred_user.username) END
+                ) AS admin_name,
+                COALESCE(
+                    CASE WHEN stock_user.role = 'admin' THEN stock_user.username END,
+                    CASE WHEN order_user.role = 'admin' THEN order_user.username END,
+                    CASE WHEN inferred_user.role = 'admin' THEN inferred_user.username END
+                ) AS username,
+                COALESCE(stock_user.role, order_user.role, inferred_user.role) AS actor_role
             FROM stock_logs l
             LEFT JOIN product p ON l.product_id = p.product_id
+            LEFT JOIN \`user\` stock_user ON l.user_id = stock_user.user_id
+            LEFT JOIN order_detail od ON l.order_detail_id = od.order_detail_id
+            LEFT JOIN orders o ON od.order_id = o.order_id
+            LEFT JOIN \`user\` order_user ON o.user_id = order_user.user_id
+            LEFT JOIN system_log inferred_log ON inferred_log.log_id = (
+                SELECT sl.log_id
+                FROM system_log sl
+                WHERE l.user_id IS NULL
+                    AND l.order_detail_id IS NULL
+                    AND ABS(TIMESTAMPDIFF(SECOND, sl.log_date, l.created_at)) <= 300
+                    AND (
+                        (sl.action = 'ปรับสต็อก' AND sl.remark = CONCAT(l.change_type, ': ', l.quantity))
+                        OR (sl.action = 'เพิ่มสินค้า' AND l.change_type = 'รับเข้า' AND sl.remark = CONCAT('เพิ่มสินค้า ', p.product_name))
+                    )
+                ORDER BY ABS(TIMESTAMPDIFF(SECOND, sl.log_date, l.created_at)), sl.log_id DESC
+                LIMIT 1
+            )
+            LEFT JOIN \`user\` inferred_user ON inferred_log.user_id = inferred_user.user_id
             ORDER BY l.created_at DESC
         `);
         res.json(results.map((item) => ({
@@ -893,7 +928,8 @@ app.get('/api/admin/system-logs', async (req, res) => {
                 u.full_name,
                 u.role
             FROM system_log l
-            LEFT JOIN \`user\` u ON l.user_id = u.user_id
+            JOIN \`user\` u ON l.user_id = u.user_id
+            WHERE u.role = 'admin'
             ORDER BY l.log_date DESC, l.log_id DESC
         `);
         res.json(results);
@@ -915,8 +951,8 @@ app.post('/api/products/update-stock', async (req, res) => {
         }
 
         await query(
-            'INSERT INTO stock_logs (product_id, change_type, quantity) VALUES (?, ?, ?)',
-            [product_id, stockRemark, stockAmount],
+            'INSERT INTO stock_logs (product_id, change_type, quantity, user_id) VALUES (?, ?, ?, ?)',
+            [product_id, stockRemark, stockAmount, user_id || null],
         );
         await query(
             'UPDATE product SET quantity = quantity + ?, updated_stock = NOW() WHERE product_id = ?',
@@ -1140,8 +1176,8 @@ app.post('/api/orders/checkout', async (req, res) => {
                 [quantity, productId],
             );
             await query(
-                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id) VALUES (?, ?, ?, ?)',
-                [productId, 'ขายออก', quantity, detailResult.insertId],
+                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
+                [productId, 'ขายออก', quantity, detailResult.insertId, user_id],
             );
         }
 
@@ -1241,8 +1277,8 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
                 [item.quantity, item.product_id],
             );
             await query(
-                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id) VALUES (?, ?, ?, ?)',
-                [item.product_id, 'คืนสต็อกจากการยกเลิกคำสั่งซื้อ', item.quantity, item.order_detail_id],
+                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
+                [item.product_id, 'คืนสต็อกจากการยกเลิกคำสั่งซื้อ', item.quantity, item.order_detail_id, order.user_id],
             );
         }
 

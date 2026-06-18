@@ -11,6 +11,8 @@
 # production
 /build
 /build-codex-check
+/build-codex-verify
+/build-codex-*
 
 # misc
 .DS_Store

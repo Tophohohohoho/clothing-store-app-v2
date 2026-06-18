@@ -91,7 +91,6 @@ function App() {
     const [editProduct, setEditProduct] = useState({ id: null, name: '', price: 0, description: '' });
     const [stockEdit, setStockEdit] = useState({ id: null, amount: 0, remark: '', name: '' });
     const [userEdit, setUserEdit] = useState({ id: null, username: '', password: '', full_name: '', email: '', phone: '' });
-    const [deleteLogTarget, setDeleteLogTarget] = useState({ id: null, remark: '' });
 
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
@@ -368,15 +367,6 @@ function App() {
                 user_id: user?.id,
             });
             const productId = res.data.insertId || res.data.id;
-
-            if (productId) {
-                await productsApi.updateStock({
-                    product_id: productId,
-                    amount: 0,
-                    remark: newProduct.stock_remark,
-                    user_id: user?.id,
-                });
-            }
 
             alert('เพิ่มสินค้าสำเร็จ');
             setNewProduct(emptyProduct);
@@ -705,29 +695,6 @@ function App() {
         }
     };
 
-    const handleDeleteLog = async () => {
-        if (!deleteLogTarget.remark.trim()) {
-            alert('กรุณาระบุเหตุผลที่ต้องการลบ');
-            return;
-        }
-
-        try {
-            await adminApi.deleteStockLog({
-                log_id: deleteLogTarget.id,
-                remark: deleteLogTarget.remark,
-                user_id: user?.id,
-            });
-
-            alert('ลบรายการและปรับปรุงยอดสต็อกคืนแล้ว');
-            setDeleteLogTarget({ id: null, remark: '' });
-            await fetchStockLogs();
-            await fetchSystemLogs();
-            await fetchProducts(true);
-        } catch (err) {
-            alert('เกิดข้อผิดพลาดในการลบประวัติสต็อก');
-        }
-    };
-
     const openOrderHistory = async () => {
         await fetchOrderHistory();
         setIsOrderHistoryOpen(true);
@@ -887,8 +854,6 @@ function App() {
                         setEditProduct={setEditProduct}
                         userEdit={userEdit}
                         setUserEdit={setUserEdit}
-                        deleteLogTarget={deleteLogTarget}
-                        setDeleteLogTarget={setDeleteLogTarget}
                         onSubmit={handleAddProduct}
                         onSaveEditProduct={handleSaveEditProduct}
                         onDeleteProduct={handleDeleteProduct}
@@ -901,7 +866,6 @@ function App() {
                         onUpdateUser={handleUpdateUser}
                         onDeleteUser={handleDeleteUser}
                         onChangeRole={handleChangeRole}
-                        onDeleteLog={handleDeleteLog}
                     />
                 ) : (
                     <StorePage
