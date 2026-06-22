@@ -847,6 +847,39 @@ app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
     }
 });
 
+app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
+    try {
+        const { id, addressId } = req.params;
+        const [addresses] = await query(
+            'SELECT address_id, is_default FROM address WHERE address_id = ? AND user_id = ?',
+            [addressId, id],
+        );
+
+        if (addresses.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบที่อยู่นี้' });
+        }
+
+        const deletedAddress = addresses[0];
+        await query('DELETE FROM address WHERE address_id = ? AND user_id = ?', [addressId, id]);
+
+        if (Number(deletedAddress.is_default) === 1) {
+            const [remaining] = await query(
+                'SELECT address_id FROM address WHERE user_id = ? ORDER BY address_id DESC LIMIT 1',
+                [id],
+            );
+
+            if (remaining.length > 0) {
+                await query('UPDATE address SET is_default = 1 WHERE address_id = ? AND user_id = ?', [remaining[0].address_id, id]);
+            }
+        }
+
+        await writeSystemLog(id, 'ลบที่อยู่', `ลบที่อยู่ #${addressId}`);
+        res.json({ success: true, message: 'ลบที่อยู่สำเร็จ' });
+    } catch (err) {
+        respondError(res, err, 'ลบที่อยู่ไม่สำเร็จ');
+    }
+});
+
 app.post('/api/users/:id/addresses/:addressId/default', async (req, res) => {
     try {
         const { id, addressId } = req.params;

@@ -12,4 +12,6 @@ export const createAddress = (userId, payload) => apiClient.post(`/api/users/${u
 
 export const updateAddress = (userId, addressId, payload) => apiClient.put(`/api/users/${userId}/addresses/${addressId}`, payload);
 
+export const deleteAddress = (userId, addressId) => apiClient.delete(`/api/users/${userId}/addresses/${addressId}`);
+
 export const setDefaultAddress = (userId, addressId) => apiClient.post(`/api/users/${userId}/addresses/${addressId}/default`);

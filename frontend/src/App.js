@@ -105,6 +105,7 @@ function App() {
     const [addressForm, setAddressForm] = useState(emptyAddress);
     const [shippingInfo, setShippingInfo] = useState({
         address_id: null,
+        receiver_name: '',
         address: '',
         phone: '',
         subdistrict: '',
@@ -296,6 +297,7 @@ function App() {
         setShippingInfo((prev) => ({
             ...prev,
             address_id: address.address_id,
+            receiver_name: address.receiver_name || '',
             address: address.address_detail || '',
             phone: address.phone || '',
             subdistrict: address.subdistrict || '',
@@ -579,7 +581,7 @@ function App() {
                 setCart([]);
                 setShowCheckout(false);
                 setIsCartOpen(false);
-                setShippingInfo({ address_id: null, address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '' });
+                setShippingInfo({ address_id: null, receiver_name: '', address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '' });
                 await fetchProducts();
             }
         } catch (err) {
@@ -768,6 +770,17 @@ function App() {
         }
     };
 
+    const handleSaveCheckoutAddress = async (payload) => {
+        const res = await authApi.createAddress(user.id, payload);
+        const list = await fetchAddresses();
+        const savedAddress = list.find((address) => address.address_id === res.data.address_id)
+            || list.find((address) => Number(address.is_default) === 1)
+            || list[0];
+
+        applyAddressToCheckout(savedAddress);
+        return savedAddress;
+    };
+
     const handleSelectAddress = (address) => {
         setAddressForm({ ...emptyAddress, ...address });
     };
@@ -791,6 +804,48 @@ function App() {
             alert('ตั้งเป็นที่อยู่หลักแล้ว');
         } catch (err) {
             alert(err.response?.data?.error || 'ตั้งที่อยู่หลักไม่สำเร็จ');
+        }
+    };
+
+    const handleDeleteAddress = async (address) => {
+        if (!window.confirm(`ยืนยันลบที่อยู่ของ ${address.receiver_name || 'ผู้รับ'}?`)) return;
+
+        try {
+            await authApi.deleteAddress(user.id, address.address_id);
+            const list = await fetchAddresses();
+            const defaultAddress = list.find((item) => Number(item.is_default) === 1) || list[0];
+
+            if (addressForm.address_id === address.address_id) {
+                setAddressForm(defaultAddress ? { ...emptyAddress, ...defaultAddress } : {
+                    ...emptyAddress,
+                    receiver_name: user?.full_name || user?.username || '',
+                    phone: user?.phone || '',
+                });
+            }
+
+            if (shippingInfo.address_id === address.address_id) {
+                setShippingInfo({
+                    address_id: null,
+                    receiver_name: '',
+                    address: '',
+                    phone: '',
+                    subdistrict: '',
+                    district: '',
+                    province: '',
+                    postal_code: '',
+                    shipping_fee: DELIVERY_FEE,
+                    discount: shippingInfo.discount,
+                    payment_method: shippingInfo.payment_method,
+                    shipping_method: shippingInfo.shipping_method,
+                    receipt_image_data: shippingInfo.receipt_image_data,
+                    receipt_file_name: shippingInfo.receipt_file_name,
+                });
+                applyAddressToCheckout(defaultAddress);
+            }
+
+            alert('ลบที่อยู่สำเร็จ');
+        } catch (err) {
+            alert(err.response?.data?.error || 'ลบที่อยู่ไม่สำเร็จ');
         }
     };
 
@@ -896,6 +951,7 @@ function App() {
                     addresses={addresses}
                     onClose={() => setShowCheckout(false)}
                     onConfirm={handleConfirmPayment}
+                    onSaveNewAddress={handleSaveCheckoutAddress}
                 />
             )}
 
@@ -929,6 +985,7 @@ function App() {
                     onSelectAddress={handleSelectAddress}
                     onNewAddress={handleNewAddress}
                     onSetDefaultAddress={handleSetDefaultAddress}
+                    onDeleteAddress={handleDeleteAddress}
                     onSave={handleSaveProfile}
                     onClose={() => setIsProfileOpen(false)}
                 />

@@ -1,11 +1,51 @@
-import { getAddressOptions } from '../utils/addressOptions';
+import { useEffect, useMemo, useState } from 'react';
 
-function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], onClose, onConfirm }) {
+const emptyThaiAddressData = {
+    provinces: [],
+    districts: [],
+    subDistricts: [],
+};
+
+const emptyNewAddress = {
+    receiver_name: '',
+    phone: '',
+    address_detail: '',
+    province: '',
+    district: '',
+    subdistrict: '',
+    postal_code: '',
+    address_type: 'บ้าน',
+    is_default: 0,
+};
+
+const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
+const getName = (item) => item?.name_th || '';
+const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
+const formatAddressLine = (address) => [
+    address?.address_detail,
+    address?.subdistrict ? `ต.${address.subdistrict}` : '',
+    address?.district ? `อ.${address.district}` : '',
+    address?.province ? `จ.${address.province}` : '',
+    address?.postal_code,
+].filter(Boolean).join(' ');
+
+const formatAddressOption = (address) => {
+    const prefix = Number(address.is_default) === 1 ? '[หลัก] ' : '';
+    const receiverName = address.receiver_name || '-';
+    const phone = address.phone || '-';
+    const addressLine = formatAddressLine(address) || '-';
+
+    return `${prefix}${receiverName} | ${phone} | ${addressLine}`;
+};
+
+function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], onClose, onConfirm, onSaveNewAddress }) {
     const selectedAddressId = shippingInfo.address_id || '';
-    const subdistrictOptions = getAddressOptions(addresses, 'subdistrict');
-    const districtOptions = getAddressOptions(addresses, 'district');
-    const provinceOptions = getAddressOptions(addresses, 'province');
-    const postalCodeOptions = getAddressOptions(addresses, 'postal_code');
+    const [isAddingAddress, setIsAddingAddress] = useState(false);
+    const [isAddressDropdownOpen, setIsAddressDropdownOpen] = useState(false);
+    const [newAddress, setNewAddress] = useState(emptyNewAddress);
+    const [isSavingAddress, setIsSavingAddress] = useState(false);
+    const [thaiAddressData, setThaiAddressData] = useState(emptyThaiAddressData);
+    const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
     const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : 50;
     const discount = Math.min(Math.max(Number(shippingInfo.discount) || 0, 0), total + shippingFee);
     const finalTotal = Math.max(total + shippingFee - discount, 0);
@@ -13,19 +53,105 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+    const selectedAddress = addresses.find((item) => item.address_id === Number(selectedAddressId));
+    const displayReceiverName = shippingInfo.receiver_name || selectedAddress?.receiver_name || '';
+    const displayPhone = shippingInfo.phone || selectedAddress?.phone || '';
+    const displayAddress = formatAddressLine({
+        address_detail: shippingInfo.address,
+        subdistrict: shippingInfo.subdistrict,
+        district: shippingInfo.district,
+        province: shippingInfo.province,
+        postal_code: shippingInfo.postal_code,
+    });
 
-    const handleSelectAddress = (event) => {
-        const addressId = Number(event.target.value) || null;
-        const address = addresses.find((item) => item.address_id === addressId);
+    useEffect(() => {
+        let isMounted = true;
 
-        if (!address) {
-            setShippingInfo({ ...shippingInfo, address_id: null });
-            return;
-        }
+        Promise.all([
+            fetch(getPublicJsonPath('provinces.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('districts.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('sub_districts.json')).then((response) => response.json()),
+        ])
+            .then(([provinces, districts, subDistricts]) => {
+                if (!isMounted) return;
+                setThaiAddressData({
+                    provinces: provinces.filter((province) => !province.deleted_at),
+                    districts: districts.filter((district) => !district.deleted_at),
+                    subDistricts: subDistricts.filter((subDistrict) => !subDistrict.deleted_at),
+                });
+            })
+            .catch(() => {
+                if (isMounted) setThaiAddressData(emptyThaiAddressData);
+            })
+            .finally(() => {
+                if (isMounted) setIsThaiAddressLoading(false);
+            });
 
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const selectedProvince = useMemo(
+        () => thaiAddressData.provinces.find((province) => getName(province) === newAddress.province),
+        [newAddress.province, thaiAddressData.provinces]
+    );
+
+    const districtChoices = useMemo(
+        () => selectedProvince ? thaiAddressData.districts.filter((district) => district.province_id === selectedProvince.id) : [],
+        [selectedProvince, thaiAddressData.districts]
+    );
+
+    const selectedDistrict = useMemo(
+        () => districtChoices.find((district) => getName(district) === newAddress.district),
+        [newAddress.district, districtChoices]
+    );
+
+    const subDistrictChoices = useMemo(
+        () => selectedDistrict ? thaiAddressData.subDistricts.filter((subDistrict) => subDistrict.district_id === selectedDistrict.id) : [],
+        [selectedDistrict, thaiAddressData.subDistricts]
+    );
+
+    const postalCodeChoices = useMemo(() => {
+        const postalCodes = subDistrictChoices.map(getZipCode).filter(Boolean);
+        return [...new Set(postalCodes)];
+    }, [subDistrictChoices]);
+
+    const handleNewProvinceChange = (provinceName) => {
+        setNewAddress({
+            ...newAddress,
+            province: provinceName,
+            district: '',
+            subdistrict: '',
+            postal_code: '',
+        });
+    };
+
+    const handleNewDistrictChange = (districtName) => {
+        setNewAddress({
+            ...newAddress,
+            district: districtName,
+            subdistrict: '',
+            postal_code: '',
+        });
+    };
+
+    const handleNewSubDistrictChange = (subDistrictName) => {
+        const selectedSubDistrict = subDistrictChoices.find((subDistrict) => getName(subDistrict) === subDistrictName);
+        setNewAddress({
+            ...newAddress,
+            subdistrict: subDistrictName,
+            postal_code: getZipCode(selectedSubDistrict),
+        });
+    };
+
+    const handleChooseAddress = (address) => {
+        setIsAddressDropdownOpen(false);
+        setIsAddingAddress(false);
         setShippingInfo({
             ...shippingInfo,
             address_id: address.address_id,
+            receiver_name: address.receiver_name || '',
             address: address.address_detail || '',
             phone: address.phone || '',
             subdistrict: address.subdistrict || '',
@@ -33,6 +159,43 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             province: address.province || '',
             postal_code: address.postal_code || '',
         });
+    };
+
+    const handleStartAddAddress = () => {
+        setIsAddressDropdownOpen(false);
+        setIsAddingAddress(true);
+        setNewAddress({
+            ...emptyNewAddress,
+            is_default: addresses.length === 0 ? 1 : 0,
+        });
+    };
+
+    const handleSaveNewAddress = async () => {
+        if (!newAddress.receiver_name.trim() || !newAddress.address_detail.trim()) {
+            alert('กรุณากรอกชื่อผู้รับและที่อยู่');
+            return;
+        }
+
+        if (!newAddress.phone.trim()) {
+            alert('กรุณากรอกเบอร์โทรศัพท์');
+            return;
+        }
+
+        if (!newAddress.province || !newAddress.district || !newAddress.subdistrict || !newAddress.postal_code) {
+            alert('กรุณาเลือกจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์');
+            return;
+        }
+
+        try {
+            setIsSavingAddress(true);
+            await onSaveNewAddress(newAddress);
+            setIsAddingAddress(false);
+            setNewAddress(emptyNewAddress);
+        } catch (err) {
+            alert(err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ');
+        } finally {
+            setIsSavingAddress(false);
+        }
     };
 
     const handleReceiptChange = (event) => {
@@ -102,55 +265,137 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                             </div>
                         </div>
                         <div className="mb-3">
-                            {addresses.length > 0 && (
-                                <>
-                                    <label className="form-label small fw-bold text-secondary">เลือกที่อยู่ที่บันทึกไว้</label>
-                                    <select className="form-select rounded-3 mb-3" value={selectedAddressId} onChange={handleSelectAddress}>
-                                        <option value="">กรอกที่อยู่ใหม่</option>
-                                        {addresses.map((address) => (
-                                            <option key={address.address_id} value={address.address_id}>
-                                                {Number(address.is_default) === 1 ? '[หลัก] ' : ''}{address.receiver_name} - {address.address_detail}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </>
-                            )}
                             <label className="form-label small fw-bold text-secondary">ที่อยู่จัดส่งสินค้า</label>
-                            <textarea className="form-control rounded-3 border-light-subtle shadow-sm" rows="3" value={shippingInfo.address} onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })} />
-                        </div>
-                        <div className="row g-2 mb-3">
-                            <div className="col-md-6">
-                                <label className="form-label small fw-bold text-secondary">ตำบล/แขวง</label>
-                                <input type="text" list="checkout-subdistrict-options" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" value={shippingInfo.subdistrict} onChange={(e) => setShippingInfo({ ...shippingInfo, subdistrict: e.target.value })} />
-                                <datalist id="checkout-subdistrict-options">
-                                    {subdistrictOptions.map((value) => <option key={value} value={value} />)}
-                                </datalist>
+                            <div className="position-relative mb-3">
+                                <button
+                                    type="button"
+                                    className="btn bg-white border rounded-3 p-3 shadow-sm w-100 text-start"
+                                    onClick={() => setIsAddressDropdownOpen(!isAddressDropdownOpen)}
+                                    aria-expanded={isAddressDropdownOpen}
+                                >
+                                    <div>
+                                        <div>
+                                            {displayReceiverName || displayPhone || displayAddress ? (
+                                                <>
+                                                    {displayReceiverName && <div className="fs-5 fw-semibold text-dark">{displayReceiverName}</div>}
+                                                    {displayPhone && <div className="fs-5 text-dark mt-1">{displayPhone}</div>}
+                                                    {displayAddress && <div className="text-secondary mt-3 lh-lg">{displayAddress}</div>}
+                                                </>
+                                            ) : (
+                                                <div className="text-secondary fw-bold py-2">เลือกที่อยู่ที่บันทึกไว้</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+                                {isAddressDropdownOpen && (
+                                    <div className="position-absolute start-0 end-0 mt-2 bg-white border rounded-3 shadow-lg overflow-hidden" style={{ zIndex: 1080, maxHeight: 320, overflowY: 'auto' }}>
+                                        {addresses.length === 0 ? (
+                                            <div className="px-3 py-3 text-secondary small">ยังไม่มีที่อยู่ที่บันทึกไว้</div>
+                                        ) : (
+                                            addresses.map((address) => {
+                                                const addressLine = formatAddressLine(address);
+                                                const isSelected = Number(address.address_id) === Number(selectedAddressId);
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        className={`btn w-100 text-start rounded-0 border-0 border-bottom px-3 py-3 ${isSelected ? 'bg-primary text-white' : 'bg-white'}`}
+                                                        key={address.address_id}
+                                                        onClick={() => handleChooseAddress(address)}
+                                                        title={formatAddressOption(address)}
+                                                    >
+                                                        <div className="fw-bold">
+                                                            {Number(address.is_default) === 1 ? '[หลัก] ' : ''}{address.receiver_name || '-'}
+                                                        </div>
+                                                        <div className={isSelected ? 'text-white mt-1' : 'text-dark mt-1'}>{address.phone || '-'}</div>
+                                                        <div className={isSelected ? 'text-white-50 mt-2 lh-sm' : 'text-secondary mt-2 lh-sm'}>
+                                                            {addressLine || '-'}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="btn w-100 text-start rounded-0 border-0 px-3 py-3 fw-bold text-primary bg-white"
+                                            onClick={handleStartAddAddress}
+                                        >
+                                            + เพิ่มที่อยู่ใหม่
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                            <div className="col-md-6">
-                                <label className="form-label small fw-bold text-secondary">อำเภอ/เขต</label>
-                                <input type="text" list="checkout-district-options" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" value={shippingInfo.district} onChange={(e) => setShippingInfo({ ...shippingInfo, district: e.target.value })} />
-                                <datalist id="checkout-district-options">
-                                    {districtOptions.map((value) => <option key={value} value={value} />)}
-                                </datalist>
-                            </div>
-                            <div className="col-md-6">
-                                <label className="form-label small fw-bold text-secondary">จังหวัด</label>
-                                <input type="text" list="checkout-province-options" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" value={shippingInfo.province} onChange={(e) => setShippingInfo({ ...shippingInfo, province: e.target.value })} />
-                                <datalist id="checkout-province-options">
-                                    {provinceOptions.map((value) => <option key={value} value={value} />)}
-                                </datalist>
-                            </div>
-                            <div className="col-md-6">
-                                <label className="form-label small fw-bold text-secondary">รหัสไปรษณีย์</label>
-                                <input type="text" list="checkout-postal-code-options" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" value={shippingInfo.postal_code} onChange={(e) => setShippingInfo({ ...shippingInfo, postal_code: e.target.value })} />
-                                <datalist id="checkout-postal-code-options">
-                                    {postalCodeOptions.map((value) => <option key={value} value={value} />)}
-                                </datalist>
-                            </div>
-                        </div>
-                        <div className="mb-2">
-                            <label className="form-label small fw-bold text-secondary">เบอร์โทรศัพท์ที่ติดต่อได้</label>
-                            <input type="text" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" value={shippingInfo.phone} onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })} />
+                            {!isAddingAddress && !(displayReceiverName || displayPhone || displayAddress) && (
+                                <div className="text-secondary small mb-3">
+                                    กรุณาเลือกที่อยู่ที่บันทึกไว้ หรือเพิ่มที่อยู่ใหม่
+                                </div>
+                            )}
+                            {isAddingAddress && (
+                                <div className="bg-white border rounded-3 p-3 mb-3 shadow-sm">
+                                    <div className="row g-2">
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">ชื่อผู้รับ</label>
+                                            <input className="form-control rounded-3 border-light-subtle py-2" value={newAddress.receiver_name} onChange={(e) => setNewAddress({ ...newAddress, receiver_name: e.target.value })} />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">เบอร์โทร</label>
+                                            <input className="form-control rounded-3 border-light-subtle py-2" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} />
+                                        </div>
+                                        <div className="col-12">
+                                            <label className="form-label small fw-bold text-secondary">รายละเอียดที่อยู่</label>
+                                            <textarea className="form-control rounded-3 border-light-subtle" rows="2" value={newAddress.address_detail} onChange={(e) => setNewAddress({ ...newAddress, address_detail: e.target.value })} />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">จังหวัด</label>
+                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.province} onChange={(e) => handleNewProvinceChange(e.target.value)} disabled={isThaiAddressLoading || thaiAddressData.provinces.length === 0}>
+                                                <option value="">{isThaiAddressLoading ? 'กำลังโหลดจังหวัด' : 'เลือกจังหวัด'}</option>
+                                                {thaiAddressData.provinces.map((province) => (
+                                                    <option key={province.id} value={getName(province)}>{getName(province)}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">อำเภอ/เขต</label>
+                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.district} onChange={(e) => handleNewDistrictChange(e.target.value)} disabled={!selectedProvince}>
+                                                <option value="">{selectedProvince ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
+                                                {districtChoices.map((district) => (
+                                                    <option key={district.id} value={getName(district)}>{getName(district)}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">ตำบล/แขวง</label>
+                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.subdistrict} onChange={(e) => handleNewSubDistrictChange(e.target.value)} disabled={!selectedDistrict}>
+                                                <option value="">{selectedDistrict ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอ/เขตก่อน'}</option>
+                                                {subDistrictChoices.map((subDistrict) => (
+                                                    <option key={subDistrict.id} value={getName(subDistrict)}>{getName(subDistrict)}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label small fw-bold text-secondary">รหัสไปรษณีย์</label>
+                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.postal_code} onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })} disabled={!selectedDistrict}>
+                                                <option value="">{selectedDistrict ? 'เลือกรหัสไปรษณีย์' : 'เลือกอำเภอ/เขตก่อน'}</option>
+                                                {postalCodeChoices.map((postalCode) => (
+                                                    <option key={postalCode} value={postalCode}>{postalCode}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-check fw-bold text-secondary small mt-2">
+                                                <input className="form-check-input me-2" type="checkbox" checked={Number(newAddress.is_default) === 1} onChange={(e) => setNewAddress({ ...newAddress, is_default: e.target.checked ? 1 : 0 })} />
+                                                ตั้งเป็นที่อยู่หลัก
+                                            </label>
+                                        </div>
+                                        <div className="col-12 d-flex gap-2 mt-2">
+                                            <button type="button" className="btn btn-light border w-100 fw-bold" onClick={() => setIsAddingAddress(false)} disabled={isSavingAddress}>ยกเลิก</button>
+                                            <button type="button" className="btn btn-dark w-100 fw-bold" onClick={handleSaveNewAddress} disabled={isSavingAddress}>
+                                                {isSavingAddress ? 'กำลังบันทึก...' : 'บันทึกที่อยู่'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div className="mt-3">
                             <label className="form-label small fw-bold text-secondary">อัปโหลดสลิปโอนเงิน</label>

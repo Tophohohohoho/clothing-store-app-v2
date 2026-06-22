@@ -29,6 +29,7 @@ function ProfileModal({
     onSelectAddress,
     onNewAddress,
     onSetDefaultAddress,
+    onDeleteAddress,
     onSave,
     onClose,
 }) {
@@ -205,16 +206,22 @@ function ProfileModal({
                                             <div className="list-group-item text-muted small">ยังไม่มีที่อยู่</div>
                                         ) : (
                                             addresses.map((address) => (
-                                                <div className="list-group-item text-start" key={address.address_id}>
-                                                    <div className="d-flex justify-content-between align-items-start gap-2">
-                                                        <div>
+                                                <div className="list-group-item text-start p-0" key={address.address_id}>
+                                                    <div className="d-flex justify-content-between align-items-stretch">
+                                                        <button
+                                                            type="button"
+                                                            className="btn text-start border-0 rounded-0 flex-grow-1 p-3"
+                                                            onClick={() => handleEditAddress(address)}
+                                                        >
                                                             <div className="fw-bold">{address.receiver_name}</div>
                                                             <small>{address.address_detail}</small>
                                                             {Number(address.is_default) === 1 && <span className="badge bg-success ms-2">หลัก</span>}
-                                                        </div>
-                                                        <button type="button" className="btn btn-sm btn-outline-dark" onClick={() => handleEditAddress(address)}>
-                                                            แก้ไข
                                                         </button>
+                                                        <div className="d-flex align-items-center p-3 ps-2">
+                                                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onDeleteAddress(address)}>
+                                                                ลบ
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))
