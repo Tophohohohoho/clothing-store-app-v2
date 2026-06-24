@@ -27,4 +27,9 @@ export const editProduct = (payload) => apiClient.post('/api/admin/products/edit
 
 export const deleteProduct = (id) => apiClient.post('/api/admin/products/delete', { id });
 
+export const updateProductStatus = (id, productStatus) => apiClient.post('/api/admin/products/status', {
+    id,
+    product_status: productStatus,
+});
+
 export const updateStock = (payload) => apiClient.post('/api/products/update-stock', payload);

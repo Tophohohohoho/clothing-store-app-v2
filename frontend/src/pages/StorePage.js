@@ -9,13 +9,13 @@ const formatPrice = (price) => {
 };
 
 const productSizes = ['S', 'M', 'L', 'XL', '2XL'];
-const productColors = ['ดำ', 'ขาว', 'เทา', 'แดง', 'น้ำเงิน', 'เขียว'];
 
 function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) {
     const [searchText, setSearchText] = useState('');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedSize, setSelectedSize] = useState('M');
     const [selectedColor, setSelectedColor] = useState('ดำ');
+    const [selectedQuantity, setSelectedQuantity] = useState(1);
     const totalStock = products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
     const visibleProducts = useMemo(() => {
         const activeProducts = products.filter((product) => Number(product.product_status ?? 1) === 1);
@@ -34,9 +34,11 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
     };
 
     const openProductDetail = useCallback((product) => {
+        const firstColor = Array.isArray(product.colors) ? product.colors[0]?.name : '';
         setSelectedProduct(product);
         setSelectedSize('M');
-        setSelectedColor('ดำ');
+        setSelectedColor(firstColor || '');
+        setSelectedQuantity(1);
     }, []);
 
     useEffect(() => {
@@ -56,6 +58,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
             ...product,
             selected_size: hasSize ? selectedSize : '',
             selected_color: hasColor ? selectedColor : '',
+            selected_quantity: selectedQuantity,
         });
         setSelectedProduct(null);
     };
@@ -176,6 +179,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                 const isOutOfStock = stock <= 0;
                 const hasSize = Number(selectedProduct.has_size ?? 1) === 1;
                 const hasColor = Number(selectedProduct.has_color ?? 0) === 1;
+                const productColors = Array.isArray(selectedProduct.colors) ? selectedProduct.colors : [];
 
                 return (
                     <div className="product-detail-modal" onClick={() => setSelectedProduct(null)}>
@@ -231,17 +235,45 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                                 <div>
                                                     {productColors.map((color) => (
                                                         <button
-                                                            key={color}
+                                                            key={color.name}
                                                             type="button"
-                                                            className={selectedColor === color ? 'active' : ''}
-                                                            onClick={() => setSelectedColor(color)}
+                                                            className={selectedColor === color.name ? 'active' : ''}
+                                                            onClick={() => setSelectedColor(color.name)}
                                                         >
-                                                            {color}
+                                                            <span className="store-color-swatch" style={{ backgroundColor: color.hex }} />
+                                                            {color.name}
                                                         </button>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+                                {!isOutOfStock && (
+                                    <div className="product-quantity-picker">
+                                        <div>
+                                            <small>จำนวนสินค้า</small>
+                                            <span>เลือกได้สูงสุด {stock} ชิ้น</span>
+                                        </div>
+                                        <div className="product-quantity-control">
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedQuantity((quantity) => Math.max(1, quantity - 1))}
+                                                disabled={selectedQuantity <= 1}
+                                                aria-label="ลดจำนวนสินค้า"
+                                            >
+                                                −
+                                            </button>
+                                            <strong>{selectedQuantity}</strong>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedQuantity((quantity) => Math.min(stock, quantity + 1))}
+                                                disabled={selectedQuantity >= stock}
+                                                aria-label="เพิ่มจำนวนสินค้า"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                                 <button
@@ -251,7 +283,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                     disabled={isOutOfStock}
                                 >
                                     <span>+</span>
-                                    เพิ่มลงตะกร้า
+                                    เพิ่มลงตะกร้า{!isOutOfStock && selectedQuantity > 1 ? ` ${selectedQuantity} ชิ้น` : ''}
                                 </button>
                             </div>
                         </div>

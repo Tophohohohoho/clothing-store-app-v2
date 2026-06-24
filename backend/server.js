@@ -62,7 +62,39 @@ const normalizeProduct = (product) => ({
     name: product.product_name,
     image_url: product.product_image,
     stock: product.quantity,
+    colors: product.colors || [],
 });
+
+const normalizeColors = (colors) => {
+    if (!Array.isArray(colors)) return [];
+
+    const seen = new Set();
+    return colors.reduce((result, color) => {
+        const name = String(color?.name || color?.color_name || '').trim();
+        const hex = String(color?.hex || color?.color_hex || '#000000').trim();
+        const key = name.toLocaleLowerCase('th-TH');
+
+        if (!name || seen.has(key)) return result;
+        seen.add(key);
+        result.push({
+            name: name.slice(0, 50),
+            hex: /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toLowerCase() : '#000000',
+        });
+        return result;
+    }, []);
+};
+
+const replaceProductColors = async (productId, colors) => {
+    const cleanColors = normalizeColors(colors);
+    await query('DELETE FROM product_color WHERE product_id = ?', [productId]);
+
+    if (cleanColors.length > 0) {
+        await query(
+            'INSERT INTO product_color (product_id, color_name, color_hex) VALUES ?',
+            [cleanColors.map((color) => [productId, color.name, color.hex])],
+        );
+    }
+};
 
 const normalizeOrder = (order) => ({
     ...order,
@@ -250,6 +282,16 @@ const initializeDatabase = async () => {
             PRIMARY KEY (product_id),
             KEY fk_product_category (category_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+        `CREATE TABLE IF NOT EXISTS product_color (
+            product_color_id int NOT NULL AUTO_INCREMENT,
+            product_id int NOT NULL,
+            color_name varchar(50) NOT NULL,
+            color_hex varchar(7) DEFAULT '#000000',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (product_color_id),
+            UNIQUE KEY uq_product_color_name (product_id, color_name),
+            KEY fk_product_color_product (product_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
         `CREATE TABLE IF NOT EXISTS orders (
             order_id int NOT NULL AUTO_INCREMENT,
             user_id int NOT NULL,
@@ -371,7 +413,28 @@ app.get('/api/products', async (req, res) => {
         `;
         const params = keyword ? [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`] : [];
         const [results] = await query(sql, params);
-        res.json(results.map(normalizeProduct));
+        const productIds = results.map((product) => product.product_id);
+        let colorsByProduct = {};
+
+        if (productIds.length > 0) {
+            const [colorRows] = await query(
+                `SELECT product_id, color_name, color_hex
+                 FROM product_color
+                 WHERE product_id IN (?)
+                 ORDER BY product_color_id`,
+                [productIds],
+            );
+            colorsByProduct = colorRows.reduce((groups, color) => {
+                if (!groups[color.product_id]) groups[color.product_id] = [];
+                groups[color.product_id].push({ name: color.color_name, hex: color.color_hex });
+                return groups;
+            }, {});
+        }
+
+        res.json(results.map((product) => normalizeProduct({
+            ...product,
+            colors: colorsByProduct[product.product_id] || [],
+        })));
     } catch (err) {
         respondError(res, err, 'โหลดสินค้าไม่สำเร็จ');
     }
@@ -456,9 +519,13 @@ app.post('/api/products/upload-image', (req, res) => {
 
 app.post('/api/products', async (req, res) => {
     try {
-        const { name, description, price, image_url, stock, category_id, category_name, user_id, has_size, has_color } = req.body;
+        const { name, description, price, image_url, stock, category_id, category_name, user_id, has_size, has_color, colors } = req.body;
         const categoryId = await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name });
         if (!categoryId) return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
+        const cleanColors = normalizeColors(colors);
+        if (Number(has_color) === 1 && cleanColors.length === 0) {
+            return res.status(400).json({ error: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
+        }
 
         const stockAmount = Number(stock);
         if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
@@ -476,6 +543,7 @@ app.post('/api/products', async (req, res) => {
             'INSERT INTO stock_logs (product_id, change_type, quantity, user_id) VALUES (?, ?, ?, ?)',
             [result.insertId, 'รับเข้า', stockAmount, user_id || null],
         );
+        await replaceProductColors(result.insertId, Number(has_color) === 1 ? cleanColors : []);
         await writeSystemLog(user_id, 'เพิ่มสินค้า', `เพิ่มสินค้า ${name}`);
 
         res.json({ success: true, message: 'เพิ่มสินค้าสำเร็จ', insertId: result.insertId, id: result.insertId });
@@ -488,9 +556,9 @@ app.delete('/api/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
         await query('UPDATE product SET product_status = 0 WHERE product_id = ?', [id]);
-        res.json({ success: true, message: 'ยกเลิกสินค้าและล็อกไม่ให้แสดงหน้าขายแล้ว' });
+        res.json({ success: true, message: 'ปิดใช้งานสินค้าและไม่แสดงหน้าขายแล้ว' });
     } catch (err) {
-        respondError(res, err, 'ยกเลิกสินค้าไม่สำเร็จ');
+        respondError(res, err, 'ปิดใช้งานสินค้าไม่สำเร็จ');
     }
 });
 
@@ -1026,7 +1094,11 @@ app.post('/api/admin/stock-logs/delete', async (req, res) => {
 
 app.post('/api/admin/products/edit', async (req, res) => {
     try {
-        const { id, name, price, description, image_url, category_id, category_name, product_status, has_size, has_color } = req.body;
+        const { id, name, price, description, image_url, category_id, category_name, product_status, has_size, has_color, colors } = req.body;
+        const cleanColors = normalizeColors(colors);
+        if (Number(has_color) === 1 && cleanColors.length === 0) {
+            return res.status(400).json({ error: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
+        }
         const shouldUpdateCategory = Boolean(category_id || String(category_name || '').trim());
         const categoryId = shouldUpdateCategory
             ? await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name })
@@ -1058,6 +1130,7 @@ app.post('/api/admin/products/edit', async (req, res) => {
                 id,
             ],
         );
+        await replaceProductColors(id, Number(has_color) === 1 ? cleanColors : []);
         res.json({ success: true, message: 'แก้ไขสินค้าสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'แก้ไขสินค้าไม่สำเร็จ');
@@ -1070,9 +1143,37 @@ app.post('/api/admin/products/delete', async (req, res) => {
         if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
 
         await query('UPDATE product SET product_status = 0 WHERE product_id = ?', [id]);
-        res.json({ success: true, message: 'ยกเลิกสินค้าและล็อกไม่ให้แสดงหน้าขายแล้ว' });
+        res.json({ success: true, message: 'ปิดใช้งานสินค้าและไม่แสดงหน้าขายแล้ว' });
     } catch (err) {
-        respondError(res, err, 'ยกเลิกสินค้าไม่สำเร็จ');
+        respondError(res, err, 'ปิดใช้งานสินค้าไม่สำเร็จ');
+    }
+});
+
+app.post('/api/admin/products/status', async (req, res) => {
+    try {
+        const { id, product_status } = req.body;
+        const nextStatus = Number(product_status);
+
+        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
+        if (![0, 1].includes(nextStatus)) {
+            return res.status(400).json({ error: 'สถานะสินค้าต้องเป็น 0 หรือ 1' });
+        }
+
+        const [result] = await query(
+            'UPDATE product SET product_status = ? WHERE product_id = ?',
+            [nextStatus, id],
+        );
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
+        }
+
+        res.json({
+            success: true,
+            product_status: nextStatus,
+            message: nextStatus === 1 ? 'เปิดใช้งานสินค้าแล้ว' : 'ปิดใช้งานสินค้าแล้ว',
+        });
+    } catch (err) {
+        respondError(res, err, 'เปลี่ยนสถานะสินค้าไม่สำเร็จ');
     }
 });
 
@@ -1182,12 +1283,15 @@ app.post('/api/orders/checkout', async (req, res) => {
 
         for (const item of cart_items) {
             const productId = item.id || item.product_id || item.p_id;
-            const quantity = parseInt(item.quantity || item.qty || 1, 10);
+            const quantity = Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10);
             const itemPrice = parseFloat(String(item.price || 0).replace(/[^\d.]/g, '')) || 0;
             const selectedSize = String(item.selected_size || item.size || '').trim() || null;
             const selectedColor = String(item.selected_color || item.color || '').trim() || null;
 
             if (!productId) continue;
+            if (!Number.isInteger(quantity) || quantity <= 0) {
+                return res.status(400).json({ error: 'จำนวนสินค้าที่สั่งซื้อต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
+            }
 
             const [products] = await query(
                 'SELECT quantity, product_name FROM product WHERE product_id = ? AND product_status = 1',

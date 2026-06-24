@@ -33,6 +33,7 @@ const emptyProduct = {
     category_name: 'ทั่วไป',
     has_size: 1,
     has_color: 0,
+    colors: [],
 };
 
 const emptyAddress = {
@@ -310,6 +311,8 @@ function App() {
     const addToCart = (product) => {
         const selectedSize = product.selected_size || product.size || '';
         const selectedColor = product.selected_color || product.color || '';
+        const requestedQuantity = Math.max(1, Number.parseInt(product.selected_quantity, 10) || 1);
+        const availableStock = Math.max(0, Number(product.stock) || 0);
         const nextProduct = { ...product, selected_size: selectedSize, selected_color: selectedColor };
         const existing = cart.find((item) => (
             item.id === product.id
@@ -322,13 +325,13 @@ function App() {
                 item.id === product.id
                     && (item.selected_size || '') === selectedSize
                     && (item.selected_color || '') === selectedColor
-                    ? { ...item, qty: item.qty + 1 }
+                    ? { ...item, qty: Math.min(availableStock, item.qty + requestedQuantity) }
                     : item
             )));
             return;
         }
 
-        setCart([...cart, { ...nextProduct, qty: 1 }]);
+        setCart([...cart, { ...nextProduct, qty: Math.min(availableStock, requestedQuantity) }]);
     };
 
     const handleAddProduct = async (event) => {
@@ -343,6 +346,10 @@ function App() {
             const selectedCategory = findActiveCategory(newProduct.category_id, newProduct.category_name);
             if (!selectedCategory) {
                 alert('กรุณาเลือกหมวดหมู่สินค้า');
+                return;
+            }
+            if (Number(newProduct.has_color) === 1 && (!Array.isArray(newProduct.colors) || newProduct.colors.length === 0)) {
+                alert('กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี');
                 return;
             }
 
@@ -415,6 +422,10 @@ function App() {
                 alert('กรุณาเลือกหมวดหมู่สินค้า');
                 return;
             }
+            if (Number(editProduct.has_color) === 1 && (!Array.isArray(editProduct.colors) || editProduct.colors.length === 0)) {
+                alert('กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี');
+                return;
+            }
 
             let imageUrl = editProduct.image_url;
 
@@ -445,14 +456,20 @@ function App() {
     };
 
     const handleDeleteProduct = async (product) => {
-        if (!window.confirm(`ยืนยันการยกเลิกสินค้า: ${product.name}? สินค้าจะถูกล็อกและไม่แสดงหน้าขาย`)) return;
+        const isCancelled = Number(product.product_status) === 0;
+        const nextStatus = isCancelled ? 1 : 0;
+        const actionLabel = isCancelled ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+        const confirmation = isCancelled
+            ? `ยืนยันการเปิดใช้งานสินค้า: ${product.name}? สินค้าจะกลับมาแสดงหน้าขาย`
+            : `ยืนยันการปิดใช้งานสินค้า: ${product.name}? สินค้าจะไม่แสดงหน้าขาย`;
+        if (!window.confirm(confirmation)) return;
 
         try {
-            await productsApi.deleteProduct(product.id);
-            alert('ยกเลิกสินค้าเรียบร้อยแล้ว สินค้าจะไม่แสดงหน้าขาย');
+            await productsApi.updateProductStatus(product.id, nextStatus);
+            alert(`${actionLabel}สินค้าเรียบร้อยแล้ว`);
             await fetchProducts(true);
         } catch (err) {
-            alert('ไม่สามารถลบสินค้าได้ อาจมีข้อมูลเชื่อมโยงกับออเดอร์หรือประวัติสต็อก');
+            alert(`ไม่สามารถ${actionLabel}สินค้าได้`);
         }
     };
 

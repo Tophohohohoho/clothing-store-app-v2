@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 const formatMoney = (value) => {
     const amount = Number(value) || 0;
@@ -7,6 +7,137 @@ const formatMoney = (value) => {
         maximumFractionDigits: 2,
     });
 };
+
+const thaiColorOptions = [
+    { name: 'ดำ', hex: '#000000', aliases: ['สีดำ'] },
+    { name: 'ขาว', hex: '#ffffff', aliases: ['สีขาว'] },
+    { name: 'เทา', hex: '#808080', aliases: ['สีเทา'] },
+    { name: 'เทาอ่อน', hex: '#d3d3d3', aliases: [] },
+    { name: 'เทาเข้ม', hex: '#4a4a4a', aliases: [] },
+    { name: 'แดง', hex: '#ff0000', aliases: ['สีแดง'] },
+    { name: 'แดงเข้ม', hex: '#8b0000', aliases: ['เลือดหมู'] },
+    { name: 'ชมพู', hex: '#ff69b4', aliases: ['สีชมพู'] },
+    { name: 'ชมพูอ่อน', hex: '#ffb6c1', aliases: [] },
+    { name: 'ส้ม', hex: '#ff8c00', aliases: ['สีส้ม'] },
+    { name: 'เหลือง', hex: '#ffd700', aliases: ['สีเหลือง'] },
+    { name: 'ครีม', hex: '#fffdd0', aliases: ['สีครีม'] },
+    { name: 'เบจ', hex: '#f5f5dc', aliases: ['สีเบจ'] },
+    { name: 'น้ำตาล', hex: '#8b4513', aliases: ['สีน้ำตาล'] },
+    { name: 'น้ำตาลอ่อน', hex: '#c4a484', aliases: [] },
+    { name: 'เขียว', hex: '#008000', aliases: ['สีเขียว'] },
+    { name: 'เขียวอ่อน', hex: '#90ee90', aliases: [] },
+    { name: 'เขียวเข้ม', hex: '#006400', aliases: [] },
+    { name: 'เขียวมิ้นท์', hex: '#98ff98', aliases: ['มิ้นท์', 'มินต์'] },
+    { name: 'ฟ้า', hex: '#00bfff', aliases: ['สีฟ้า'] },
+    { name: 'ฟ้าอ่อน', hex: '#87ceeb', aliases: [] },
+    { name: 'น้ำเงิน', hex: '#0000ff', aliases: ['สีน้ำเงิน'] },
+    { name: 'กรมท่า', hex: '#000080', aliases: ['น้ำเงินเข้ม', 'สีกรม'] },
+    { name: 'ม่วง', hex: '#800080', aliases: ['สีม่วง'] },
+    { name: 'ม่วงอ่อน', hex: '#dda0dd', aliases: ['ลาเวนเดอร์'] },
+    { name: 'ทอง', hex: '#d4af37', aliases: ['สีทอง'] },
+    { name: 'เงิน', hex: '#c0c0c0', aliases: ['สีเงิน'] },
+];
+
+const normalizeColorSearch = (value) => String(value || '').trim().toLocaleLowerCase('th-TH').replace(/\s+/g, '');
+
+const findThaiColor = (value) => {
+    const keyword = normalizeColorSearch(value);
+    if (!keyword) return null;
+
+    return thaiColorOptions.find((color) => (
+        [color.name, ...color.aliases].some((name) => normalizeColorSearch(name) === keyword)
+    )) || null;
+};
+
+function ProductColorEditor({ colors = [], onChange }) {
+    const colorListId = useId();
+    const [colorName, setColorName] = useState('');
+    const [colorHex, setColorHex] = useState('#000000');
+    const matchedColor = findThaiColor(colorName);
+
+    const handleColorNameChange = (event) => {
+        const nextName = event.target.value;
+        const match = findThaiColor(nextName);
+        setColorName(nextName);
+        if (match) setColorHex(match.hex);
+    };
+
+    const addColor = () => {
+        const name = colorName.trim();
+        if (!name) {
+            alert('กรุณากรอกชื่อสี');
+            return;
+        }
+        if (colors.some((color) => color.name.trim().toLocaleLowerCase('th-TH') === name.toLocaleLowerCase('th-TH'))) {
+            alert('มีสีชื่อนี้อยู่แล้ว');
+            return;
+        }
+
+        onChange([...colors, { name, hex: colorHex }]);
+        setColorName('');
+    };
+
+    return (
+        <div className="product-color-editor">
+            <label className="small fw-bold">สีสินค้า</label>
+            <div className="product-color-add-row">
+                <input
+                    type="color"
+                    className="form-control form-control-color"
+                    value={colorHex}
+                    onChange={(event) => setColorHex(event.target.value)}
+                    aria-label="เลือกสี"
+                />
+                <input
+                    type="text"
+                    className="form-control"
+                    list={colorListId}
+                    placeholder="ค้นหาสีภาษาไทย เช่น กรมท่า, ครีม, ฟ้าอ่อน"
+                    value={colorName}
+                    onChange={handleColorNameChange}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            addColor();
+                        }
+                    }}
+                />
+                <datalist id={colorListId}>
+                    {thaiColorOptions.map((color) => (
+                        <option key={color.name} value={color.name}>{color.hex}</option>
+                    ))}
+                </datalist>
+                <button type="button" className="btn btn-outline-primary" onClick={addColor}>เพิ่มสี</button>
+            </div>
+            {colorName.trim() && (
+                <small className={matchedColor ? 'product-color-match' : 'text-muted'}>
+                    {matchedColor
+                        ? `พบสี “${matchedColor.name}” ระบบเลือกเฉดให้อัตโนมัติ`
+                        : 'ไม่พบชื่อสีในรายการ สามารถกดช่องสีด้านซ้ายเพื่อเลือกเฉดเองได้'}
+                </small>
+            )}
+            {colors.length > 0 ? (
+                <div className="product-color-list">
+                    {colors.map((color, index) => (
+                        <div className="product-color-chip" key={`${color.name}-${index}`}>
+                            <span className="product-color-swatch" style={{ backgroundColor: color.hex }} />
+                            <span>{color.name}</span>
+                            <button
+                                type="button"
+                                onClick={() => onChange(colors.filter((_, colorIndex) => colorIndex !== index))}
+                                aria-label={`ลบสี ${color.name}`}
+                            >
+                                &times;
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <small className="text-muted">ยังไม่มีสี พิมพ์ชื่อสีภาษาไทย แล้วกด “เพิ่มสี” ได้เลย</small>
+            )}
+        </div>
+    );
+}
 
 function AdminAddProductPage({
     newProduct,
@@ -26,11 +157,18 @@ function AdminAddProductPage({
     const [showAddForm, setShowAddForm] = useState(false);
     const [productAdminView, setProductAdminView] = useState('products');
     const [categoryFilter, setCategoryFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('active');
+    const [categoryStatusFilter, setCategoryStatusFilter] = useState('active');
     const [newCategoryName, setNewCategoryName] = useState('');
     const [editingCategoryId, setEditingCategoryId] = useState(null);
     const [editingCategoryName, setEditingCategoryName] = useState('');
     const [categoryError, setCategoryError] = useState('');
     const activeCategories = categories.filter((category) => Number(category.status_category ?? 1) === 1);
+    const visibleCategories = categories.filter((category) => {
+        const isActive = Number(category.status_category ?? 1) === 1;
+        return categoryStatusFilter === 'all'
+            || (categoryStatusFilter === 'active' ? isActive : !isActive);
+    });
     const productCategoryOptions = [...activeCategories].sort((a, b) => a.category_name.localeCompare(b.category_name, 'th'));
     const categoryFilterOptions = Array.from(new Set(
         [
@@ -38,9 +176,14 @@ function AdminAddProductPage({
             ...products.map((product) => product.category_name || 'ทั่วไป'),
         ].filter(Boolean),
     )).sort((a, b) => a.localeCompare(b, 'th'));
-    const visibleProducts = categoryFilter === 'all'
-        ? products
-        : products.filter((product) => (product.category_name || 'ทั่วไป') === categoryFilter);
+    const visibleProducts = products.filter((product) => {
+        const matchesCategory = categoryFilter === 'all'
+            || (product.category_name || 'ทั่วไป') === categoryFilter;
+        const isActive = Number(product.product_status ?? 1) === 1;
+        const matchesStatus = statusFilter === 'all'
+            || (statusFilter === 'active' ? isActive : !isActive);
+        return matchesCategory && matchesStatus;
+    });
     const findCategoryById = (categoryId) => productCategoryOptions.find((category) => String(category.category_id) === String(categoryId));
     const selectedNewCategoryId = String(
         newProduct.category_id || productCategoryOptions.find((category) => category.category_name === newProduct.category_name)?.category_id || '',
@@ -268,6 +411,14 @@ function AdminAddProductPage({
                             </div>
                             <small className="text-muted">เปิดถ้าต้องให้ลูกค้าเลือกสี</small>
                         </div>
+                        {Number(newProduct.has_color) === 1 && (
+                            <div className="col-md-12">
+                                <ProductColorEditor
+                                    colors={newProduct.colors || []}
+                                    onChange={(colors) => setNewProduct({ ...newProduct, colors })}
+                                />
+                            </div>
+                        )}
                         <div className="col-md-12">
                             <label className="small fw-bold text-primary">หมายเหตุสต็อกเริ่มต้น</label>
                             <input type="text" className="form-control border-primary" value={newProduct.stock_remark} onChange={(e) => setNewProduct({ ...newProduct, stock_remark: e.target.value })} />
@@ -318,7 +469,7 @@ function AdminAddProductPage({
                 <div className="admin-panel-header">
                     <div>
                         <h2>จัดการคลังสินค้า</h2>
-                        <p>ปรับสต็อก แก้ไขรายละเอียด และยกเลิกสินค้า</p>
+                        <p>ปรับสต็อก แก้ไขรายละเอียด และเปิดหรือปิดใช้งานสินค้า</p>
                     </div>
                     <div className="admin-panel-tools inventory-panel-tools">
                         <div className="admin-panel-filter-row">
@@ -330,6 +481,15 @@ function AdminAddProductPage({
                                 {categoryFilterOptions.map((category) => (
                                     <option key={category} value={category}>{category}</option>
                                 ))}
+                            </select>
+                            <select
+                                value={statusFilter}
+                                onChange={(event) => setStatusFilter(event.target.value)}
+                                aria-label="กรองตามสถานะสินค้า"
+                            >
+                                <option value="active">เปิดใช้งาน</option>
+                                <option value="inactive">ปิดใช้งาน</option>
+                                <option value="all">ทุกสถานะ</option>
                             </select>
                             <span>{visibleProducts.length} สินค้า</span>
                         </div>
@@ -377,7 +537,7 @@ function AdminAddProductPage({
                                             <td className="admin-money">฿{formatMoney(product.price)}</td>
                                             <td>
                                                 <span className={`admin-status ${isCancelled ? 'locked' : lowStock ? 'low' : 'paid'}`}>
-                                                    {isCancelled ? 'ล็อกสินค้า' : lowStock ? 'ใกล้หมด' : 'พร้อมขาย'}
+                                                    {isCancelled ? 'ปิดใช้งาน' : lowStock ? 'ใกล้หมด' : 'เปิดใช้งาน'}
                                                 </span>
                                             </td>
                                             <td>
@@ -399,12 +559,16 @@ function AdminAddProductPage({
                                                             image_name: '',
                                                             has_size: Number(product.has_size ?? 1),
                                                             has_color: Number(product.has_color ?? 0),
+                                                            colors: Array.isArray(product.colors) ? product.colors : [],
                                                         })}
                                                     >
                                                         แก้ไข
                                                     </button>
-                                                    <button className="admin-action danger" onClick={() => onDeleteProduct(product)} disabled={isCancelled}>
-                                                        {isCancelled ? 'ยกเลิกแล้ว' : 'ยกเลิก'}
+                                                    <button
+                                                        className={`admin-action ${isCancelled ? 'success' : 'danger'}`}
+                                                        onClick={() => onDeleteProduct(product)}
+                                                    >
+                                                        {isCancelled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                                                     </button>
                                                 </div>
                                             </td>
@@ -414,7 +578,7 @@ function AdminAddProductPage({
                             ) : (
                                 <tr>
                                     <td colSpan="5">
-                                        <div className="admin-empty">ไม่พบสินค้าในหมวดหมู่นี้</div>
+                                        <div className="admin-empty">ไม่พบสินค้าตามตัวกรองที่เลือก</div>
                                     </td>
                                 </tr>
                             )}
@@ -446,7 +610,18 @@ function AdminAddProductPage({
                                     เพิ่มหมวดหมู่
                                 </button>
                             </div>
-                            <span className="category-count-badge">{categories.length} หมวดหมู่</span>
+                            <div className="category-filter-row">
+                                <select
+                                    value={categoryStatusFilter}
+                                    onChange={(event) => setCategoryStatusFilter(event.target.value)}
+                                    aria-label="กรองสถานะหมวดหมู่สินค้า"
+                                >
+                                    <option value="active">เปิดใช้งาน</option>
+                                    <option value="inactive">ปิดใช้งาน</option>
+                                    <option value="all">ทุกสถานะ</option>
+                                </select>
+                                <span className="category-count-badge">{visibleCategories.length} หมวดหมู่</span>
+                            </div>
                         </div>
                     </div>
                     <div className="p-4">
@@ -471,8 +646,8 @@ function AdminAddProductPage({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {categories.length > 0 ? (
-                                                categories.map((category) => {
+                                            {visibleCategories.length > 0 ? (
+                                                visibleCategories.map((category) => {
                                                     const isActive = Number(category.status_category ?? 1) === 1;
                                                     const isEditing = editingCategoryId === category.category_id;
 
@@ -523,7 +698,7 @@ function AdminAddProductPage({
                                             ) : (
                                                 <tr>
                                                     <td colSpan="3">
-                                                        <div className="admin-empty">ยังไม่มีหมวดหมู่สินค้า</div>
+                                                        <div className="admin-empty">ไม่พบหมวดหมู่ตามสถานะที่เลือก</div>
                                                     </td>
                                                 </tr>
                                             )}
@@ -595,6 +770,14 @@ function AdminAddProductPage({
                                             <label className="form-check-label" htmlFor="edit-product-has-color">มีสี</label>
                                         </div>
                                     </div>
+                                    {Number(editProduct.has_color ?? 0) === 1 && (
+                                        <div className="col-12">
+                                            <ProductColorEditor
+                                                colors={editProduct.colors || []}
+                                                onChange={(colors) => setEditProduct({ ...editProduct, colors })}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="col-12">
                                         <label className="small fw-bold">รูปภาพสินค้า</label>
                                         <div className="product-upload">
