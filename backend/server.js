@@ -174,6 +174,14 @@ const writeSystemLog = async (userId, action, remark = '', details = {}) => {
     }
 };
 
+const writeOrderStatusHistory = async (orderId, status, userId = null, note = '') => {
+    if (!orderId || !status) return;
+    await query(
+        'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
+        [orderId, status, userId || null, note || null],
+    );
+};
+
 const normalizeRole = (role) => (role === 'admin' ? 'admin' : 'user');
 
 const tableExists = async (tableName) => {
@@ -384,6 +392,27 @@ const initializeDatabase = async () => {
             session_duration varchar(50) DEFAULT NULL,
             PRIMARY KEY (log_id),
             KEY fk_systemlog_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+        `CREATE TABLE IF NOT EXISTS order_status_history (
+            history_id int NOT NULL AUTO_INCREMENT,
+            order_id int NOT NULL,
+            status varchar(50) NOT NULL,
+            user_id int DEFAULT NULL,
+            note text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (history_id),
+            KEY idx_order_status_history_order (order_id),
+            KEY idx_order_status_history_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+        `CREATE TABLE IF NOT EXISTS order_admin_notes (
+            note_id int NOT NULL AUTO_INCREMENT,
+            order_id int NOT NULL,
+            user_id int DEFAULT NULL,
+            note text NOT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (note_id),
+            KEY idx_order_admin_notes_order (order_id),
+            KEY idx_order_admin_notes_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
     ];
 
@@ -710,6 +739,165 @@ app.get('/api/admin/summary', async (req, res) => {
     }
 });
 
+app.get('/api/admin/dashboard', async (req, res) => {
+    try {
+        const allowedIntervals = ['day', 'week', 'month', 'year'];
+        const interval = allowedIntervals.includes(req.query.interval) ? req.query.interval : 'day';
+        const dateFrom = req.query.date_from ? new Date(req.query.date_from) : new Date(Date.now() - (29 * 86400000));
+        const dateTo = req.query.date_to ? new Date(req.query.date_to) : new Date();
+        if (Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
+            return res.status(400).json({ error: 'รูปแบบช่วงวันที่ไม่ถูกต้อง' });
+        }
+        dateFrom.setHours(0, 0, 0, 0);
+        dateTo.setHours(23, 59, 59, 999);
+        const rangeParams = [dateFrom, dateTo];
+        const groupExpression = {
+            day: 'DATE(o.order_date)',
+            week: 'DATE(DATE_SUB(o.order_date, INTERVAL WEEKDAY(o.order_date) DAY))',
+            month: "DATE_FORMAT(o.order_date, '%Y-%m-01')",
+            year: "DATE_FORMAT(o.order_date, '%Y-01-01')",
+        }[interval];
+
+        const [
+            [periodSummary],
+            [salesSeries],
+            [orderStatuses],
+            [memberSummary],
+            [productSummary],
+            [topProducts],
+            [topCategories],
+            [topCustomers],
+        ] = await Promise.all([
+            query(
+                `SELECT
+                    COUNT(*) AS total_orders,
+                    COALESCE(SUM(final_price), 0) AS total_revenue,
+                    COALESCE(AVG(final_price), 0) AS average_order_value
+                 FROM orders
+                 WHERE order_status <> 'ยกเลิก' AND order_date BETWEEN ? AND ?`,
+                rangeParams,
+            ),
+            query(
+                `SELECT
+                    ${groupExpression} AS period,
+                    COUNT(*) AS order_count,
+                    COALESCE(SUM(o.final_price), 0) AS revenue
+                 FROM orders o
+                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 GROUP BY ${groupExpression}
+                 ORDER BY period ASC`,
+                rangeParams,
+            ),
+            query(
+                `SELECT order_status AS status, COUNT(*) AS total
+                 FROM orders
+                 GROUP BY order_status`,
+            ),
+            query(
+                `SELECT
+                    COUNT(*) AS total_members,
+                    SUM(CASE WHEN DATE(created_at) = CURDATE() THEN 1 ELSE 0 END) AS new_members_today
+                 FROM \`user\`
+                 WHERE role = 'user'`,
+            ),
+            query(
+                `SELECT
+                    COUNT(*) AS total_products,
+                    SUM(CASE WHEN quantity > 0 AND quantity <= 5 THEN 1 ELSE 0 END) AS low_stock,
+                    SUM(CASE WHEN quantity <= 0 THEN 1 ELSE 0 END) AS out_of_stock
+                 FROM product
+                 WHERE product_status = 1`,
+            ),
+            query(
+                `SELECT
+                    p.product_id,
+                    p.product_name,
+                    p.product_image,
+                    SUM(od.quantity) AS units_sold,
+                    COALESCE(SUM(od.quantity * od.price), 0) AS revenue
+                 FROM order_detail od
+                 JOIN orders o ON o.order_id = od.order_id
+                 JOIN product p ON p.product_id = od.product_id
+                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 GROUP BY p.product_id, p.product_name, p.product_image
+                 ORDER BY units_sold DESC, revenue DESC
+                 LIMIT 5`,
+                rangeParams,
+            ),
+            query(
+                `SELECT
+                    c.category_id,
+                    c.category_name,
+                    SUM(od.quantity) AS units_sold,
+                    COALESCE(SUM(od.quantity * od.price), 0) AS revenue
+                 FROM order_detail od
+                 JOIN orders o ON o.order_id = od.order_id
+                 JOIN product p ON p.product_id = od.product_id
+                 JOIN category c ON c.category_id = p.category_id
+                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 GROUP BY c.category_id, c.category_name
+                 ORDER BY revenue DESC, units_sold DESC
+                 LIMIT 5`,
+                rangeParams,
+            ),
+            query(
+                `SELECT
+                    u.user_id,
+                    u.username,
+                    u.full_name,
+                    COUNT(o.order_id) AS order_count,
+                    COALESCE(SUM(o.final_price), 0) AS total_spent
+                 FROM orders o
+                 JOIN \`user\` u ON u.user_id = o.user_id
+                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 GROUP BY u.user_id, u.username, u.full_name
+                 ORDER BY total_spent DESC, order_count DESC
+                 LIMIT 5`,
+                rangeParams,
+            ),
+        ]);
+
+        const statusMap = orderStatuses.reduce((result, item) => ({
+            ...result,
+            [item.status || 'ไม่ระบุ']: Number(item.total) || 0,
+        }), {});
+        const todayOrders = await query(
+            'SELECT COUNT(*) AS total FROM orders WHERE DATE(order_date) = CURDATE()',
+        );
+
+        res.json({
+            range: { from: dateFrom, to: dateTo, interval },
+            summary: {
+                total_revenue: Number(periodSummary[0]?.total_revenue) || 0,
+                total_orders: Number(periodSummary[0]?.total_orders) || 0,
+                average_order_value: Number(periodSummary[0]?.average_order_value) || 0,
+                total_members: Number(memberSummary[0]?.total_members) || 0,
+                new_members_today: Number(memberSummary[0]?.new_members_today) || 0,
+                total_products: Number(productSummary[0]?.total_products) || 0,
+                low_stock: Number(productSummary[0]?.low_stock) || 0,
+                out_of_stock: Number(productSummary[0]?.out_of_stock) || 0,
+            },
+            notifications: {
+                new_orders: Number(todayOrders[0][0]?.total) || 0,
+                waiting_payment: statusMap['รอชำระ'] || 0,
+                waiting_review: statusMap['รอตรวจสอบ'] || 0,
+                low_stock: Number(productSummary[0]?.low_stock) || 0,
+                out_of_stock: Number(productSummary[0]?.out_of_stock) || 0,
+            },
+            sales_series: salesSeries.map((item) => ({
+                period: item.period,
+                revenue: Number(item.revenue) || 0,
+                order_count: Number(item.order_count) || 0,
+            })),
+            top_products: topProducts,
+            top_categories: topCategories,
+            top_customers: topCustomers,
+        });
+    } catch (err) {
+        respondError(res, err, 'โหลดข้อมูล Dashboard ไม่สำเร็จ');
+    }
+});
+
 app.get('/api/admin/orders', async (req, res) => {
     try {
         const [results] = await query(`
@@ -736,6 +924,121 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 });
 
+app.get('/api/admin/orders/:id/details', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const [orders] = await query(
+            `SELECT
+                o.*,
+                u.username,
+                u.full_name,
+                u.email,
+                u.phone AS customer_phone,
+                a.receiver_name,
+                a.phone AS shipping_phone,
+                a.address_detail,
+                a.subdistrict,
+                a.district,
+                a.province,
+                a.postal_code,
+                pay.payment_type,
+                pay.payment_amount,
+                pay.payment_date,
+                pay.receipt_image
+             FROM orders o
+             LEFT JOIN \`user\` u ON u.user_id = o.user_id
+             LEFT JOIN address a ON a.address_id = (
+                SELECT MAX(address_id) FROM address WHERE user_id = o.user_id
+             )
+             LEFT JOIN payment pay ON pay.payment_id = (
+                SELECT MAX(payment_id) FROM payment WHERE order_id = o.order_id
+             )
+             WHERE o.order_id = ?`,
+            [id],
+        );
+        if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
+
+        const [items] = await query(
+            `SELECT
+                od.order_detail_id,
+                od.product_id,
+                od.quantity,
+                od.price,
+                od.selected_size,
+                od.selected_color,
+                p.product_name,
+                p.product_image
+             FROM order_detail od
+             LEFT JOIN product p ON p.product_id = od.product_id
+             WHERE od.order_id = ?
+             ORDER BY od.order_detail_id`,
+            [id],
+        );
+        const [history] = await query(
+            `SELECT
+                h.history_id,
+                h.status,
+                h.note,
+                h.created_at,
+                u.username,
+                u.full_name
+             FROM order_status_history h
+             LEFT JOIN \`user\` u ON u.user_id = h.user_id
+             WHERE h.order_id = ?
+             ORDER BY h.created_at DESC, h.history_id DESC`,
+            [id],
+        );
+        const [notes] = await query(
+            `SELECT
+                n.note_id,
+                n.note,
+                n.created_at,
+                u.username,
+                u.full_name
+             FROM order_admin_notes n
+             LEFT JOIN \`user\` u ON u.user_id = n.user_id
+             WHERE n.order_id = ?
+             ORDER BY n.created_at DESC, n.note_id DESC`,
+            [id],
+        );
+
+        res.json({
+            order: normalizeOrder(orders[0]),
+            items,
+            history: history.length ? history : [{
+                history_id: `current-${id}`,
+                status: orders[0].order_status,
+                note: 'สถานะปัจจุบันของออเดอร์เดิม',
+                created_at: orders[0].order_date,
+                username: null,
+                full_name: null,
+            }],
+            notes,
+        });
+    } catch (err) {
+        respondError(res, err, 'โหลดรายละเอียดคำสั่งซื้อไม่สำเร็จ');
+    }
+});
+
+app.post('/api/admin/orders/:id/notes', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { note, user_id } = req.body;
+        const cleanNote = String(note || '').trim();
+        if (!cleanNote) return res.status(400).json({ error: 'กรุณากรอกหมายเหตุ' });
+        const [orders] = await query('SELECT order_id FROM orders WHERE order_id = ?', [id]);
+        if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
+        const [result] = await query(
+            'INSERT INTO order_admin_notes (order_id, user_id, note) VALUES (?, ?, ?)',
+            [id, user_id || null, cleanNote],
+        );
+        await writeSystemLog(user_id, 'เพิ่มหมายเหตุออเดอร์', `เพิ่มหมายเหตุคำสั่งซื้อ #${id}`);
+        res.json({ success: true, note_id: result.insertId });
+    } catch (err) {
+        respondError(res, err, 'เพิ่มหมายเหตุไม่สำเร็จ');
+    }
+});
+
 app.post('/api/admin/orders/delete', async (req, res) => {
     try {
         const { order_id, user_id } = req.body;
@@ -754,6 +1057,8 @@ app.post('/api/admin/orders/delete', async (req, res) => {
             }
         }
         await query('DELETE FROM stock_logs WHERE order_detail_id IN (SELECT order_detail_id FROM order_detail WHERE order_id = ?)', [order_id]);
+        await query('DELETE FROM order_status_history WHERE order_id = ?', [order_id]);
+        await query('DELETE FROM order_admin_notes WHERE order_id = ?', [order_id]);
         await query('DELETE FROM payment WHERE order_id = ?', [order_id]);
         await query('DELETE FROM order_detail WHERE order_id = ?', [order_id]);
         await query('DELETE FROM orders WHERE order_id = ?', [order_id]);
@@ -1507,6 +1812,7 @@ app.post('/api/orders/checkout', async (req, res) => {
         );
 
         const orderId = orderResult.insertId;
+        await writeOrderStatusHistory(orderId, initialOrderStatus, user_id, 'สร้างคำสั่งซื้อ');
 
         for (const item of cart_items) {
             const productId = item.id || item.product_id || item.p_id;
@@ -1590,6 +1896,7 @@ app.put('/api/orders/:id/receipt', async (req, res) => {
             'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
             ['รอตรวจสอบ', 'รอตรวจสอบ', id],
         );
+        await writeOrderStatusHistory(id, 'รอตรวจสอบ', order.user_id, 'ลูกค้าแนบหลักฐานการชำระเงิน');
 
         res.json({ success: true, message: 'แนบสลิปเรียบร้อยแล้ว', receipt_image: receiptUrl });
     } catch (err) {
@@ -1650,6 +1957,7 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
             'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
             ['ยกเลิก', 'ยกเลิก', id],
         );
+        await writeOrderStatusHistory(id, 'ยกเลิก', order.user_id, 'ลูกค้ายกเลิกคำสั่งซื้อ');
         await writeSystemLog(order.user_id, 'ยกเลิกคำสั่งซื้อ', `ลูกค้ายกเลิกคำสั่งซื้อ #${id}`);
 
         res.json({ success: true, message: 'ยกเลิกคำสั่งซื้อและคืนสต็อกเรียบร้อยแล้ว' });
@@ -1712,6 +2020,12 @@ app.put('/api/orders/:id/status', async (req, res) => {
         await query(
             'UPDATE orders SET order_status = ?, payment_status = ?, tracking_no = COALESCE(?, tracking_no) WHERE order_id = ?',
             [requestedStatus, paymentStatus, trackingNo || null, id],
+        );
+        await writeOrderStatusHistory(
+            id,
+            requestedStatus,
+            user_id,
+            trackingNo ? `เลขพัสดุ ${trackingNo}` : 'แอดมินอัปเดตสถานะ',
         );
         await writeSystemLog(
             user_id,

@@ -2,6 +2,15 @@ import apiClient from './client';
 
 export const getAdminOrders = () => apiClient.get('/api/admin/orders');
 
+export const getOrderDetails = (orderId) => apiClient.get(`/api/admin/orders/${orderId}/details`);
+
+export const addOrderNote = (orderId, note, userId) => apiClient.post(`/api/admin/orders/${orderId}/notes`, {
+    note,
+    user_id: userId,
+});
+
+export const getDashboardStats = (params = {}) => apiClient.get('/api/admin/dashboard', { params });
+
 export const deleteAdminOrder = (orderId, userId) => apiClient.post('/api/admin/orders/delete', {
     order_id: orderId,
     user_id: userId,

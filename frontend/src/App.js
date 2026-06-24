@@ -85,6 +85,7 @@ function App() {
     const [registerMsg, setRegisterMsg] = useState({ type: '', text: '' });
 
     const [adminOrders, setAdminOrders] = useState([]);
+    const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [customersLoading, setCustomersLoading] = useState(false);
     const [customersMeta, setCustomersMeta] = useState({
@@ -170,11 +171,14 @@ function App() {
     }, []);
 
     const fetchAdminOrders = async () => {
+        setAdminOrdersLoading(true);
         try {
             const res = await adminApi.getAdminOrders();
             setAdminOrders(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error(err);
+        } finally {
+            setAdminOrdersLoading(false);
         }
     };
 
@@ -950,7 +954,9 @@ function App() {
                     <AdminPage
                         adminPage={adminPage}
                         setAdminPage={setAdminPage}
+                        setIsAdminView={setIsAdminView}
                         orders={adminOrders}
+                        ordersLoading={adminOrdersLoading}
                         products={products}
                         productsLoading={productsLoading}
                         categories={categories}

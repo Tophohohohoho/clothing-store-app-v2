@@ -14,6 +14,7 @@
 /build-codex-verify
 /build-codex-*
 /build-*-check
+/build-commerce-dashboard-*
 
 # misc
 .DS_Store

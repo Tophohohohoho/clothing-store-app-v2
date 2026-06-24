@@ -199,7 +199,11 @@ function AdminAddProductPage({
     onDeleteCategory,
 }) {
     const [showAddForm, setShowAddForm] = useState(false);
-    const [productAdminView, setProductAdminView] = useState('products');
+    const [productAdminView, setProductAdminView] = useState(() => {
+        const requestedView = sessionStorage.getItem('adminProductView');
+        sessionStorage.removeItem('adminProductView');
+        return requestedView === 'categories' ? 'categories' : 'products';
+    });
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [stockFilter, setStockFilter] = useState('all');
