@@ -9,7 +9,7 @@ const formatMoney = (value) => {
     });
 };
 
-const orderStatuses = ['ทั้งหมด', 'รอชำระ', 'รอตรวจสอบ', 'กำลังจัดส่ง', 'เตรียมสินค้า', 'พร้อมรับ', 'จัดส่งแล้ว', 'ยกเลิก'];
+const orderStatuses = ['ทั้งหมด', 'รอชำระ', 'รอตรวจสอบ', 'กำลังจัดส่ง', 'เตรียมสินค้า', 'พร้อมรับ', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
 const getApproveStatus = (order) => (isPickupOrder(order) ? 'เตรียมสินค้า' : 'กำลังจัดส่ง');
 const getStatusClass = (status) => {
@@ -541,6 +541,7 @@ function AdminDashboardPage({
                         <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
                         <option value="ส่งสินค้า">ส่งสินค้า</option>
                         <option value="รับหน้าร้าน">รับหน้าร้าน</option>
+                        <option value="ขายหน้าร้าน">ขายหน้าร้าน (POS)</option>
                     </select>
                     <select value={orderDatePreset} onChange={(event) => setOrderDatePreset(event.target.value)}>
                         {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}

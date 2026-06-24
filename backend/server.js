@@ -1734,6 +1734,144 @@ app.post('/api/admin/products/status', async (req, res) => {
     }
 });
 
+app.post('/api/admin/pos/checkout', async (req, res) => {
+    let transactionStarted = false;
+    try {
+        const {
+            user_id,
+            payment_method,
+            cash_received,
+            cart_items,
+        } = req.body;
+
+        if (!user_id) return res.status(400).json({ error: 'ไม่พบข้อมูลพนักงานขาย' });
+        if (!Array.isArray(cart_items) || cart_items.length === 0) {
+            return res.status(400).json({ error: 'ไม่มีสินค้าในรายการขาย' });
+        }
+        if (!['เงินสด', 'QR'].includes(payment_method)) {
+            return res.status(400).json({ error: 'รองรับการชำระเงินสดหรือ QR เท่านั้น' });
+        }
+
+        const [admins] = await query(
+            'SELECT user_id, username, full_name FROM `user` WHERE user_id = ? AND role = ? AND status_user = 1 LIMIT 1',
+            [user_id, 'admin'],
+        );
+        if (admins.length === 0) return res.status(403).json({ error: 'เฉพาะแอดมินเท่านั้นที่บันทึกการขายหน้าร้านได้' });
+
+        await dbp.beginTransaction();
+        transactionStarted = true;
+
+        const receiptItems = [];
+        let totalPrice = 0;
+        let itemCount = 0;
+
+        for (const item of cart_items) {
+            const productId = item.id || item.product_id || item.p_id;
+            const quantity = Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10);
+            const selectedSize = String(item.selected_size || item.size || '').trim() || null;
+            const selectedColor = String(item.selected_color || item.color || '').trim() || null;
+
+            if (!productId || !Number.isInteger(quantity) || quantity <= 0) {
+                throw new Error('ข้อมูลสินค้าในรายการขายไม่ถูกต้อง');
+            }
+
+            const [products] = await dbp.query(
+                'SELECT product_id, product_name, price, quantity FROM product WHERE product_id = ? AND product_status = 1 FOR UPDATE',
+                [productId],
+            );
+            if (products.length === 0) throw new Error('ไม่พบสินค้าในระบบ');
+
+            const product = products[0];
+            if ((Number(product.quantity) || 0) < quantity) {
+                throw new Error(`สินค้า ${product.product_name} มีจำนวนไม่พอ`);
+            }
+
+            const price = Number(product.price) || 0;
+            totalPrice += price * quantity;
+            itemCount += quantity;
+            receiptItems.push({
+                product_id: product.product_id,
+                name: product.product_name,
+                price,
+                quantity,
+                selected_size: selectedSize,
+                selected_color: selectedColor,
+            });
+        }
+
+        const receivedAmount = Number(cash_received) || 0;
+        if (payment_method === 'เงินสด' && receivedAmount < totalPrice) {
+            throw new Error('จำนวนเงินที่รับมาไม่เพียงพอ');
+        }
+
+        const [orderResult] = await dbp.query(
+            `INSERT INTO orders
+                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, tracking_no)
+             VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, NULL)`,
+            [user_id, totalPrice, totalPrice, 'เสร็จสิ้น', payment_method, 'ชำระเงินแล้ว', 'ขายหน้าร้าน'],
+        );
+        const orderId = orderResult.insertId;
+
+        for (const item of receiptItems) {
+            const [detailResult] = await dbp.query(
+                'INSERT INTO order_detail (product_id, order_id, quantity, price, selected_size, selected_color) VALUES (?, ?, ?, ?, ?, ?)',
+                [item.product_id, orderId, item.quantity, item.price, item.selected_size, item.selected_color],
+            );
+            await dbp.query(
+                'UPDATE product SET quantity = quantity - ?, updated_stock = NOW() WHERE product_id = ?',
+                [item.quantity, item.product_id],
+            );
+            await dbp.query(
+                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
+                [item.product_id, 'ขายหน้าร้าน', item.quantity, detailResult.insertId, user_id],
+            );
+        }
+
+        await dbp.query(
+            'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image) VALUES (?, ?, ?, NULL)',
+            [orderId, payment_method, totalPrice],
+        );
+        await dbp.query(
+            'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
+            [orderId, 'เสร็จสิ้น', user_id, `ขายหน้าร้าน ชำระด้วย${payment_method}`],
+        );
+        await dbp.query(
+            'INSERT INTO system_log (user_id, action, remark) VALUES (?, ?, ?)',
+            [user_id, 'ขายหน้าร้าน', `คำสั่งซื้อ #${orderId} ชำระด้วย${payment_method}`],
+        );
+
+        await dbp.commit();
+        transactionStarted = false;
+
+        const orderDate = new Date();
+        res.json({
+            success: true,
+            receipt: {
+                order_id: orderId,
+                order_date: orderDate.toISOString(),
+                payment_method,
+                total: totalPrice,
+                cash_received: payment_method === 'เงินสด' ? receivedAmount : totalPrice,
+                change: payment_method === 'เงินสด' ? Math.max(receivedAmount - totalPrice, 0) : 0,
+                item_count: itemCount,
+                items: receiptItems,
+                cashier: admins[0].full_name || admins[0].username,
+            },
+        });
+    } catch (err) {
+        if (transactionStarted) {
+            try {
+                await dbp.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback POS sale failed', rollbackError);
+            }
+        }
+        const status = /ไม่พบ|ไม่ถูกต้อง|ไม่พอ|ไม่เพียงพอ/.test(err.message) ? 400 : 500;
+        console.error('บันทึกการขายหน้าร้านไม่สำเร็จ', err);
+        res.status(status).json({ error: err.message || 'บันทึกการขายหน้าร้านไม่สำเร็จ' });
+    }
+});
+
 app.post('/api/orders/checkout', async (req, res) => {
     try {
         const {

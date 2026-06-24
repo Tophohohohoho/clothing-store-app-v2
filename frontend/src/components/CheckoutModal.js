@@ -1,4 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const BANK_ACCOUNT = '123-4-56789-0';
+const BANK_ACCOUNT_DIGITS = '1234567890';
+const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 const emptyThaiAddressData = {
     provinces: [],
@@ -38,6 +43,35 @@ const formatAddressOption = (address) => {
     return `${prefix}${receiverName} | ${phone} | ${addressLine}`;
 };
 
+const crc16 = (value) => {
+    let crc = 0xffff;
+    for (let index = 0; index < value.length; index += 1) {
+        crc ^= value.charCodeAt(index) << 8;
+        for (let bit = 0; bit < 8; bit += 1) {
+            crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+            crc &= 0xffff;
+        }
+    }
+    return crc.toString(16).toUpperCase().padStart(4, '0');
+};
+
+const createPromptPayPayload = (promptPayId, amount) => {
+    const digits = String(promptPayId || '').replace(/\D/g, '');
+    const target = digits.length === 10 ? `0066${digits.slice(1)}` : digits;
+    const merchantInfo = `0016A0000006770101110113${target}`;
+    const fields = [
+        '000201',
+        '010212',
+        `29${String(merchantInfo.length).padStart(2, '0')}${merchantInfo}`,
+        '5303764',
+        `54${amount.toFixed(2).length.toString().padStart(2, '0')}${amount.toFixed(2)}`,
+        '5802TH',
+        '6304',
+    ].join('');
+
+    return `${fields}${crc16(fields)}`;
+};
+
 function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], onClose, onConfirm, onSaveNewAddress }) {
     const selectedAddressId = shippingInfo.address_id || '';
     const [isAddingAddress, setIsAddingAddress] = useState(false);
@@ -46,9 +80,14 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
     const [isSavingAddress, setIsSavingAddress] = useState(false);
     const [thaiAddressData, setThaiAddressData] = useState(emptyThaiAddressData);
     const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
+    const [isDraggingReceipt, setIsDraggingReceipt] = useState(false);
+    const [receiptError, setReceiptError] = useState('');
+    const [validationError, setValidationError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAccountCopied, setIsAccountCopied] = useState(false);
+    const receiptInputRef = useRef(null);
     const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : 50;
-    const discount = Math.min(Math.max(Number(shippingInfo.discount) || 0, 0), total + shippingFee);
-    const finalTotal = Math.max(total + shippingFee - discount, 0);
+    const finalTotal = total + shippingFee;
     const formatMoney = (value) => Number(value || 0).toLocaleString(undefined, {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
@@ -63,6 +102,11 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         province: shippingInfo.province,
         postal_code: shippingInfo.postal_code,
     });
+    const promptPayPayload = useMemo(
+        () => createPromptPayPayload(BANK_ACCOUNT_DIGITS, finalTotal),
+        [finalTotal]
+    );
+    const qrCodeUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=M&text=${encodeURIComponent(promptPayPayload)}`;
 
     useEffect(() => {
         let isMounted = true;
@@ -198,38 +242,92 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         }
     };
 
-    const handleReceiptChange = (event) => {
-        const file = event.target.files?.[0];
+    const processReceiptFile = (file) => {
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            alert('กรุณาเลือกไฟล์รูปภาพสลิปเท่านั้น');
-            event.target.value = '';
+        if (!ACCEPTED_RECEIPT_TYPES.includes(file.type)) {
+            setReceiptError('รองรับเฉพาะไฟล์ JPG, PNG หรือ WebP');
             return;
         }
 
+        if (file.size > MAX_RECEIPT_SIZE) {
+            setReceiptError('ไฟล์ต้องมีขนาดไม่เกิน 5 MB');
+            return;
+        }
+
+        setReceiptError('');
+        setValidationError('');
         const reader = new FileReader();
         reader.onload = () => {
-            setShippingInfo({
-                ...shippingInfo,
+            setShippingInfo((current) => ({
+                ...current,
                 receipt_image_data: reader.result,
                 receipt_file_name: file.name,
-            });
+                receipt_file_size: file.size,
+            }));
         };
+        reader.onerror = () => setReceiptError('ไม่สามารถอ่านไฟล์นี้ได้ กรุณาลองใหม่');
         reader.readAsDataURL(file);
     };
 
+    const handleReceiptChange = (event) => {
+        processReceiptFile(event.target.files?.[0]);
+        event.target.value = '';
+    };
+
+    const handleReceiptDrop = (event) => {
+        event.preventDefault();
+        setIsDraggingReceipt(false);
+        processReceiptFile(event.dataTransfer.files?.[0]);
+    };
+
     const removeReceipt = () => {
-        setShippingInfo({
-            ...shippingInfo,
+        setShippingInfo((current) => ({
+            ...current,
             receipt_image_data: '',
             receipt_file_name: '',
-        });
+            receipt_file_size: 0,
+        }));
+        setReceiptError('');
+    };
+
+    const copyBankAccount = async () => {
+        try {
+            await navigator.clipboard.writeText(BANK_ACCOUNT_DIGITS);
+            setIsAccountCopied(true);
+            window.setTimeout(() => setIsAccountCopied(false), 1800);
+        } catch {
+            setValidationError(`คัดลอกอัตโนมัติไม่สำเร็จ กรุณาคัดลอกเลขบัญชี ${BANK_ACCOUNT}`);
+        }
+    };
+
+    const handleConfirm = async () => {
+        setValidationError('');
+
+        const cleanPhone = String(shippingInfo.phone || '').replace(/\D/g, '');
+        if (!shippingInfo.shipping_method) {
+            setValidationError('กรุณาเลือกรูปแบบการรับสินค้า');
+            return;
+        }
+        if (shippingInfo.shipping_method === 'ส่งสินค้า' && !displayAddress) {
+            setValidationError('กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน');
+            return;
+        }
+        if (cleanPhone.length < 9 || cleanPhone.length > 10) {
+            setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
+            return;
+        }
+        try {
+            setIsSubmitting(true);
+            await onConfirm();
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
-        <div className="modal d-block" style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', zIndex: 1060 }}>
-            <div className="modal-dialog modal-dialog-centered">
+        <div className="modal d-block checkout-modal-backdrop" style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', zIndex: 1060 }}>
+            <div className="modal-dialog modal-dialog-centered checkout-modal-dialog">
                 <div className="modal-content border-0 shadow-lg rounded-4">
                     <div className="modal-header border-0 bg-light rounded-top-4 p-4 pb-2">
                         <h5 className="modal-title fw-bold text-dark">ข้อมูลการจัดส่งและชำระเงิน</h5>
@@ -240,31 +338,47 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                             <small className="d-block mb-1 text-secondary">ยอดสุทธิที่ต้องชำระ</small>
                             <h3 className="fw-bold m-0">฿{formatMoney(finalTotal)}</h3>
                         </div>
-                        <div className="border rounded-3 p-3 mb-4 bg-light">
-                            <small className="fw-bold text-secondary d-block mb-2">ช่องทางการโอนเงิน</small>
-                            <p className="m-0 small text-dark"><strong>ธนาคารกสิกรไทย:</strong> 123-4-56789-0</p>
-                            <p className="m-0 small text-dark"><strong>ชื่อบัญชี:</strong> บริษัท เสื้อผ้าแฟชั่น จำกัด</p>
+                        <div className="checkout-payment-card mb-4">
+                            <div className="checkout-bank-details">
+                                <small className="fw-bold text-secondary d-block mb-2">ช่องทางการโอนเงิน</small>
+                                <p className="m-0 small text-dark"><strong>ธนาคารกสิกรไทย</strong></p>
+                                <div className="checkout-account-row">
+                                    <span>{BANK_ACCOUNT}</span>
+                                    <button type="button" onClick={copyBankAccount}>
+                                        {isAccountCopied ? 'คัดลอกแล้ว ✓' : 'คัดลอกเลขบัญชี'}
+                                    </button>
+                                </div>
+                                <p className="m-0 small text-dark"><strong>ชื่อบัญชี:</strong> บริษัท เสื้อผ้าแฟชั่น จำกัด</p>
+                                <span className="checkout-payment-hint">โอนตามยอดสุทธิและแนบสลิปด้านล่าง</span>
+                            </div>
+                            <div className="checkout-qr">
+                                <img src={qrCodeUrl} alt={`QR Code ชำระเงินจำนวน ${formatMoney(finalTotal)} บาท`} />
+                                <strong>สแกนชำระ ฿{formatMoney(finalTotal)}</strong>
+                                <small>PromptPay QR</small>
+                            </div>
                         </div>
                         <div className="mb-4">
                             <label className="form-label small fw-bold text-secondary">รูปแบบการรับสินค้า</label>
-                            <div className="d-flex gap-2">
+                            <div className="checkout-shipping-options">
                                 <button
                                     type="button"
-                                    className={`btn flex-grow-1 py-2 rounded-3 fw-bold border ${shippingInfo.shipping_method === 'ส่งสินค้า' ? 'btn-success border-success' : 'btn-light bg-white text-muted'}`}
-                                    onClick={() => setShippingInfo({ ...shippingInfo, shipping_method: 'ส่งสินค้า', shipping_fee: 50 })}
+                                    className={`checkout-shipping-option ${shippingInfo.shipping_method === 'ส่งสินค้า' ? 'is-active' : ''}`}
+                                    onClick={() => setShippingInfo({ ...shippingInfo, shipping_method: 'ส่งสินค้า', shipping_fee: 50, discount: 0 })}
                                 >
-                                    ส่งสินค้าตามที่อยู่ +฿50
+                                    <span className="checkout-option-check" aria-hidden="true">✓</span>
+                                    <span><strong>ส่งสินค้าตามที่อยู่</strong><small>จัดส่งถึงบ้าน +฿50</small></span>
                                 </button>
                                 <button
                                     type="button"
-                                    className={`btn flex-grow-1 py-2 rounded-3 fw-bold border ${shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'btn-success border-success' : 'btn-light bg-white text-muted'}`}
-                                    onClick={() => setShippingInfo({ ...shippingInfo, shipping_method: 'รับหน้าร้าน', shipping_fee: 0 })}
+                                    className={`checkout-shipping-option ${shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'is-active' : ''}`}
+                                    onClick={() => setShippingInfo({ ...shippingInfo, shipping_method: 'รับหน้าร้าน', shipping_fee: 0, discount: 0 })}
                                 >
-                                    รับเองที่หน้าร้าน
+                                    <span className="checkout-option-check" aria-hidden="true">✓</span>
+                                    <span><strong>รับเองที่หน้าร้าน</strong><small>ไม่มีค่าจัดส่ง</small></span>
                                 </button>
                             </div>
                         </div>
-                        <div className="mb-3">
+                        {shippingInfo.shipping_method === 'ส่งสินค้า' && <div className="mb-3">
                             <label className="form-label small fw-bold text-secondary">ที่อยู่จัดส่งสินค้า</label>
                             <div className="position-relative mb-3">
                                 <button
@@ -396,30 +510,62 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </div>}
                         <div className="mt-3">
                             <label className="form-label small fw-bold text-secondary">อัปโหลดสลิปโอนเงิน</label>
-                            <input type="file" className="form-control rounded-3 border-light-subtle py-2 shadow-sm" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" onChange={handleReceiptChange} />
-                            {shippingInfo.receipt_image_data && (
-                                <div className="mt-3 border rounded-3 p-2 bg-white">
-                                    <img src={shippingInfo.receipt_image_data} alt="ตัวอย่างสลิปโอนเงิน" style={{ width: '100%', maxHeight: 220, objectFit: 'contain' }} />
-                                    <div className="d-flex justify-content-between align-items-center mt-2">
-                                        <small className="text-muted">{shippingInfo.receipt_file_name}</small>
-                                        <button type="button" className="btn btn-sm btn-outline-danger" onClick={removeReceipt}>ลบสลิป</button>
+                            <input
+                                ref={receiptInputRef}
+                                type="file"
+                                className="checkout-receipt-input"
+                                accept="image/png,image/jpeg,image/webp"
+                                onChange={handleReceiptChange}
+                            />
+                            {!shippingInfo.receipt_image_data ? (
+                                <button
+                                    type="button"
+                                    className={`checkout-upload-zone ${isDraggingReceipt ? 'is-dragging' : ''} ${receiptError ? 'has-error' : ''}`}
+                                    onClick={() => receiptInputRef.current?.click()}
+                                    onDragEnter={(event) => { event.preventDefault(); setIsDraggingReceipt(true); }}
+                                    onDragOver={(event) => event.preventDefault()}
+                                    onDragLeave={(event) => {
+                                        if (!event.currentTarget.contains(event.relatedTarget)) setIsDraggingReceipt(false);
+                                    }}
+                                    onDrop={handleReceiptDrop}
+                                >
+                                    <span className="checkout-upload-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 15v4h14v-4" /></svg>
+                                    </span>
+                                    <strong>{isDraggingReceipt ? 'วางไฟล์เพื่ออัปโหลด' : 'ลากสลิปมาวางที่นี่'}</strong>
+                                    <span>หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์</span>
+                                    <small>JPG, PNG, WebP ขนาดไม่เกิน 5 MB</small>
+                                </button>
+                            ) : (
+                                <div className="checkout-receipt-preview">
+                                    <img src={shippingInfo.receipt_image_data} alt="ตัวอย่างสลิปโอนเงิน" />
+                                    <div className="checkout-file-status">
+                                        <span className="checkout-file-success" aria-hidden="true">✓</span>
+                                        <div>
+                                            <strong>อัปโหลดสลิปเรียบร้อยแล้ว</strong>
+                                            <small>{shippingInfo.receipt_file_name}</small>
+                                            {shippingInfo.receipt_file_size > 0 && (
+                                                <small>{(shippingInfo.receipt_file_size / 1024 / 1024).toFixed(2)} MB</small>
+                                            )}
+                                        </div>
+                                        <div className="checkout-file-actions">
+                                            <button type="button" onClick={() => receiptInputRef.current?.click()}>เปลี่ยนไฟล์</button>
+                                            <button type="button" className="is-danger" onClick={removeReceipt}>ลบ</button>
+                                        </div>
                                     </div>
+                                </div>
+                            )}
+                            {receiptError && <div className="checkout-field-error">{receiptError}</div>}
+                            {!shippingInfo.receipt_image_data && !receiptError && (
+                                <div className="checkout-receipt-later-note">
+                                    ยังไม่พร้อมชำระ? สามารถบันทึกคำสั่งซื้อตอนนี้ แล้วกลับมาแนบสลิปภายหลังได้ในประวัติคำสั่งซื้อ
                                 </div>
                             )}
                         </div>
                         <div className="border rounded-3 p-3 mt-4 bg-white">
-                            <label className="form-label small fw-bold text-secondary">ส่วนลด (บาท)</label>
-                            <input
-                                type="number"
-                                min="0"
-                                max={total + shippingFee}
-                                className="form-control rounded-3 border-light-subtle py-2 shadow-sm mb-3"
-                                value={shippingInfo.discount}
-                                onChange={(e) => setShippingInfo({ ...shippingInfo, discount: e.target.value })}
-                            />
                             <div className="d-flex justify-content-between small mb-2">
                                 <span className="text-muted">ยอดสินค้า</span>
                                 <strong>฿{formatMoney(total)}</strong>
@@ -428,19 +574,26 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                 <span className="text-muted">ค่าส่ง</span>
                                 <strong>฿{formatMoney(shippingFee)}</strong>
                             </div>
-                            <div className="d-flex justify-content-between small mb-2">
-                                <span className="text-muted">ส่วนลด</span>
-                                <strong className="text-danger">-฿{formatMoney(discount)}</strong>
-                            </div>
                             <div className="d-flex justify-content-between border-top pt-2">
                                 <span className="fw-bold">ยอดสุทธิ</span>
                                 <strong className="text-success">฿{formatMoney(finalTotal)}</strong>
                             </div>
                         </div>
                     </div>
-                    <div className="modal-footer border-0 p-4 pt-0 d-flex gap-2">
-                        <button className="btn btn-light rounded-pill px-4 py-2 fw-medium flex-grow-1" onClick={onClose}>ย้อนกลับ</button>
-                        <button className="btn btn-primary w-100 fw-bold py-2" onClick={onConfirm}>ยืนยันชำระเงิน</button>
+                    <div className="modal-footer border-0 p-4 pt-0 checkout-modal-footer">
+                        {validationError && (
+                            <div className="checkout-validation-alert" role="alert">
+                                <span aria-hidden="true">!</span>{validationError}
+                            </div>
+                        )}
+                        <div className="d-flex gap-2 w-100">
+                            <button className="btn btn-light rounded-pill px-4 py-2 fw-medium flex-grow-1" onClick={onClose} disabled={isSubmitting}>ย้อนกลับ</button>
+                            <button className="btn btn-primary w-100 fw-bold py-2 checkout-confirm-button" onClick={handleConfirm} disabled={isSubmitting}>
+                                {isSubmitting ? (
+                                    <><span className="checkout-spinner" aria-hidden="true" />กำลังส่งข้อมูล...</>
+                                ) : shippingInfo.receipt_image_data ? 'ยืนยันการชำระเงิน' : 'บันทึกคำสั่งซื้อก่อน'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

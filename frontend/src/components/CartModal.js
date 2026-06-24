@@ -1,6 +1,30 @@
-import { getCartTotal, getItemPrice } from '../utils/cart';
+import { useEffect } from 'react';
+import { getCartCount, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
 
-function CartModal({ cart, setCart, onClose, onCheckout }) {
+const formatCurrency = (value) => Number(value || 0).toLocaleString('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+});
+
+function CartModal({ cart, setCart, onClose, onCheckout, checkoutLabel = 'ชำระเงินทันที' }) {
+    const itemCount = getCartCount(cart);
+    const cartTotal = getCartTotal(cart);
+
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') onClose();
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onClose]);
+
     const isSameCartItem = (cartItem, item) => (
         cartItem.id === item.id
         && (cartItem.selected_size || '') === (item.selected_size || '')
@@ -8,84 +32,163 @@ function CartModal({ cart, setCart, onClose, onCheckout }) {
     );
 
     const decreaseQty = (item) => {
-        if (item.qty <= 1) {
+        const quantity = getItemQuantity(item);
+        if (quantity <= 1) {
             if (window.confirm(`ลบ ${item.name} ออกจากตะกร้า?`)) {
-                setCart(cart.filter((cartItem) => !isSameCartItem(cartItem, item)));
+                setCart((currentCart) => currentCart.filter((cartItem) => !isSameCartItem(cartItem, item)));
             }
             return;
         }
 
-        setCart(cart.map((cartItem) => (
-            isSameCartItem(cartItem, item) ? { ...cartItem, qty: cartItem.qty - 1 } : cartItem
+        setCart((currentCart) => currentCart.map((cartItem) => (
+            isSameCartItem(cartItem, item) ? { ...cartItem, qty: getItemQuantity(cartItem) - 1 } : cartItem
         )));
     };
 
     const increaseQty = (item) => {
-        if (item.stock && item.qty >= item.stock) {
-            alert(`สินค้าในคลังมีเพียง ${item.stock} ชิ้น`);
+        const stock = Number(item.stock);
+        const quantity = getItemQuantity(item);
+        if (Number.isFinite(stock) && stock >= 0 && quantity >= stock) {
+            alert(`สินค้าในคลังมีเพียง ${stock} ชิ้น`);
             return;
         }
 
-        setCart(cart.map((cartItem) => (
-            isSameCartItem(cartItem, item) ? { ...cartItem, qty: cartItem.qty + 1 } : cartItem
+        setCart((currentCart) => currentCart.map((cartItem) => (
+            isSameCartItem(cartItem, item) ? { ...cartItem, qty: getItemQuantity(cartItem) + 1 } : cartItem
         )));
     };
 
     const removeItem = (item) => {
         if (window.confirm(`ลบ ${item.name} ออกจากตะกร้า?`)) {
-            setCart(cart.filter((cartItem) => !isSameCartItem(cartItem, item)));
+            setCart((currentCart) => currentCart.filter((cartItem) => !isSameCartItem(cartItem, item)));
         }
     };
 
     return (
-        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
-            <div className="modal-dialog modal-dialog-centered">
-                <div className="modal-content border-0 rounded-4 shadow">
-                    <div className="modal-header border-0 pb-0">
-                        <h5 className="fw-bold m-0">ตะกร้าสินค้า</h5>
-                        <button className="btn-close" onClick={onClose}></button>
+        <div className="cart-modal-backdrop" onMouseDown={onClose}>
+            <section
+                className={`cart-modal-dialog ${cart.length === 0 ? 'is-empty' : ''}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cart-modal-title"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <header className="cart-modal-header">
+                    <div>
+                        <span className="cart-modal-eyebrow">YOUR CART</span>
+                        <h2 id="cart-modal-title">ตะกร้าสินค้า</h2>
+                        {itemCount > 0 && <p>สินค้าทั้งหมด {itemCount} ชิ้น</p>}
                     </div>
-                    <div className="modal-body overflow-auto" style={{ maxHeight: '400px' }}>
-                        {cart.length === 0 ? (
-                            <p className="text-center py-4 text-muted">ตะกร้าว่างเปล่า</p>
-                        ) : (
-                            cart.map((item) => {
+                    <button type="button" className="cart-modal-close" onClick={onClose} aria-label="ปิดตะกร้าสินค้า">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </header>
+
+                {cart.length === 0 ? (
+                    <div className="cart-empty-state">
+                        <div className="cart-empty-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3.5 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H7" />
+                                <circle cx="10" cy="19" r="1.2" />
+                                <circle cx="18" cy="19" r="1.2" />
+                            </svg>
+                        </div>
+                        <h3>ตะกร้าของคุณยังว่างอยู่</h3>
+                        <p>เลือกสินค้าที่ชอบ แล้วกลับมาดำเนินการสั่งซื้อได้ทันที</p>
+                        <button type="button" className="cart-continue-button" onClick={onClose}>เลือกซื้อสินค้า</button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="cart-items" aria-live="polite">
+                            {cart.map((item, index) => {
                                 const price = getItemPrice(item);
+                                const quantity = getItemQuantity(item);
+                                const lineTotal = price * quantity;
+                                const itemKey = `${item.id}-${item.selected_size || ''}-${item.selected_color || ''}`;
+                                const stock = Number(item.stock);
+                                const isAtStockLimit = Number.isFinite(stock) && stock >= 0 && quantity >= stock;
 
                                 return (
-                                    <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3" key={item.id}>
-                                        <div style={{ flex: '1', minWidth: '0' }}>
-                                            <h6 className="fw-bold mb-1 text-truncate text-dark" style={{ maxWidth: '180px' }}>
-                                                {item.name}
-                                            </h6>
-                                            {item.selected_size && <small className="text-muted d-block">ไซซ์: {item.selected_size}</small>}
-                                            {item.selected_color && <small className="text-muted d-block">สี: {item.selected_color}</small>}
-                                            <span className="small text-success fw-semibold">฿{price.toLocaleString()}</span>
+                                    <article className="cart-item" key={itemKey} style={{ '--cart-item-delay': `${Math.min(index * 45, 180)}ms` }}>
+                                        <div className="cart-item-image">
+                                            <span aria-hidden="true">{item.name?.charAt(0) || 'C'}</span>
+                                            {item.image_url && (
+                                                <img
+                                                    src={item.image_url}
+                                                    alt={item.name || 'สินค้า'}
+                                                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                                                />
+                                            )}
                                         </div>
-                                        <div className="d-flex align-items-center bg-light rounded-pill p-1 mx-2">
-                                            <button className="btn btn-sm btn-white rounded-circle shadow-sm fw-bold border-0" style={{ width: 28, height: 28 }} onClick={() => decreaseQty(item)}>-</button>
-                                            <span className="fw-bold px-3 text-dark text-center" style={{ minWidth: 35 }}>{item.qty}</span>
-                                            <button className="btn btn-sm btn-white rounded-circle shadow-sm fw-bold border-0" style={{ width: 28, height: 28 }} onClick={() => increaseQty(item)}>+</button>
+
+                                        <div className="cart-item-content">
+                                            <div className="cart-item-heading">
+                                                <div>
+                                                    <h3>{item.name}</h3>
+                                                    {(item.selected_size || item.selected_color) && (
+                                                        <div className="cart-item-options">
+                                                            {item.selected_size && <span>ไซซ์ {item.selected_size}</span>}
+                                                            {item.selected_color && <span>สี {item.selected_color}</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    className="cart-remove-button"
+                                                    onClick={() => removeItem(item)}
+                                                    aria-label={`ลบ ${item.name} ออกจากตะกร้า`}
+                                                >
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5" />
+                                                    </svg>
+                                                    <span>ลบ</span>
+                                                </button>
+                                            </div>
+
+                                            <div className="cart-item-footer">
+                                                <div className="cart-price-breakdown">
+                                                    <span>฿{formatCurrency(price)} × {quantity}</span>
+                                                    <strong>= ฿{formatCurrency(lineTotal)}</strong>
+                                                </div>
+                                                <div className="cart-quantity-control" aria-label={`จำนวน ${item.name}`}>
+                                                    <button type="button" onClick={() => decreaseQty(item)} aria-label="ลดจำนวนสินค้า">−</button>
+                                                    <span key={quantity} className="cart-quantity-value">{quantity}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => increaseQty(item)}
+                                                        disabled={isAtStockLimit}
+                                                        aria-label="เพิ่มจำนวนสินค้า"
+                                                    >
+                                                        +
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="text-end d-flex align-items-center gap-2" style={{ minWidth: 90 }}>
-                                            <span className="fw-bold text-dark flex-grow-1">฿{(price * item.qty).toLocaleString()}</span>
-                                            <button className="btn btn-sm text-danger p-1 border-0" title="ลบสินค้า" onClick={() => removeItem(item)}>ลบ</button>
-                                        </div>
-                                    </div>
+                                    </article>
                                 );
-                            })
-                        )}
-                        <div className="text-end fw-bold mt-4 fs-5 border-top pt-2">
-                            ยอดรวม: <span className="text-primary">฿{getCartTotal(cart).toLocaleString()}</span>
+                            })}
                         </div>
-                    </div>
-                    <div className="modal-footer border-0 pt-0">
-                        <button className="btn btn-success w-100 rounded-pill py-2 fw-bold shadow-sm" onClick={onCheckout}>
-                            ชำระเงินทันที
-                        </button>
-                    </div>
-                </div>
-            </div>
+
+                        <footer className="cart-modal-footer">
+                            <div className="cart-summary">
+                                <div>
+                                    <span>จำนวนสินค้า</span>
+                                    <strong>{itemCount} ชิ้น</strong>
+                                </div>
+                                <div className="cart-summary-total">
+                                    <span>ยอดรวมทั้งหมด</span>
+                                    <strong>฿{formatCurrency(cartTotal)}</strong>
+                                </div>
+                            </div>
+                            <button type="button" className="cart-checkout-button" onClick={onCheckout}>
+                                <span>{checkoutLabel}</span>
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+                            </button>
+                            <p className="cart-checkout-note">ตรวจสอบสินค้าและจำนวนให้เรียบร้อยก่อนชำระเงิน</p>
+                        </footer>
+                    </>
+                )}
+            </section>
         </div>
     );
 }

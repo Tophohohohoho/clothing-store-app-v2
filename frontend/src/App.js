@@ -9,6 +9,7 @@ import * as ordersApi from './api/ordersApi';
 import AppNavbar from './components/AppNavbar';
 import CartModal from './components/CartModal';
 import CheckoutModal from './components/CheckoutModal';
+import PosCheckoutModal from './components/PosCheckoutModal';
 import OrderHistoryModal from './components/OrderHistoryModal';
 import ProfileModal from './components/ProfileModal';
 import StockEditModal from './components/StockEditModal';
@@ -113,6 +114,7 @@ function App() {
 
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
+    const [showPosCheckout, setShowPosCheckout] = useState(false);
     const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [profileUsername, setProfileUsername] = useState('');
@@ -137,6 +139,7 @@ function App() {
         shipping_method: 'ส่งสินค้า',
         receipt_image_data: '',
         receipt_file_name: '',
+        receipt_file_size: 0,
     });
 
     const total = getCartTotal(cart);
@@ -598,10 +601,33 @@ function App() {
             return;
         }
 
+        if (user?.role === 'admin') {
+            setIsCartOpen(false);
+            setShowPosCheckout(true);
+            return;
+        }
+
         const list = await fetchAddresses();
         const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
         applyAddressToCheckout(defaultAddress);
+        setShippingInfo((current) => ({ ...current, shipping_method: 'ส่งสินค้า', shipping_fee: DELIVERY_FEE }));
+        setIsCartOpen(false);
         setShowCheckout(true);
+    };
+
+    const handleConfirmPosPayment = async ({ payment_method, cash_received }) => {
+        const res = await ordersApi.checkoutPosOrder({
+            user_id: user?.id,
+            payment_method,
+            cash_received,
+            cart_items: cart,
+        });
+
+        if (!res.data.success) throw new Error(res.data.error || 'บันทึกการขายไม่สำเร็จ');
+
+        setCart([]);
+        await Promise.all([fetchProducts(), fetchAdminOrders(), fetchSystemLogs()]);
+        return res.data.receipt;
     };
 
     const handleConfirmPayment = async () => {
@@ -624,13 +650,12 @@ function App() {
 
         try {
             const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : DELIVERY_FEE;
-            const discount = Math.min(Math.max(Number(shippingInfo.discount) || 0, 0), total + shippingFee);
             const orderData = {
                 user_id: user?.id || null,
                 username: user?.username || 'ลูกค้าทั่วไป',
                 total_price: total,
                 shipping_fee: shippingFee,
-                discount,
+                discount: 0,
                 address_id: shippingInfo.address_id,
                 address: shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
                 phone: shippingInfo.phone,
@@ -651,7 +676,7 @@ function App() {
                 setCart([]);
                 setShowCheckout(false);
                 setIsCartOpen(false);
-                setShippingInfo({ address_id: null, receiver_name: '', address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '' });
+                setShippingInfo({ address_id: null, receiver_name: '', address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '', receipt_file_size: 0 });
                 await fetchProducts();
             }
         } catch (err) {
@@ -1040,6 +1065,7 @@ function App() {
                     setCart={setCart}
                     onClose={() => setIsCartOpen(false)}
                     onCheckout={handleCheckout}
+                    checkoutLabel={user?.role === 'admin' ? 'ไปหน้ารับชำระ' : 'ชำระเงินทันที'}
                 />
             )}
 
@@ -1052,6 +1078,15 @@ function App() {
                     onClose={() => setShowCheckout(false)}
                     onConfirm={handleConfirmPayment}
                     onSaveNewAddress={handleSaveCheckoutAddress}
+                />
+            )}
+
+            {showPosCheckout && (
+                <PosCheckoutModal
+                    cart={cart}
+                    cashier={user}
+                    onClose={() => setShowPosCheckout(false)}
+                    onConfirm={handleConfirmPosPayment}
                 />
             )}
 
