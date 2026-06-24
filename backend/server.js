@@ -1252,6 +1252,10 @@ app.put('/api/users/:id/profile', async (req, res) => {
         }
 
         const hasPassword = password && password.trim() !== '';
+        if (hasPassword && password.length < 8) {
+            return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
+        }
+
         const sql = hasPassword
             ? 'UPDATE `user` SET username = ?, password = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?'
             : 'UPDATE `user` SET username = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?';

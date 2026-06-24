@@ -35,6 +35,9 @@ function ProfileModal({
 }) {
     const [activeTab, setActiveTab] = useState('account');
     const [showAccountForm, setShowAccountForm] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [isSavingAccount, setIsSavingAccount] = useState(false);
+    const [accountNotice, setAccountNotice] = useState({ type: '', text: '' });
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [thaiAddressData, setThaiAddressData] = useState(emptyThaiAddressData);
     const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
@@ -132,16 +135,93 @@ function ProfileModal({
         setShowAddressForm(true);
     };
 
+    const displayName = user?.full_name || user?.username || 'ผู้ใช้งาน';
+    const initials = displayName
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part.charAt(0))
+        .join('')
+        .toUpperCase() || 'U';
+    const accountStatus = Number(user?.status_user ?? 1);
+    const statusDetails = accountStatus === 1
+        ? { label: 'ใช้งาน', className: 'active' }
+        : accountStatus === 2
+            ? { label: 'รอการยืนยัน', className: 'pending' }
+            : { label: 'ระงับการใช้งาน', className: 'suspended' };
+    const roleLabel = user?.role === 'admin' ? 'ผู้ดูแลระบบ' : 'สมาชิก';
+
+    const resetAccountForm = () => {
+        setUsername(user?.username || '');
+        setFullName(user?.full_name || user?.username || '');
+        setEmail(user?.email || '');
+        setPhone(user?.phone || '');
+        setPassword('');
+        setShowPassword(false);
+        setAccountNotice({ type: '', text: '' });
+    };
+
+    const handleCancelAccount = () => {
+        resetAccountForm();
+        setShowAccountForm(false);
+    };
+
+    const handleAccountSubmit = async (event) => {
+        event.preventDefault();
+        setAccountNotice({ type: '', text: '' });
+
+        if (!username.trim()) {
+            setAccountNotice({ type: 'error', text: 'กรุณากรอกชื่อผู้ใช้' });
+            return;
+        }
+
+        if (password && password.length < 8) {
+            setAccountNotice({ type: 'error', text: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
+            return;
+        }
+
+        setIsSavingAccount(true);
+        const result = await onSave();
+        setIsSavingAccount(false);
+
+        if (result?.success) {
+            setPassword('');
+            setShowPassword(false);
+            setShowAccountForm(false);
+            setAccountNotice({ type: 'success', text: result.message || 'บันทึกข้อมูลสำเร็จ' });
+        } else {
+            setAccountNotice({ type: 'error', text: result?.error || 'บันทึกข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง' });
+        }
+    };
+
     return (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1500 }}>
-            <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '760px' }}>
-                <div className="modal-content border-0 shadow-lg rounded-3">
-                    <div className="modal-header bg-dark text-white py-3">
-                        <h5 className="modal-title fw-bold">โปรไฟล์ของฉัน</h5>
-                        <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+        <div className="modal fade show d-block profile-modal-backdrop" tabIndex="-1" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <div className="modal-dialog modal-dialog-centered profile-modal-dialog">
+                <div className="modal-content border-0 shadow-lg profile-modal-content">
+                    <div className="modal-header profile-modal-header">
+                        <div>
+                            <span className="profile-modal-eyebrow">ACCOUNT SETTINGS</span>
+                            <h5 id="profile-modal-title" className="modal-title">จัดการโปรไฟล์</h5>
+                        </div>
+                        <button type="button" className="btn-close" onClick={onClose} aria-label="ปิดหน้าต่าง"></button>
                     </div>
-                    <div className="modal-body p-4">
-                        <div className="auth-tabs mb-4" role="tablist" aria-label="เลือกเมนูโปรไฟล์">
+                    <div className="modal-body profile-modal-body">
+                        <section className="profile-identity" aria-label="ข้อมูลบัญชีผู้ใช้">
+                            <div className="profile-avatar" aria-hidden="true">{initials}</div>
+                            <h4>{displayName}</h4>
+                            <p>@{user?.username || username}</p>
+                            <div className="profile-badges">
+                                <span className={`profile-status-badge ${statusDetails.className}`}>
+                                    <span className="profile-status-dot"></span>
+                                    {statusDetails.label}
+                                </span>
+                                <span className={`profile-role-badge ${user?.role === 'admin' ? 'admin' : ''}`}>
+                                    {roleLabel}
+                                </span>
+                            </div>
+                        </section>
+
+                        <div className="auth-tabs profile-tabs" role="tablist" aria-label="เลือกเมนูโปรไฟล์">
                             <button type="button" className={activeTab === 'account' ? 'active' : ''} onClick={() => setActiveTab('account')}>
                                 จัดการบัญชี
                             </button>
@@ -151,45 +231,91 @@ function ProfileModal({
                         </div>
 
                         {activeTab === 'account' ? (
-                            <div>
-                                <div className="d-flex justify-content-between align-items-center gap-3 mb-3">
-                                    <small className="text-muted">บัญชีปัจจุบัน: {user?.full_name || user?.username}</small>
+                            <div className="profile-account-panel">
+                                {accountNotice.text && (
+                                    <div className={`profile-toast ${accountNotice.type}`} role={accountNotice.type === 'error' ? 'alert' : 'status'} aria-live="polite">
+                                        <span className="profile-toast-icon" aria-hidden="true">
+                                            {accountNotice.type === 'success' ? '✓' : '!'}
+                                        </span>
+                                        <span>{accountNotice.text}</span>
+                                        <button type="button" onClick={() => setAccountNotice({ type: '', text: '' })} aria-label="ปิดข้อความแจ้งเตือน">×</button>
+                                    </div>
+                                )}
+
+                                <div className="profile-section-heading">
+                                    <div>
+                                        <h6>ข้อมูลบัญชี</h6>
+                                        <p>จัดการข้อมูลที่ใช้แสดงผลและเข้าสู่ระบบ</p>
+                                    </div>
                                     {!showAccountForm && (
-                                        <button type="button" className="btn btn-outline-dark fw-bold rounded-2 px-4" onClick={() => setShowAccountForm(true)}>
+                                        <button type="button" className="profile-edit-button" onClick={() => {
+                                            setAccountNotice({ type: '', text: '' });
+                                            setShowAccountForm(true);
+                                        }}>
                                             แก้ไขบัญชี
                                         </button>
                                     )}
                                 </div>
 
-                                <form onSubmit={onSave}>
-                                    <div className="row g-3">
+                                <form onSubmit={handleAccountSubmit}>
+                                    <div className="row g-4">
                                         <div className="col-md-6 text-start">
-                                            <label className="form-label fw-bold text-secondary small">ชื่อผู้ใช้</label>
-                                            <input type="text" className="form-control px-3 py-2 rounded-2" value={username} onChange={(e) => setUsername(e.target.value)} disabled={!showAccountForm} />
+                                            <label className="profile-form-label" htmlFor="profile-username">ชื่อผู้ใช้</label>
+                                            <input id="profile-username" type="text" className="form-control profile-form-control" value={username} onChange={(e) => setUsername(e.target.value)} disabled={!showAccountForm} />
                                         </div>
                                         <div className="col-md-6 text-start">
-                                            <label className="form-label fw-bold text-secondary small">ชื่อ-นามสกุล</label>
-                                            <input type="text" className="form-control px-3 py-2 rounded-2" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={!showAccountForm} />
+                                            <label className="profile-form-label" htmlFor="profile-fullname">ชื่อ-นามสกุล</label>
+                                            <input id="profile-fullname" type="text" className="form-control profile-form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={!showAccountForm} />
                                         </div>
                                         <div className="col-md-6 text-start">
-                                            <label className="form-label fw-bold text-secondary small">อีเมล</label>
-                                            <input type="email" className="form-control px-3 py-2 rounded-2" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!showAccountForm} />
+                                            <label className="profile-form-label" htmlFor="profile-email">อีเมล</label>
+                                            <input id="profile-email" type="email" className="form-control profile-form-control" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!showAccountForm} />
                                         </div>
                                         <div className="col-md-6 text-start">
-                                            <label className="form-label fw-bold text-secondary small">เบอร์โทร</label>
-                                            <input type="tel" className="form-control px-3 py-2 rounded-2" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!showAccountForm} />
+                                            <label className="profile-form-label" htmlFor="profile-phone">เบอร์โทร</label>
+                                            <input id="profile-phone" type="tel" className="form-control profile-form-control" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!showAccountForm} />
                                         </div>
                                         {showAccountForm && (
                                             <div className="col-12 text-start">
-                                                <label className="form-label fw-bold text-secondary small">รหัสผ่านใหม่</label>
-                                                <input type="password" className="form-control px-3 py-2 rounded-2" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="ปล่อยว่างถ้าไม่ต้องการเปลี่ยน" />
+                                                <label className="profile-form-label" htmlFor="profile-password">รหัสผ่านใหม่</label>
+                                                <div className="profile-password-field">
+                                                    <input
+                                                        id="profile-password"
+                                                        type={showPassword ? 'text' : 'password'}
+                                                        className="form-control profile-form-control"
+                                                        value={password}
+                                                        onChange={(e) => setPassword(e.target.value)}
+                                                        placeholder="ปล่อยว่างถ้าไม่ต้องการเปลี่ยน"
+                                                        autoComplete="new-password"
+                                                        aria-describedby="profile-password-help"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="profile-password-toggle"
+                                                        onClick={() => setShowPassword((visible) => !visible)}
+                                                        aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                                                        aria-pressed={showPassword}
+                                                    >
+                                                        {showPassword ? (
+                                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 002.7 2.7M9.9 4.2A10.8 10.8 0 0112 4c5.5 0 9 5.5 9 5.5a15.4 15.4 0 01-2.1 2.7M6.6 6.7C4.3 8.2 3 10 3 10s3.5 5.5 9 5.5c1.2 0 2.3-.3 3.3-.7" /></svg>
+                                                        ) : (
+                                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-5.5 9-5.5 9 5.5 9 5.5-3.5 5.5-9 5.5S3 12 3 12z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                                <small id="profile-password-help" className={`profile-password-help ${password && password.length < 8 ? 'invalid' : ''}`}>
+                                                    รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร
+                                                </small>
                                             </div>
                                         )}
                                     </div>
                                     {showAccountForm && (
-                                        <div className="d-flex gap-2 mt-3">
-                                            <button type="button" className="btn btn-light border w-100 fw-bold py-2 rounded-2" onClick={() => setShowAccountForm(false)}>ยกเลิก</button>
-                                            <button type="submit" className="btn btn-dark w-100 fw-bold py-2 rounded-2 shadow-sm">บันทึกบัญชี</button>
+                                        <div className="profile-form-actions">
+                                            <button type="button" className="profile-secondary-button" onClick={handleCancelAccount} disabled={isSavingAccount}>ยกเลิก</button>
+                                            <button type="submit" className="profile-primary-button" disabled={isSavingAccount}>
+                                                {isSavingAccount ? <span className="spinner-border spinner-border-sm" aria-hidden="true"></span> : null}
+                                                {isSavingAccount ? 'กำลังบันทึก...' : 'บันทึกบัญชี'}
+                                            </button>
                                         </div>
                                     )}
                                 </form>

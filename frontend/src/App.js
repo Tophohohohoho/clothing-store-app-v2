@@ -19,6 +19,11 @@ import { getCartTotal } from './utils/cart';
 
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
 
+const getStoredUser = () => {
+    const savedUser = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
+    return savedUser ? JSON.parse(savedUser) : null;
+};
+
 const emptyProduct = {
     name: '',
     description: '',
@@ -58,14 +63,16 @@ function App() {
     const [cart, setCart] = useState([]);
     const [user, setUser] = useState(() => {
         try {
-            const savedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-            return savedUser ? JSON.parse(savedUser) : null;
+            return getStoredUser();
         } catch (err) {
             localStorage.removeItem(AUTH_STORAGE_KEY);
+            sessionStorage.removeItem(AUTH_STORAGE_KEY);
             return null;
         }
     });
-    const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY)));
+    const [isLoggedIn, setIsLoggedIn] = useState(() => (
+        Boolean(localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY))
+    ));
     const [isRegisterView, setIsRegisterView] = useState(false);
     const [isAdminView, setIsAdminView] = useState(false);
     const [adminPage, setAdminPage] = useState('dashboard');
@@ -73,6 +80,7 @@ function App() {
     const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now());
 
     const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+    const [rememberLogin, setRememberLogin] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY)));
     const [registerForm, setRegisterForm] = useState({
         username: '',
         password: '',
@@ -82,6 +90,7 @@ function App() {
         phone: '',
     });
     const [loginError, setLoginError] = useState('');
+    const [isLoginLoading, setIsLoginLoading] = useState(false);
     const [registerMsg, setRegisterMsg] = useState({ type: '', text: '' });
 
     const [adminOrders, setAdminOrders] = useState([]);
@@ -255,18 +264,26 @@ function App() {
 
     const handleLogin = async (event) => {
         event.preventDefault();
+        if (isLoginLoading) return;
 
+        setIsLoginLoading(true);
+        setLoginError('');
         try {
             const res = await authApi.login(loginForm);
             if (res.data.success) {
                 setIsLoggedIn(true);
                 setUser(res.data.user);
                 setSessionStartedAt(Date.now());
-                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data.user));
+                const storage = rememberLogin ? localStorage : sessionStorage;
+                const otherStorage = rememberLogin ? sessionStorage : localStorage;
+                storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data.user));
+                otherStorage.removeItem(AUTH_STORAGE_KEY);
                 setLoginError('');
             }
         } catch (err) {
-            setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+            setLoginError(err.response?.data?.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+        } finally {
+            setIsLoginLoading(false);
         }
     };
 
@@ -339,6 +356,8 @@ function App() {
         const selectedColor = product.selected_color || product.color || '';
         const requestedQuantity = Math.max(1, Number.parseInt(product.selected_quantity, 10) || 1);
         const availableStock = Math.max(0, Number(product.stock) || 0);
+        if (availableStock <= 0) return;
+
         const nextProduct = { ...product, selected_size: selectedSize, selected_color: selectedColor };
         const existing = cart.find((item) => (
             item.id === product.id
@@ -767,12 +786,13 @@ function App() {
         setIsProfileOpen(true);
     };
 
-    const handleSaveProfile = async (event) => {
-        event.preventDefault();
-
+    const handleSaveProfile = async () => {
         if (!profileUsername.trim()) {
-            alert('กรุณากรอกชื่อผู้ใช้');
-            return;
+            return { success: false, error: 'กรุณากรอกชื่อผู้ใช้' };
+        }
+
+        if (profilePassword && profilePassword.length < 8) {
+            return { success: false, error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' };
         }
 
         try {
@@ -785,11 +805,11 @@ function App() {
             });
             const updatedUser = res.data.user;
             setUser(updatedUser);
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
-            alert('อัปเดตข้อมูลโปรไฟล์เรียบร้อยแล้ว');
-            setIsProfileOpen(false);
+            const storage = localStorage.getItem(AUTH_STORAGE_KEY) ? localStorage : sessionStorage;
+            storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
+            return { success: true, message: 'บันทึกข้อมูลสำเร็จ', user: updatedUser };
         } catch (err) {
-            alert(err.response?.data?.error || 'อัปเดตข้อมูลโปรไฟล์ไม่สำเร็จ');
+            return { success: false, error: err.response?.data?.error || 'อัปเดตข้อมูลโปรไฟล์ไม่สำเร็จ' };
         }
     };
 
@@ -909,6 +929,7 @@ function App() {
                 console.error('บันทึก Logout log ไม่สำเร็จ', err);
             }
             localStorage.removeItem(AUTH_STORAGE_KEY);
+            sessionStorage.removeItem(AUTH_STORAGE_KEY);
             setUser(null);
             setIsLoggedIn(false);
             setIsAdminView(false);
@@ -924,9 +945,12 @@ function App() {
                 setIsRegisterView={setIsRegisterView}
                 loginForm={loginForm}
                 setLoginForm={setLoginForm}
+                rememberLogin={rememberLogin}
+                setRememberLogin={setRememberLogin}
                 registerForm={registerForm}
                 setRegisterForm={setRegisterForm}
                 loginError={loginError}
+                isLoginLoading={isLoginLoading}
                 registerMsg={registerMsg}
                 onLogin={handleLogin}
                 onRegister={handleRegister}

@@ -70,6 +70,11 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                     <span className="store-eyebrow">Clothing Collection</span>
                     <h1>หน้าร้านสินค้า</h1>
                     <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูราคาและจำนวนสินค้าในคลังแบบรวดเร็ว</p>
+                    <div className="store-hero-benefits" aria-label="จุดเด่นของร้านค้า">
+                        <span><b aria-hidden="true">✓</b> สินค้าคัดสรรคุณภาพ</span>
+                        <span><b aria-hidden="true">✓</b> สั่งซื้อง่ายและปลอดภัย</span>
+                        <span><b aria-hidden="true">✓</b> ติดตามสถานะได้ทุกขั้นตอน</span>
+                    </div>
                 </div>
                 <div className="store-stats">
                     <div>
@@ -89,13 +94,19 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                     <span>{visibleProducts.length} รายการที่พบ</span>
                 </div>
                 <div className="store-search">
-                    <input
-                        type="search"
-                        value={searchText}
-                        onChange={(event) => setSearchText(event.target.value)}
-                        placeholder="ค้นหาชื่อสินค้า / รายละเอียด"
-                        aria-label="ค้นหาสินค้า"
-                    />
+                    <div className="store-search-field">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="6.5" />
+                            <path d="m16 16 4 4" />
+                        </svg>
+                        <input
+                            type="search"
+                            value={searchText}
+                            onChange={(event) => setSearchText(event.target.value)}
+                            placeholder="ค้นหาชื่อสินค้า / รายละเอียด"
+                            aria-label="ค้นหาสินค้า"
+                        />
+                    </div>
                     {searchText && (
                         <button type="button" onClick={() => setSearchText('')}>
                             ล้าง
@@ -122,7 +133,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
 
                         return (
                             <article
-                                className="store-card product-card"
+                                className={`store-card product-card ${isOutOfStock ? 'is-out-of-stock' : ''}`}
                                 key={product.id}
                                 onClick={() => openProductDetail(product)}
                                 role="button"
@@ -142,7 +153,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                         <span>{product.name?.charAt(0) || 'C'}</span>
                                     </div>
                                     <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
-                                        {isOutOfStock ? 'สินค้าหมด' : `คงเหลือ ${stock}`}
+                                        {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
                                     </span>
                                 </div>
 
@@ -161,10 +172,10 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                                 openProductDetail(product);
                                             }}
                                             disabled={isOutOfStock}
-                                            aria-label={`เพิ่ม ${product.name} ลงตะกร้า`}
+                                            aria-label={isOutOfStock ? `${product.name} สินค้าหมด` : `เพิ่ม ${product.name} ลงตะกร้า`}
                                         >
-                                            <span>+</span>
-                                            เพิ่ม
+                                            <span aria-hidden="true">{isOutOfStock ? '×' : '+'}</span>
+                                            {isOutOfStock ? 'สินค้าหมด' : 'เพิ่ม'}
                                         </button>
                                     </div>
                                 </div>
@@ -196,7 +207,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                             </div>
                             <div className="product-detail-content">
                                 <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
-                                    {isOutOfStock ? 'สินค้าหมด' : `คงเหลือ ${stock}`}
+                                    {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
                                 </span>
                                 <h2>{selectedProduct.name}</h2>
                                 <p>{selectedProduct.description || 'สินค้าแฟชั่นพร้อมจำหน่าย'}</p>
