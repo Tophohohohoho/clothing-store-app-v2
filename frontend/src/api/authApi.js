@@ -2,6 +2,11 @@ import apiClient from './client';
 
 export const login = (credentials) => apiClient.post('/api/login', credentials);
 
+export const logout = (userId, sessionDuration = '') => apiClient.post('/api/logout', {
+    user_id: userId,
+    session_duration: sessionDuration,
+});
+
 export const register = (payload) => apiClient.post('/api/register', payload);
 
 export const updateProfile = (userId, payload) => apiClient.put(`/api/users/${userId}/profile`, payload);

@@ -13,14 +13,17 @@ export const updateOrderStatus = (orderId, status, trackingNo = '', userId = nul
     user_id: userId,
 });
 
-export const getCustomers = () => apiClient.get('/api/admin/customers');
+export const getCustomers = (params = {}) => apiClient.get('/api/admin/customers', { params });
 
-export const changeUserRole = (userId, newRole) => apiClient.post('/api/admin/change-role', {
+export const changeUserRole = (userId, newRole, actorId) => apiClient.post('/api/admin/change-role', {
     user_id: userId,
     new_role: newRole,
+    actor_id: actorId,
 });
 
-export const deleteUser = (userId) => apiClient.delete(`/api/admin/users/${userId}`);
+export const deleteUser = (userId, actorId) => apiClient.delete(`/api/admin/users/${userId}`, {
+    params: { actor_id: actorId },
+});
 
 export const updateUser = (userId, payload) => apiClient.put(`/api/admin/users/${userId}`, payload);
 

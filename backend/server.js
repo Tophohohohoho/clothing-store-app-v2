@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const port = 5000;
+const port = Number(process.env.PORT) || 5000;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -134,13 +134,40 @@ const resolveActiveCategoryId = async ({ categoryId, categoryName }) => {
     return rows[0]?.category_id || null;
 };
 
-const writeSystemLog = async (userId, action, remark = '') => {
+const getAuditRequestMeta = (req) => {
+    if (!req) return {};
+    const userAgent = String(req.headers?.['user-agent'] || '');
+    const browser = /edg/i.test(userAgent) ? 'Microsoft Edge'
+        : /chrome/i.test(userAgent) ? 'Google Chrome'
+            : /firefox/i.test(userAgent) ? 'Mozilla Firefox'
+                : /safari/i.test(userAgent) ? 'Safari' : 'Unknown';
+    const device = /mobile|android|iphone|ipad/i.test(userAgent) ? 'Mobile / Tablet' : 'Desktop';
+    return {
+        ipAddress: String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim(),
+        device,
+        browser,
+    };
+};
+
+const writeSystemLog = async (userId, action, remark = '', details = {}) => {
     if (!userId) return;
 
     try {
         await query(
-            'INSERT INTO system_log (user_id, action, remark) VALUES (?, ?, ?)',
-            [userId, action, remark],
+            `INSERT INTO system_log
+                (user_id, action, remark, before_data, after_data, ip_address, device, browser, session_duration)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                userId,
+                action,
+                remark,
+                details.beforeData ? JSON.stringify(details.beforeData) : null,
+                details.afterData ? JSON.stringify(details.afterData) : null,
+                details.ipAddress || null,
+                details.device || null,
+                details.browser || null,
+                details.sessionDuration || null,
+            ],
         );
     } catch (err) {
         console.error('บันทึก system_log ไม่สำเร็จ:', err.message);
@@ -349,6 +376,12 @@ const initializeDatabase = async () => {
             action varchar(255) NOT NULL,
             log_date datetime DEFAULT CURRENT_TIMESTAMP,
             remark text,
+            before_data longtext,
+            after_data longtext,
+            ip_address varchar(64) DEFAULT NULL,
+            device varchar(120) DEFAULT NULL,
+            browser varchar(120) DEFAULT NULL,
+            session_duration varchar(50) DEFAULT NULL,
             PRIMARY KEY (log_id),
             KEY fk_systemlog_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
@@ -372,6 +405,24 @@ const initializeDatabase = async () => {
     }
     if (!(await columnExists('stock_logs', 'user_id'))) {
         await query('ALTER TABLE stock_logs ADD COLUMN user_id int DEFAULT NULL AFTER order_detail_id');
+    }
+    if (!(await columnExists('system_log', 'before_data'))) {
+        await query('ALTER TABLE system_log ADD COLUMN before_data longtext DEFAULT NULL AFTER remark');
+    }
+    if (!(await columnExists('system_log', 'after_data'))) {
+        await query('ALTER TABLE system_log ADD COLUMN after_data longtext DEFAULT NULL AFTER before_data');
+    }
+    if (!(await columnExists('system_log', 'ip_address'))) {
+        await query('ALTER TABLE system_log ADD COLUMN ip_address varchar(64) DEFAULT NULL AFTER after_data');
+    }
+    if (!(await columnExists('system_log', 'device'))) {
+        await query('ALTER TABLE system_log ADD COLUMN device varchar(120) DEFAULT NULL AFTER ip_address');
+    }
+    if (!(await columnExists('system_log', 'browser'))) {
+        await query('ALTER TABLE system_log ADD COLUMN browser varchar(120) DEFAULT NULL AFTER device');
+    }
+    if (!(await columnExists('system_log', 'session_duration'))) {
+        await query('ALTER TABLE system_log ADD COLUMN session_duration varchar(50) DEFAULT NULL AFTER browser');
     }
     if (!(await columnExists('category', 'created_at'))) {
         await query('ALTER TABLE category ADD COLUMN created_at datetime DEFAULT CURRENT_TIMESTAMP AFTER status_category');
@@ -604,10 +655,23 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
         }
 
-        await writeSystemLog(results[0].id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ');
+        await writeSystemLog(results[0].id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ', getAuditRequestMeta(req));
         res.json({ success: true, message: 'เข้าสู่ระบบสำเร็จ', user: results[0] });
     } catch (err) {
         respondError(res, err, 'เข้าสู่ระบบไม่สำเร็จ');
+    }
+});
+
+app.post('/api/logout', async (req, res) => {
+    try {
+        const { user_id, session_duration } = req.body;
+        await writeSystemLog(user_id, 'ออกจากระบบ', 'ผู้ใช้ออกจากระบบ', {
+            ...getAuditRequestMeta(req),
+            sessionDuration: session_duration || null,
+        });
+        res.json({ success: true });
+    } catch (err) {
+        respondError(res, err, 'บันทึกการออกจากระบบไม่สำเร็จ');
     }
 });
 
@@ -702,6 +766,56 @@ app.post('/api/admin/orders/delete', async (req, res) => {
 
 app.get('/api/admin/customers', async (req, res) => {
     try {
+        const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(100, Math.max(5, Number.parseInt(req.query.limit, 10) || 10));
+        const offset = (page - 1) * limit;
+        const search = String(req.query.search || '').trim();
+        const role = ['admin', 'user'].includes(req.query.role) ? req.query.role : '';
+        const status = ['0', '1', '2'].includes(String(req.query.status)) ? Number(req.query.status) : null;
+        const conditions = [];
+        const params = [];
+
+        if (search) {
+            conditions.push(`(
+                u.username LIKE ?
+                OR u.full_name LIKE ?
+                OR u.email LIKE ?
+                OR u.phone LIKE ?
+                OR CAST(u.user_id AS CHAR) LIKE ?
+            )`);
+            const keyword = `%${search}%`;
+            params.push(keyword, keyword, keyword, keyword, keyword);
+        }
+        if (role) {
+            conditions.push('u.role = ?');
+            params.push(role);
+        }
+        if (status !== null) {
+            conditions.push('u.status_user = ?');
+            params.push(status);
+        }
+
+        const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        const [mainAdmins] = await query(
+            "SELECT user_id FROM `user` WHERE role = 'admin' ORDER BY created_at ASC, user_id ASC LIMIT 1",
+        );
+        const mainAdminId = mainAdmins[0]?.user_id || null;
+        const [countRows] = await query(
+            `SELECT COUNT(*) AS total FROM \`user\` u ${whereSql}`,
+            params,
+        );
+        const [summaryRows] = await query(`
+            SELECT
+                COUNT(*) AS total_members,
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS total_admins,
+                SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) AS total_users
+            FROM \`user\`
+        `);
+        const [spentRows] = await query(`
+            SELECT COALESCE(SUM(final_price), 0) AS total_spent
+            FROM orders
+            WHERE order_status <> 'ยกเลิก'
+        `);
         const [results] = await query(`
             SELECT
                 u.user_id AS id,
@@ -713,14 +827,32 @@ app.get('/api/admin/customers', async (req, res) => {
                 u.status_user,
                 u.created_at,
                 COUNT(o.order_id) AS total_orders,
-                IFNULL(SUM(o.final_price), 0) AS total_spent
+                IFNULL(SUM(CASE WHEN o.order_status <> 'ยกเลิก' THEN o.final_price ELSE 0 END), 0) AS total_spent,
+                CASE WHEN u.user_id = ? THEN 1 ELSE 0 END AS is_main_admin
             FROM \`user\` u
             LEFT JOIN orders o ON u.user_id = o.user_id
-            WHERE u.status_user = 1
+            ${whereSql}
             GROUP BY u.user_id
-            ORDER BY total_spent DESC
-        `);
-        res.json(results);
+            ORDER BY is_main_admin DESC, total_spent DESC, u.created_at DESC
+            LIMIT ? OFFSET ?
+        `, [mainAdminId, ...params, limit, offset]);
+
+        const total = Number(countRows[0]?.total || 0);
+        res.json({
+            items: results,
+            pagination: {
+                page,
+                limit,
+                total,
+                total_pages: Math.max(1, Math.ceil(total / limit)),
+            },
+            summary: {
+                total_members: Number(summaryRows[0]?.total_members || 0),
+                total_admins: Number(summaryRows[0]?.total_admins || 0),
+                total_users: Number(summaryRows[0]?.total_users || 0),
+                total_spent: Number(spentRows[0]?.total_spent || 0),
+            },
+        });
     } catch (err) {
         respondError(res, err, 'โหลดสมาชิกไม่สำเร็จ');
     }
@@ -743,10 +875,20 @@ app.get('/api/admin/order-items/:orderId', async (req, res) => {
 
 app.post('/api/admin/change-role', async (req, res) => {
     try {
-        const { user_id, new_role } = req.body;
+        const { user_id, new_role, actor_id } = req.body;
         const nextRole = normalizeRole(new_role);
+        const [users] = await query('SELECT user_id, username, role FROM `user` WHERE user_id = ? LIMIT 1', [user_id]);
+        if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
+
+        const [mainAdmins] = await query(
+            "SELECT user_id FROM `user` WHERE role = 'admin' ORDER BY created_at ASC, user_id ASC LIMIT 1",
+        );
+        if (Number(mainAdmins[0]?.user_id) === Number(user_id)) {
+            return res.status(403).json({ error: 'ไม่สามารถเปลี่ยนสิทธิ์ของ Admin หลักได้' });
+        }
+
         await query('UPDATE `user` SET role = ? WHERE user_id = ?', [nextRole, user_id]);
-        await writeSystemLog(user_id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์เป็น ${nextRole}`);
+        await writeSystemLog(actor_id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์ ${users[0].username} เป็น ${nextRole}`);
         res.json({ success: true, message: 'เปลี่ยนสิทธิ์ผู้ใช้สำเร็จ' });
     } catch (err) {
         respondError(res, err, 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
@@ -756,8 +898,19 @@ app.post('/api/admin/change-role', async (req, res) => {
 app.delete('/api/admin/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        const actorId = req.query.actor_id || null;
+        const [users] = await query('SELECT user_id, username FROM `user` WHERE user_id = ? LIMIT 1', [id]);
+        if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
+
+        const [mainAdmins] = await query(
+            "SELECT user_id FROM `user` WHERE role = 'admin' ORDER BY created_at ASC, user_id ASC LIMIT 1",
+        );
+        if (Number(mainAdmins[0]?.user_id) === Number(id)) {
+            return res.status(403).json({ error: 'ไม่สามารถลบหรือระงับ Admin หลักได้' });
+        }
+
         await query('UPDATE `user` SET status_user = 0 WHERE user_id = ?', [id]);
-        await writeSystemLog(id, 'ปิดใช้งานสมาชิก', 'ปิดใช้งานสมาชิกจากหน้า Admin');
+        await writeSystemLog(actorId, 'ปิดใช้งานสมาชิก', `ปิดใช้งานสมาชิก ${users[0].username}`);
         res.json({ success: true, message: 'ปิดใช้งานสมาชิกสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ลบสมาชิกไม่สำเร็จ');
@@ -1052,6 +1205,12 @@ app.get('/api/admin/system-logs', async (req, res) => {
                 l.user_id,
                 l.action,
                 l.remark,
+                l.before_data,
+                l.after_data,
+                l.ip_address,
+                l.device,
+                l.browser,
+                l.session_duration,
                 l.log_date,
                 u.username,
                 u.full_name,

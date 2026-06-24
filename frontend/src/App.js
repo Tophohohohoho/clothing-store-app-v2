@@ -70,6 +70,7 @@ function App() {
     const [isAdminView, setIsAdminView] = useState(false);
     const [adminPage, setAdminPage] = useState('dashboard');
     const [previewProductId, setPreviewProductId] = useState(null);
+    const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now());
 
     const [loginForm, setLoginForm] = useState({ username: '', password: '' });
     const [registerForm, setRegisterForm] = useState({
@@ -85,8 +86,14 @@ function App() {
 
     const [adminOrders, setAdminOrders] = useState([]);
     const [customers, setCustomers] = useState([]);
+    const [customersLoading, setCustomersLoading] = useState(false);
+    const [customersMeta, setCustomersMeta] = useState({
+        pagination: { page: 1, limit: 10, total: 0, total_pages: 1 },
+        summary: { total_members: 0, total_admins: 0, total_users: 0, total_spent: 0 },
+    });
     const [stockLogs, setStockLogs] = useState([]);
     const [systemLogs, setSystemLogs] = useState([]);
+    const [activityLogsLoading, setActivityLogsLoading] = useState(false);
     const [orderHistory, setOrderHistory] = useState([]);
 
     const [newProduct, setNewProduct] = useState(emptyProduct);
@@ -171,12 +178,21 @@ function App() {
         }
     };
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = async (params = {}) => {
+        setCustomersLoading(true);
         try {
-            const res = await adminApi.getCustomers();
-            setCustomers(Array.isArray(res.data) ? res.data : []);
+            const res = await adminApi.getCustomers(params);
+            const payload = res.data || {};
+            setCustomers(Array.isArray(payload.items) ? payload.items : []);
+            setCustomersMeta({
+                pagination: payload.pagination || { page: 1, limit: 10, total: 0, total_pages: 1 },
+                summary: payload.summary || { total_members: 0, total_admins: 0, total_users: 0, total_spent: 0 },
+            });
         } catch (err) {
             console.error(err);
+            setCustomers([]);
+        } finally {
+            setCustomersLoading(false);
         }
     };
 
@@ -227,8 +243,9 @@ function App() {
         if (adminPage === 'dashboard') fetchAdminOrders();
         if (adminPage === 'customers') fetchCustomers();
         if (adminPage === 'stock-logs') {
-            fetchStockLogs();
-            fetchSystemLogs();
+            setActivityLogsLoading(true);
+            Promise.all([fetchStockLogs(), fetchSystemLogs()])
+                .finally(() => setActivityLogsLoading(false));
         }
     }, [isAdminView, adminPage]);
 
@@ -240,6 +257,7 @@ function App() {
             if (res.data.success) {
                 setIsLoggedIn(true);
                 setUser(res.data.user);
+                setSessionStartedAt(Date.now());
                 localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data.user));
                 setLoginError('');
             }
@@ -686,15 +704,12 @@ function App() {
         }
     };
 
-    const handleDeleteUser = async (id, name) => {
-        if (!window.confirm(`ยืนยันการลบสมาชิก: ${name}?`)) return;
-
+    const handleDeleteUser = async (id) => {
         try {
-            await adminApi.deleteUser(id);
-            alert('ลบสมาชิกเรียบร้อยแล้ว');
-            await fetchCustomers();
+            await adminApi.deleteUser(id, user?.id);
+            return { success: true };
         } catch (err) {
-            alert('ไม่สามารถลบสมาชิกได้');
+            return { success: false, error: err.response?.data?.error || 'ไม่สามารถระงับสมาชิกได้' };
         }
     };
 
@@ -719,10 +734,10 @@ function App() {
     const handleChangeRole = async (customer) => {
         try {
             const newRole = customer.role === 'admin' ? 'user' : 'admin';
-            await adminApi.changeUserRole(customer.id, newRole);
-            await fetchCustomers();
+            await adminApi.changeUserRole(customer.id, newRole, user?.id);
+            return { success: true };
         } catch (err) {
-            alert('ไม่สามารถเปลี่ยนสิทธิ์ได้');
+            return { success: false, error: err.response?.data?.error || 'ไม่สามารถเปลี่ยนสิทธิ์ได้' };
         }
     };
 
@@ -878,8 +893,17 @@ function App() {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         if (window.confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
+            const sessionSeconds = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 1000));
+            const hours = Math.floor(sessionSeconds / 3600);
+            const minutes = Math.floor((sessionSeconds % 3600) / 60);
+            const seconds = sessionSeconds % 60;
+            try {
+                await authApi.logout(user?.id, `${hours}ชม. ${minutes}น. ${seconds}ว.`);
+            } catch (err) {
+                console.error('บันทึก Logout log ไม่สำเร็จ', err);
+            }
             localStorage.removeItem(AUTH_STORAGE_KEY);
             setUser(null);
             setIsLoggedIn(false);
@@ -931,8 +955,13 @@ function App() {
                         productsLoading={productsLoading}
                         categories={categories}
                         customers={customers}
+                        customersLoading={customersLoading}
+                        customersMeta={customersMeta}
+                        currentUser={user}
+                        onLoadCustomers={fetchCustomers}
                         stockLogs={stockLogs}
                         systemLogs={systemLogs}
+                        activityLogsLoading={activityLogsLoading}
                         newProduct={newProduct}
                         setNewProduct={setNewProduct}
                         editProduct={editProduct}
