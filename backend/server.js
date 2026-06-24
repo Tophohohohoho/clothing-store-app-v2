@@ -1222,6 +1222,27 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     }
 });
 
+app.put('/api/admin/users/:id/reactivate', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const actorId = req.body.actor_id || null;
+        const [users] = await query(
+            'SELECT user_id, username, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
+        if (Number(users[0].status_user) === 1) {
+            return res.json({ success: true, message: 'บัญชีนี้เปิดใช้งานอยู่แล้ว' });
+        }
+
+        await query('UPDATE `user` SET status_user = 1 WHERE user_id = ?', [id]);
+        await writeSystemLog(actorId, 'ยกเลิกการระงับสมาชิก', `เปิดใช้งานสมาชิก ${users[0].username} อีกครั้ง`);
+        res.json({ success: true, message: 'ยกเลิกการระงับสมาชิกสำเร็จ' });
+    } catch (err) {
+        respondError(res, err, 'ยกเลิกการระงับสมาชิกไม่สำเร็จ');
+    }
+});
+
 app.put('/api/admin/users/:id', async (req, res) => {
     try {
         const { id } = req.params;

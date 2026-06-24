@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
 
 const formatMoney = (value) => {
@@ -103,6 +103,10 @@ function AdminDashboardPage({
     const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
     const [orderNote, setOrderNote] = useState('');
     const [noteSaving, setNoteSaving] = useState(false);
+    const orderManagementRef = useRef(null);
+    const scrollToOrderManagement = () => {
+        orderManagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
     const orderRange = useMemo(
         () => getDateRange(orderDatePreset, orderDateFrom, orderDateTo),
         [orderDatePreset, orderDateFrom, orderDateTo],
@@ -400,7 +404,19 @@ function AdminDashboardPage({
                             <div className="commerce-stat-icon">฿</div>
                             <div><span>ยอดขายในช่วงนี้</span><strong>฿{formatMoney(dashboardData.summary?.total_revenue)}</strong><small>ไม่รวมออเดอร์ยกเลิก</small></div>
                         </article>
-                        <article className="commerce-stat-card orders">
+                        <article
+                            className="commerce-stat-card orders is-clickable"
+                            role="button"
+                            tabIndex={0}
+                            aria-label="ไปยังรายการสั่งซื้อและแจ้งชำระเงิน"
+                            onClick={scrollToOrderManagement}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    scrollToOrderManagement();
+                                }
+                            }}
+                        >
                             <div className="commerce-stat-icon">▣</div>
                             <div><span>จำนวนออเดอร์</span><strong>{Number(dashboardData.summary?.total_orders || 0).toLocaleString('th-TH')}</strong><small>เฉลี่ย ฿{formatMoney(dashboardData.summary?.average_order_value)} / ออเดอร์</small></div>
                         </article>
@@ -492,7 +508,7 @@ function AdminDashboardPage({
                 </div>
             </section>
 
-            <section className="order-management">
+            <section ref={orderManagementRef} className="order-management">
                 <header className="order-management-heading">
                     <div>
                         <span>ORDER MANAGEMENT</span>

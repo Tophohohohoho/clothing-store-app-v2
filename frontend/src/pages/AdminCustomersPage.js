@@ -22,6 +22,7 @@ function AdminCustomersPage({
     setUserEdit,
     onUpdateUser,
     onDeleteUser,
+    onReactivateUser,
     onChangeRole,
     onLoadCustomers,
 }) {
@@ -81,9 +82,14 @@ function AdminCustomersPage({
     const runAction = async () => {
         setActionLoading(true);
         setActionError('');
-        const result = confirmAction.type === 'role'
-            ? await onChangeRole(confirmAction.customer)
-            : await onDeleteUser(confirmAction.customer.id);
+        let result;
+        if (confirmAction.type === 'role') {
+            result = await onChangeRole(confirmAction.customer);
+        } else if (confirmAction.type === 'reactivate') {
+            result = await onReactivateUser(confirmAction.customer.id);
+        } else {
+            result = await onDeleteUser(confirmAction.customer.id);
+        }
         if (result?.success) {
             setConfirmAction(null);
             await loadRef.current(currentQuery);
@@ -157,7 +163,9 @@ function AdminCustomersPage({
                                             {openMenuId === customer.id && <div className="member-menu">
                                                 <button onClick={() => editCustomer(customer)}>✎ แก้ไขข้อมูล</button>
                                                 <button className="warning" disabled={protectedAdmin} onClick={() => askConfirm('role', customer)}>⇄ เปลี่ยนสิทธิ์</button>
-                                                <button className="danger" disabled={protectedAdmin} onClick={() => askConfirm('delete', customer)}>⌫ ระงับบัญชี</button>
+                                                {Number(customer.status_user) === 0
+                                                    ? <button className="success" disabled={protectedAdmin} onClick={() => askConfirm('reactivate', customer)}>✓ ยกเลิกการระงับ</button>
+                                                    : <button className="danger" disabled={protectedAdmin} onClick={() => askConfirm('delete', customer)}>⌫ ระงับบัญชี</button>}
                                                 {protectedAdmin && <small>บัญชีหลักได้รับการป้องกัน</small>}
                                             </div>}
                                         </div></td>
@@ -187,11 +195,17 @@ function AdminCustomersPage({
             </div></div>}
 
             {confirmAction && <div className="member-modal-backdrop"><div className="member-confirm-modal">
-                <b className={confirmAction.type}>{confirmAction.type === 'delete' ? '!' : '⇄'}</b>
-                <h5>{confirmAction.type === 'delete' ? 'ยืนยันการระงับบัญชี?' : 'ยืนยันการเปลี่ยนสิทธิ์?'}</h5>
+                <b className={confirmAction.type}>{confirmAction.type === 'delete' ? '!' : confirmAction.type === 'reactivate' ? '✓' : '⇄'}</b>
+                <h5>{confirmAction.type === 'delete'
+                    ? 'ยืนยันการระงับบัญชี?'
+                    : confirmAction.type === 'reactivate'
+                        ? 'ยืนยันยกเลิกการระงับ?'
+                        : 'ยืนยันการเปลี่ยนสิทธิ์?'}</h5>
                 <p>{confirmAction.type === 'delete'
                     ? <>บัญชี <strong>{confirmAction.customer.username}</strong> จะไม่สามารถเข้าสู่ระบบได้</>
-                    : <>เปลี่ยน <strong>{confirmAction.customer.username}</strong> เป็น {confirmAction.customer.role === 'admin' ? 'User' : 'Admin'}</>}</p>
+                    : confirmAction.type === 'reactivate'
+                        ? <>บัญชี <strong>{confirmAction.customer.username}</strong> จะกลับมาเข้าสู่ระบบและใช้งานได้ตามปกติ</>
+                        : <>เปลี่ยน <strong>{confirmAction.customer.username}</strong> เป็น {confirmAction.customer.role === 'admin' ? 'User' : 'Admin'}</>}</p>
                 {actionError && <div className="member-action-error">{actionError}</div>}
                 <footer><button disabled={actionLoading} onClick={() => setConfirmAction(null)}>ยกเลิก</button><button disabled={actionLoading} className={confirmAction.type} onClick={runAction}>{actionLoading ? 'กำลังดำเนินการ...' : 'ยืนยันดำเนินการ'}</button></footer>
             </div></div>}

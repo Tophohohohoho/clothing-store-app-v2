@@ -34,6 +34,10 @@ export const deleteUser = (userId, actorId) => apiClient.delete(`/api/admin/user
     params: { actor_id: actorId },
 });
 
+export const reactivateUser = (userId, actorId) => apiClient.put(`/api/admin/users/${userId}/reactivate`, {
+    actor_id: actorId,
+});
+
 export const updateUser = (userId, payload) => apiClient.put(`/api/admin/users/${userId}`, payload);
 
 export const getStockLogs = () => apiClient.get('/api/admin/stock-logs');

@@ -736,6 +736,15 @@ function App() {
         }
     };
 
+    const handleReactivateUser = async (id) => {
+        try {
+            await adminApi.reactivateUser(id, user?.id);
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.response?.data?.error || 'ไม่สามารถยกเลิกการระงับสมาชิกได้' };
+        }
+    };
+
     const handleUpdateUser = async () => {
         try {
             await adminApi.updateUser(userEdit.id, {
@@ -1010,6 +1019,7 @@ function App() {
                         onOpenStockEdit={(product) => setStockEdit({ id: product.id, amount: 0, remark: '', name: product.name })}
                         onUpdateUser={handleUpdateUser}
                         onDeleteUser={handleDeleteUser}
+                        onReactivateUser={handleReactivateUser}
                         onChangeRole={handleChangeRole}
                     />
                 ) : (
