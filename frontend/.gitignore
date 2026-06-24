@@ -13,6 +13,7 @@
 /build-codex-check
 /build-codex-verify
 /build-codex-*
+/build-*-check
 
 # misc
 .DS_Store

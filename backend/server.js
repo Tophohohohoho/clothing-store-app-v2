@@ -373,6 +373,12 @@ const initializeDatabase = async () => {
     if (!(await columnExists('stock_logs', 'user_id'))) {
         await query('ALTER TABLE stock_logs ADD COLUMN user_id int DEFAULT NULL AFTER order_detail_id');
     }
+    if (!(await columnExists('category', 'created_at'))) {
+        await query('ALTER TABLE category ADD COLUMN created_at datetime DEFAULT CURRENT_TIMESTAMP AFTER status_category');
+    }
+    if (!(await columnExists('category', 'updated_at'))) {
+        await query('ALTER TABLE category ADD COLUMN updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    }
 
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
     await getDefaultCategoryId();
@@ -444,7 +450,12 @@ app.get('/api/categories', async (req, res) => {
     try {
         const includeInactive = String(req.query.include_inactive || '') === '1';
         const [results] = await query(
-            `SELECT * FROM category ${includeInactive ? '' : 'WHERE status_category = 1'} ORDER BY category_name`,
+            `SELECT
+                c.*,
+                (SELECT COUNT(*) FROM product p WHERE p.category_id = c.category_id) AS product_count
+             FROM category c
+             ${includeInactive ? '' : 'WHERE c.status_category = 1'}
+             ORDER BY c.category_name`,
         );
         res.json(results);
     } catch (err) {
@@ -497,10 +508,27 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
         const { id } = req.params;
         if (!id) return res.status(400).json({ error: 'ไม่พบรหัสหมวดหมู่สินค้า' });
 
-        await query('UPDATE category SET status_category = 0 WHERE category_id = ?', [id]);
-        res.json({ success: true, message: 'ปิดใช้งานหมวดหมู่สินค้าแล้ว' });
+        const [categories] = await query(
+            `SELECT
+                c.category_id,
+                (SELECT COUNT(*) FROM product p WHERE p.category_id = c.category_id) AS product_count
+             FROM category c
+             WHERE c.category_id = ?`,
+            [id],
+        );
+        if (categories.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบหมวดหมู่สินค้านี้' });
+        }
+        if (Number(categories[0].product_count) > 0) {
+            return res.status(409).json({
+                error: 'ไม่สามารถลบหมวดหมู่ที่ยังมีสินค้าอยู่ได้ กรุณาย้ายหรือลบสินค้าในหมวดหมู่นี้ก่อน',
+            });
+        }
+
+        await query('DELETE FROM category WHERE category_id = ?', [id]);
+        res.json({ success: true, message: 'ลบหมวดหมู่สินค้าแล้ว' });
     } catch (err) {
-        respondError(res, err, 'ปิดใช้งานหมวดหมู่สินค้าไม่สำเร็จ');
+        respondError(res, err, 'ลบหมวดหมู่สินค้าไม่สำเร็จ');
     }
 });
 
@@ -1146,6 +1174,46 @@ app.post('/api/admin/products/delete', async (req, res) => {
         res.json({ success: true, message: 'ปิดใช้งานสินค้าและไม่แสดงหน้าขายแล้ว' });
     } catch (err) {
         respondError(res, err, 'ปิดใช้งานสินค้าไม่สำเร็จ');
+    }
+});
+
+app.delete('/api/admin/products/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
+
+    try {
+        const [products] = await query(
+            'SELECT product_id, product_name FROM product WHERE product_id = ? LIMIT 1',
+            [id],
+        );
+        if (products.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
+        }
+
+        const [orderUsage] = await query(
+            'SELECT COUNT(*) AS usage_count FROM order_detail WHERE product_id = ?',
+            [id],
+        );
+        if (Number(orderUsage[0]?.usage_count) > 0) {
+            return res.status(409).json({
+                error: 'ไม่สามารถลบสินค้าที่มีประวัติคำสั่งซื้อได้ กรุณาปิดใช้งานสินค้าแทน',
+            });
+        }
+
+        await dbp.beginTransaction();
+        try {
+            await query('DELETE FROM stock_logs WHERE product_id = ?', [id]);
+            await query('DELETE FROM product_color WHERE product_id = ?', [id]);
+            await query('DELETE FROM product WHERE product_id = ?', [id]);
+            await dbp.commit();
+        } catch (transactionError) {
+            await dbp.rollback();
+            throw transactionError;
+        }
+
+        res.json({ success: true, message: 'ลบสินค้าออกจากระบบแล้ว' });
+    } catch (err) {
+        respondError(res, err, 'ลบสินค้าไม่สำเร็จ');
     }
 });
 

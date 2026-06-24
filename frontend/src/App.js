@@ -53,6 +53,7 @@ const DELIVERY_FEE = 50;
 
 function App() {
     const [products, setProducts] = useState([]);
+    const [productsLoading, setProductsLoading] = useState(true);
     const [categories, setCategories] = useState([]);
     const [cart, setCart] = useState([]);
     const [user, setUser] = useState(() => {
@@ -134,6 +135,7 @@ function App() {
     }, [categories]);
 
     const fetchProducts = useCallback(async (includeInactive = false) => {
+        setProductsLoading(true);
         try {
             const res = await productsApi.getProducts('', includeInactive);
             const list = Array.isArray(res.data) ? res.data : [];
@@ -142,6 +144,8 @@ function App() {
         } catch (err) {
             console.error(err);
             return [];
+        } finally {
+            setProductsLoading(false);
         }
     }, []);
 
@@ -455,21 +459,33 @@ function App() {
         }
     };
 
-    const handleDeleteProduct = async (product) => {
-        const isCancelled = Number(product.product_status) === 0;
-        const nextStatus = isCancelled ? 1 : 0;
-        const actionLabel = isCancelled ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
-        const confirmation = isCancelled
-            ? `ยืนยันการเปิดใช้งานสินค้า: ${product.name}? สินค้าจะกลับมาแสดงหน้าขาย`
-            : `ยืนยันการปิดใช้งานสินค้า: ${product.name}? สินค้าจะไม่แสดงหน้าขาย`;
-        if (!window.confirm(confirmation)) return;
-
+    const handleToggleProductStatus = async (product) => {
+        const nextStatus = Number(product.product_status) === 0 ? 1 : 0;
         try {
             await productsApi.updateProductStatus(product.id, nextStatus);
-            alert(`${actionLabel}สินค้าเรียบร้อยแล้ว`);
             await fetchProducts(true);
+            return { success: true };
         } catch (err) {
-            alert(`ไม่สามารถ${actionLabel}สินค้าได้`);
+            return {
+                success: false,
+                message: err.response?.data?.error || 'ไม่สามารถเปลี่ยนสถานะสินค้าได้',
+            };
+        }
+    };
+
+    const handleDeleteProduct = async (product) => {
+        try {
+            await productsApi.deleteProduct(product.id);
+            await fetchProducts(true);
+            return { success: true };
+        } catch (err) {
+            const isMissingRoute = err.response?.status === 404;
+            return {
+                success: false,
+                message: isMissingRoute
+                    ? 'ลบสินค้าไม่ได้ เพราะ Backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'ไม่สามารถลบสินค้าได้',
+            };
         }
     };
 
@@ -520,10 +536,6 @@ function App() {
     };
 
     const handleDeleteCategory = async (categoryId) => {
-        if (!window.confirm('ยืนยันปิดใช้งานหมวดหมู่สินค้านี้? สินค้าเดิมจะยังอยู่ แต่หมวดหมู่นี้จะไม่แสดงเป็นตัวเลือกใหม่')) {
-            return { success: false };
-        }
-
         try {
             await productsApi.deleteCategory(categoryId);
             await fetchCategories(true);
@@ -533,8 +545,8 @@ function App() {
             return {
                 success: false,
                 message: isMissingRoute
-                    ? 'ปิดใช้งานหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
-                    : err.response?.data?.error || 'ปิดใช้งานหมวดหมู่สินค้าไม่สำเร็จ',
+                    ? 'ลบหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'ลบหมวดหมู่สินค้าไม่สำเร็จ',
             };
         }
     };
@@ -916,6 +928,7 @@ function App() {
                         setAdminPage={setAdminPage}
                         orders={adminOrders}
                         products={products}
+                        productsLoading={productsLoading}
                         categories={categories}
                         customers={customers}
                         stockLogs={stockLogs}
@@ -929,6 +942,7 @@ function App() {
                         onSubmit={handleAddProduct}
                         onSaveEditProduct={handleSaveEditProduct}
                         onDeleteProduct={handleDeleteProduct}
+                        onToggleProductStatus={handleToggleProductStatus}
                         onAddCategory={handleAddCategory}
                         onUpdateCategory={handleUpdateCategory}
                         onDeleteCategory={handleDeleteCategory}
