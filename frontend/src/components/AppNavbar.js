@@ -10,6 +10,7 @@ function AppNavbar({
     setAdminPage,
     onOpenCart,
     onOpenOrderHistory,
+    onOpenSalesHistory,
     onOpenProfile,
     onOpenLogin,
     onLogout,
@@ -49,6 +50,12 @@ function AppNavbar({
                     {isMember && (
                         <button className="nav-pill is-info" onClick={onOpenOrderHistory}>
                             คำสั่งซื้อของฉัน
+                        </button>
+                    )}
+
+                    {isAdmin && (
+                        <button className="nav-pill is-info" onClick={onOpenSalesHistory}>
+                            ประวัติการขาย
                         </button>
                     )}
 

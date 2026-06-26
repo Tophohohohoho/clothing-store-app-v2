@@ -133,6 +133,7 @@ function App() {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
+    const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePassword, setProfilePassword] = useState('');
@@ -203,9 +204,12 @@ function App() {
         setAdminOrdersLoading(true);
         try {
             const res = await adminApi.getAdminOrders();
-            setAdminOrders(Array.isArray(res.data) ? res.data : []);
+            const list = Array.isArray(res.data) ? res.data : [];
+            setAdminOrders(list);
+            return list;
         } catch (err) {
             console.error(err);
+            return [];
         } finally {
             setAdminOrdersLoading(false);
         }
@@ -895,6 +899,13 @@ function App() {
         setIsOrderHistoryOpen(true);
     };
 
+    const openSalesHistory = async () => {
+        if (!redirectUnauthorizedPage('admin-orders')) return;
+
+        await fetchAdminOrders();
+        setIsSalesHistoryOpen(true);
+    };
+
     const openProfile = () => {
         if (!redirectUnauthorizedPage('profile')) return;
 
@@ -1076,6 +1087,7 @@ function App() {
             setShowCheckout(false);
             setShowPosCheckout(false);
             setIsOrderHistoryOpen(false);
+            setIsSalesHistoryOpen(false);
             setIsProfileOpen(false);
             setShowLogoutConfirm(false);
             setIsLoggingOut(false);
@@ -1094,6 +1106,7 @@ function App() {
                 setAdminPage={setAdminPage}
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenOrderHistory={openOrderHistory}
+                onOpenSalesHistory={openSalesHistory}
                 onOpenProfile={openProfile}
                 onOpenLogin={() => openAuthPage('login')}
                 onLogout={requestLogout}
@@ -1208,6 +1221,20 @@ function App() {
                     onClose={() => setIsOrderHistoryOpen(false)}
                     onUploadReceipt={handleUploadOrderReceipt}
                     onCancelOrder={handleCancelCustomerOrder}
+                />
+            )}
+
+            {isSalesHistoryOpen && (
+                <OrderHistoryModal
+                    orders={adminOrders}
+                    username={user?.username}
+                    mode="sales"
+                    eyebrow="Sales History"
+                    title="ประวัติการขาย"
+                    description="ตรวจสอบรายการขายทั้งหมด สถานะออเดอร์ และยอดขายของร้าน"
+                    activeTabLabel="ประวัติการขายหน้าร้าน"
+                    historyTabLabel="ออนไลน์"
+                    onClose={() => setIsSalesHistoryOpen(false)}
                 />
             )}
 
