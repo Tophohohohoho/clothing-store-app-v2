@@ -9,6 +9,7 @@ import * as ordersApi from './api/ordersApi';
 import AppNavbar from './components/AppNavbar';
 import CartModal from './components/CartModal';
 import CheckoutModal from './components/CheckoutModal';
+import LogoutConfirmModal from './components/LogoutConfirmModal';
 import PosCheckoutModal from './components/PosCheckoutModal';
 import OrderHistoryModal from './components/OrderHistoryModal';
 import ProfileModal from './components/ProfileModal';
@@ -56,6 +57,21 @@ const emptyAddress = {
 };
 
 const DELIVERY_FEE = 50;
+const PUBLIC_PAGES = ['home', 'products', 'product-detail', 'cart', 'login', 'register'];
+const MEMBER_PAGES = ['checkout', 'payment', 'orders', 'order-detail', 'profile'];
+const ADMIN_PAGES = ['admin-dashboard', 'admin-products', 'admin-categories', 'admin-stock', 'admin-orders', 'pos', 'sales-report', 'admin-users', 'admin-logs'];
+const MEMBER_ROLES = ['member', 'customer', 'user'];
+
+const isAdminUser = (currentUser) => currentUser?.role === 'admin';
+const isMemberUser = (currentUser) => MEMBER_ROLES.includes(currentUser?.role);
+
+const canAccessPage = (page, currentUser) => {
+    if (PUBLIC_PAGES.includes(page)) return true;
+    if (page === 'profile') return Boolean(currentUser);
+    if (MEMBER_PAGES.includes(page)) return Boolean(currentUser) && isMemberUser(currentUser);
+    if (ADMIN_PAGES.includes(page)) return Boolean(currentUser) && isAdminUser(currentUser);
+    return false;
+};
 
 function App() {
     const [products, setProducts] = useState([]);
@@ -71,10 +87,9 @@ function App() {
             return null;
         }
     });
-    const [isLoggedIn, setIsLoggedIn] = useState(() => (
-        Boolean(localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY))
-    ));
     const [isRegisterView, setIsRegisterView] = useState(false);
+    const [authView, setAuthView] = useState(null);
+    const [pendingAuthAction, setPendingAuthAction] = useState(null);
     const [isAdminView, setIsAdminView] = useState(false);
     const [adminPage, setAdminPage] = useState('dashboard');
     const [previewProductId, setPreviewProductId] = useState(null);
@@ -115,6 +130,8 @@ function App() {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [showCheckout, setShowCheckout] = useState(false);
     const [showPosCheckout, setShowPosCheckout] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [profileUsername, setProfileUsername] = useState('');
@@ -256,6 +273,16 @@ function App() {
     useEffect(() => {
         if (!isAdminView) return;
 
+        if (!canAccessPage('admin-dashboard', user)) {
+            if (!user) {
+                setIsRegisterView(false);
+                setAuthView('login');
+                setPendingAuthAction('admin-dashboard');
+            }
+            setIsAdminView(false);
+            return;
+        }
+
         if (adminPage === 'dashboard') fetchAdminOrders();
         if (adminPage === 'customers') fetchCustomers();
         if (adminPage === 'stock-logs') {
@@ -263,7 +290,7 @@ function App() {
             Promise.all([fetchStockLogs(), fetchSystemLogs()])
                 .finally(() => setActivityLogsLoading(false));
         }
-    }, [isAdminView, adminPage]);
+    }, [isAdminView, adminPage, user]);
 
     const handleLogin = async (event) => {
         event.preventDefault();
@@ -274,14 +301,30 @@ function App() {
         try {
             const res = await authApi.login(loginForm);
             if (res.data.success) {
-                setIsLoggedIn(true);
-                setUser(res.data.user);
+                const loggedInUser = res.data.user;
+                setUser(loggedInUser);
                 setSessionStartedAt(Date.now());
                 const storage = rememberLogin ? localStorage : sessionStorage;
                 const otherStorage = rememberLogin ? sessionStorage : localStorage;
-                storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(res.data.user));
+                storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loggedInUser));
                 otherStorage.removeItem(AUTH_STORAGE_KEY);
                 setLoginError('');
+                setAuthView(null);
+
+                if (isAdminUser(loggedInUser)) {
+                    setIsAdminView(true);
+                    setAdminPage('dashboard');
+                } else {
+                    setIsAdminView(false);
+                }
+
+                if (pendingAuthAction === 'checkout' && !isAdminUser(loggedInUser)) {
+                    setPendingAuthAction(null);
+                    await openMemberCheckout(loggedInUser);
+                    return;
+                }
+
+                setPendingAuthAction(null);
             }
         } catch (err) {
             setLoginError(err.response?.data?.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
@@ -311,6 +354,7 @@ function App() {
                 setRegisterMsg({ type: 'success', text: 'สมัครสมาชิกสำเร็จ กำลังกลับไปหน้า Login...' });
                 setTimeout(() => {
                     setIsRegisterView(false);
+                    setAuthView('login');
                     setRegisterMsg({ type: '', text: '' });
                     setRegisterForm({ username: '', password: '', confirmPassword: '', full_name: '', email: '', phone: '' });
                 }, 1200);
@@ -323,11 +367,41 @@ function App() {
         }
     };
 
-    const fetchAddresses = async () => {
-        if (!user?.id) return [];
+    const openAuthPage = (view = 'login', action = null) => {
+        setIsRegisterView(view === 'register');
+        setAuthView(view);
+        setPendingAuthAction(action);
+        setIsAdminView(false);
+    };
+
+    const redirectUnauthorizedPage = (page, currentUser = user, action = null) => {
+        if (canAccessPage(page, currentUser)) return true;
+
+        if (!currentUser) {
+            openAuthPage('login', action || page);
+            return false;
+        }
+
+        if (isAdminUser(currentUser)) {
+            setIsAdminView(true);
+            setAdminPage('dashboard');
+            return false;
+        }
+
+        setIsAdminView(false);
+        return false;
+    };
+
+    const openStore = () => {
+        setAuthView(null);
+        setIsAdminView(false);
+    };
+
+    const fetchAddresses = async (targetUser = user) => {
+        if (!targetUser?.id) return [];
 
         try {
-            const res = await authApi.getAddresses(user.id);
+            const res = await authApi.getAddresses(targetUser.id);
             const list = Array.isArray(res.data) ? res.data : [];
             setAddresses(list);
             return list;
@@ -352,6 +426,22 @@ function App() {
             province: address.province || '',
             postal_code: address.postal_code || '',
         }));
+    };
+
+    const openMemberCheckout = async (targetUser = user) => {
+        if (!redirectUnauthorizedPage('checkout', targetUser, 'checkout')) {
+            setIsCartOpen(false);
+            setShowCheckout(false);
+            return;
+        }
+
+        const list = await fetchAddresses(targetUser);
+        const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
+        applyAddressToCheckout(defaultAddress);
+        setShippingInfo((current) => ({ ...current, shipping_method: 'ส่งสินค้า', shipping_fee: DELIVERY_FEE }));
+        setAuthView(null);
+        setIsCartOpen(false);
+        setShowCheckout(true);
     };
 
     const addToCart = (product) => {
@@ -602,20 +692,18 @@ function App() {
         }
 
         if (user?.role === 'admin') {
+            if (!redirectUnauthorizedPage('pos')) return;
             setIsCartOpen(false);
             setShowPosCheckout(true);
             return;
         }
 
-        const list = await fetchAddresses();
-        const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
-        applyAddressToCheckout(defaultAddress);
-        setShippingInfo((current) => ({ ...current, shipping_method: 'ส่งสินค้า', shipping_fee: DELIVERY_FEE }));
-        setIsCartOpen(false);
-        setShowCheckout(true);
+        await openMemberCheckout();
     };
 
     const handleConfirmPosPayment = async ({ payment_method, cash_received }) => {
+        if (!redirectUnauthorizedPage('pos')) throw new Error('กรุณาเข้าสู่ระบบด้วยสิทธิ์แอดมิน');
+
         const res = await ordersApi.checkoutPosOrder({
             user_id: user?.id,
             payment_method,
@@ -631,6 +719,8 @@ function App() {
     };
 
     const handleConfirmPayment = async () => {
+        if (!redirectUnauthorizedPage('payment')) return;
+
         if (shippingInfo.shipping_method === 'ส่งสินค้า' && !shippingInfo.address.trim()) {
             alert('กรุณากรอกที่อยู่จัดส่ง');
             return;
@@ -799,11 +889,15 @@ function App() {
     };
 
     const openOrderHistory = async () => {
+        if (!redirectUnauthorizedPage('orders')) return;
+
         await fetchOrderHistory();
         setIsOrderHistoryOpen(true);
     };
 
     const openProfile = () => {
+        if (!redirectUnauthorizedPage('profile')) return;
+
         setProfileUsername(user?.username || '');
         setProfilePassword('');
         setProfileFullName(user?.full_name || user?.username || '');
@@ -873,6 +967,8 @@ function App() {
     };
 
     const handleSaveCheckoutAddress = async (payload) => {
+        if (!redirectUnauthorizedPage('checkout')) return null;
+
         const res = await authApi.createAddress(user.id, payload);
         const list = await fetchAddresses();
         const savedAddress = list.find((address) => address.address_id === res.data.address_id)
@@ -951,46 +1047,40 @@ function App() {
         }
     };
 
+    const requestLogout = () => {
+        setShowLogoutConfirm(true);
+    };
+
     const handleLogout = async () => {
-        if (window.confirm('ต้องการออกจากระบบใช่หรือไม่?')) {
-            const sessionSeconds = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 1000));
-            const hours = Math.floor(sessionSeconds / 3600);
-            const minutes = Math.floor((sessionSeconds % 3600) / 60);
-            const seconds = sessionSeconds % 60;
-            try {
-                await authApi.logout(user?.id, `${hours}ชม. ${minutes}น. ${seconds}ว.`);
-            } catch (err) {
-                console.error('บันทึก Logout log ไม่สำเร็จ', err);
-            }
+        if (isLoggingOut) return;
+
+        setIsLoggingOut(true);
+        const sessionSeconds = Math.max(0, Math.round((Date.now() - sessionStartedAt) / 1000));
+        const hours = Math.floor(sessionSeconds / 3600);
+        const minutes = Math.floor((sessionSeconds % 3600) / 60);
+        const seconds = sessionSeconds % 60;
+        try {
+            await authApi.logout(user?.id, `${hours}ชม. ${minutes}น. ${seconds}ว.`);
+        } catch (err) {
+            console.error('บันทึก Logout log ไม่สำเร็จ', err);
+        } finally {
             localStorage.removeItem(AUTH_STORAGE_KEY);
             sessionStorage.removeItem(AUTH_STORAGE_KEY);
             setUser(null);
-            setIsLoggedIn(false);
             setIsAdminView(false);
+            setAuthView(null);
+            setPendingAuthAction(null);
             setCart([]);
             setLoginForm({ username: '', password: '' });
+            setIsCartOpen(false);
+            setShowCheckout(false);
+            setShowPosCheckout(false);
+            setIsOrderHistoryOpen(false);
+            setIsProfileOpen(false);
+            setShowLogoutConfirm(false);
+            setIsLoggingOut(false);
         }
     };
-
-    if (!isLoggedIn) {
-        return (
-            <AuthPage
-                isRegisterView={isRegisterView}
-                setIsRegisterView={setIsRegisterView}
-                loginForm={loginForm}
-                setLoginForm={setLoginForm}
-                rememberLogin={rememberLogin}
-                setRememberLogin={setRememberLogin}
-                registerForm={registerForm}
-                setRegisterForm={setRegisterForm}
-                loginError={loginError}
-                isLoginLoading={isLoginLoading}
-                registerMsg={registerMsg}
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-            />
-        );
-    }
 
     return (
         <div className="bg-light min-vh-100">
@@ -998,17 +1088,38 @@ function App() {
                 user={user}
                 cart={cart}
                 isAdminView={isAdminView}
-                setIsAdminView={setIsAdminView}
+                onOpenStore={openStore}
+                onOpenAdmin={() => redirectUnauthorizedPage('admin-dashboard') && setIsAdminView(true)}
                 adminPage={adminPage}
                 setAdminPage={setAdminPage}
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenOrderHistory={openOrderHistory}
                 onOpenProfile={openProfile}
-                onLogout={handleLogout}
+                onOpenLogin={() => openAuthPage('login')}
+                onLogout={requestLogout}
             />
 
             <div className="container mt-4 pb-5">
-                {isAdminView ? (
+                {authView ? (
+                    <AuthPage
+                        isRegisterView={isRegisterView}
+                        setIsRegisterView={(nextView) => {
+                            setIsRegisterView(nextView);
+                            setAuthView(nextView ? 'register' : 'login');
+                        }}
+                        loginForm={loginForm}
+                        setLoginForm={setLoginForm}
+                        rememberLogin={rememberLogin}
+                        setRememberLogin={setRememberLogin}
+                        registerForm={registerForm}
+                        setRegisterForm={setRegisterForm}
+                        loginError={loginError}
+                        isLoginLoading={isLoginLoading}
+                        registerMsg={registerMsg}
+                        onLogin={handleLogin}
+                        onRegister={handleRegister}
+                    />
+                ) : isAdminView && isAdminUser(user) ? (
                     <AdminPage
                         adminPage={adminPage}
                         setAdminPage={setAdminPage}
@@ -1123,6 +1234,15 @@ function App() {
                     onDeleteAddress={handleDeleteAddress}
                     onSave={handleSaveProfile}
                     onClose={() => setIsProfileOpen(false)}
+                />
+            )}
+
+            {showLogoutConfirm && (
+                <LogoutConfirmModal
+                    user={user}
+                    isSubmitting={isLoggingOut}
+                    onCancel={() => setShowLogoutConfirm(false)}
+                    onConfirm={handleLogout}
                 />
             )}
         </div>
