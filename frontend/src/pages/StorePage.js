@@ -10,23 +10,35 @@ const formatPrice = (price) => {
 
 const productSizes = ['S', 'M', 'L', 'XL', '2XL'];
 
-function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) {
+function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, showStockCounts = false }) {
     const [searchText, setSearchText] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedSize, setSelectedSize] = useState('M');
     const [selectedColor, setSelectedColor] = useState('ดำ');
     const [selectedQuantity, setSelectedQuantity] = useState(1);
-    const totalStock = products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0);
+    const totalStock = showStockCounts ? products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0) : 0;
+    const activeProducts = useMemo(
+        () => products.filter((product) => Number(product.product_status ?? 1) === 1),
+        [products],
+    );
+    const categoryOptions = useMemo(() => Array.from(new Set(
+        activeProducts.map((product) => String(product.category_name || 'ทั่วไป').trim() || 'ทั่วไป'),
+    )).sort((a, b) => a.localeCompare(b, 'th')), [activeProducts]);
     const visibleProducts = useMemo(() => {
-        const activeProducts = products.filter((product) => Number(product.product_status ?? 1) === 1);
         const keyword = searchText.trim().toLowerCase();
-        if (!keyword) return activeProducts;
 
-        return activeProducts.filter((product) => (
-            product.name?.toLowerCase().includes(keyword)
-            || product.description?.toLowerCase().includes(keyword)
-        ));
-    }, [products, searchText]);
+        return activeProducts.filter((product) => {
+            const productCategory = String(product.category_name || 'ทั่วไป').trim() || 'ทั่วไป';
+            const matchesCategory = selectedCategory === 'all' || productCategory === selectedCategory;
+            const matchesKeyword = !keyword
+                || product.name?.toLowerCase().includes(keyword)
+                || product.description?.toLowerCase().includes(keyword)
+                || productCategory.toLowerCase().includes(keyword);
+
+            return matchesCategory && matchesKeyword;
+        });
+    }, [activeProducts, searchText, selectedCategory]);
 
     const handleImageError = (event) => {
         event.currentTarget.style.display = 'none';
@@ -69,31 +81,46 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                 <div>
                     <span className="store-eyebrow">Clothing Collection</span>
                     <h1>หน้าร้านสินค้า</h1>
-                    <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูราคาและจำนวนสินค้าในคลังแบบรวดเร็ว</p>
+                    <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูรายละเอียดสินค้า ราคา และตัวเลือกที่ต้องการ</p>
                     <div className="store-hero-benefits" aria-label="จุดเด่นของร้านค้า">
                         <span><b aria-hidden="true">✓</b> สินค้าคัดสรรคุณภาพ</span>
                         <span><b aria-hidden="true">✓</b> สั่งซื้อง่ายและปลอดภัย</span>
                         <span><b aria-hidden="true">✓</b> ติดตามสถานะได้ทุกขั้นตอน</span>
                     </div>
                 </div>
-                <div className="store-stats">
-                    <div>
-                        <strong>{products.length}</strong>
-                        <span>รายการสินค้า</span>
+                {showStockCounts && (
+                    <div className="store-stats">
+                        <div>
+                            <strong>{products.length}</strong>
+                            <span>รายการสินค้า</span>
+                        </div>
+                        <div>
+                            <strong>{totalStock}</strong>
+                            <span>ชิ้นในคลัง</span>
+                        </div>
                     </div>
-                    <div>
-                        <strong>{totalStock}</strong>
-                        <span>ชิ้นในคลัง</span>
-                    </div>
-                </div>
+                )}
             </div>
 
             <div className="store-toolbar">
                 <div>
                     <h2>สินค้าแนะนำ</h2>
-                    <span>{visibleProducts.length} รายการที่พบ</span>
+                    {showStockCounts && <span>{visibleProducts.length} รายการที่พบ</span>}
                 </div>
                 <div className="store-search">
+                    <label className="store-filter-field">
+                        <span>ประเภทสินค้า</span>
+                        <select
+                            value={selectedCategory}
+                            onChange={(event) => setSelectedCategory(event.target.value)}
+                            aria-label="เลือกประเภทสินค้า"
+                        >
+                            <option value="all">สินค้าทุกประเภท</option>
+                            {categoryOptions.map((category) => (
+                                <option key={category} value={category}>{category}</option>
+                            ))}
+                        </select>
+                    </label>
                     <div className="store-search-field">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                             <circle cx="11" cy="11" r="6.5" />
@@ -107,8 +134,14 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                             aria-label="ค้นหาสินค้า"
                         />
                     </div>
-                    {searchText && (
-                        <button type="button" onClick={() => setSearchText('')}>
+                    {(searchText || selectedCategory !== 'all') && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearchText('');
+                                setSelectedCategory('all');
+                            }}
+                        >
                             ล้าง
                         </button>
                     )}
@@ -123,7 +156,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
             ) : visibleProducts.length === 0 ? (
                 <div className="store-empty">
                     <strong>ไม่พบสินค้าที่ค้นหา</strong>
-                    <span>ลองค้นด้วยชื่อสินค้า คำอธิบาย หรือกดล้างคำค้นเพื่อดูทั้งหมด</span>
+                    <span>ลองเปลี่ยนประเภทสินค้า คำค้น หรือกดล้างเพื่อดูทั้งหมด</span>
                 </div>
             ) : (
                 <div className="store-grid">
@@ -152,9 +185,11 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                     <div className="store-image-fallback">
                                         <span>{product.name?.charAt(0) || 'C'}</span>
                                     </div>
-                                    <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
-                                        {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
-                                    </span>
+                                    {(showStockCounts || isOutOfStock) && (
+                                        <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
+                                            {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className="store-card-body">
@@ -206,9 +241,11 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                 )}
                             </div>
                             <div className="product-detail-content">
-                                <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
-                                    {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
-                                </span>
+                                {(showStockCounts || isOutOfStock) && (
+                                    <span className={`store-stock-badge ${isOutOfStock ? 'is-out' : ''}`}>
+                                        {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
+                                    </span>
+                                )}
                                 <h2>{selectedProduct.name}</h2>
                                 <p>{selectedProduct.description || 'สินค้าแฟชั่นพร้อมจำหน่าย'}</p>
                                 <div className="product-detail-meta">
@@ -216,10 +253,12 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                         <small>ราคา</small>
                                         <strong>฿{formatPrice(selectedProduct.price)}</strong>
                                     </div>
-                                    <div>
-                                        <small>จำนวนในคลัง</small>
-                                        <strong>{stock} ชิ้น</strong>
-                                    </div>
+                                    {showStockCounts && (
+                                        <div>
+                                            <small>จำนวนในคลัง</small>
+                                            <strong>{stock} ชิ้น</strong>
+                                        </div>
+                                    )}
                                 </div>
                                 {(hasSize || hasColor) && (
                                     <div className="product-option-stack">
@@ -264,7 +303,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown }) 
                                     <div className="product-quantity-picker">
                                         <div>
                                             <small>จำนวนสินค้า</small>
-                                            <span>เลือกได้สูงสุด {stock} ชิ้น</span>
+                                            <span>{showStockCounts ? `เลือกได้สูงสุด ${stock} ชิ้น` : 'เลือกจำนวนที่ต้องการ'}</span>
                                         </div>
                                         <div className="product-quantity-control">
                                             <button

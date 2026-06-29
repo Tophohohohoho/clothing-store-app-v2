@@ -88,6 +88,46 @@ const getPrintOrderIdsFromLocation = () => {
     return match ? [decodeURIComponent(match[1])] : [];
 };
 
+function SiteFooter({ contact, onOpenStore }) {
+    const phone = contact?.phone || 'ยังไม่ได้ระบุ';
+    const email = contact?.email || 'ยังไม่ได้ระบุ';
+
+    return (
+        <footer className="site-footer">
+            <div className="site-footer-inner">
+                <div className="site-footer-grid">
+                    <section className="site-footer-section" aria-labelledby="footer-contact">
+                        <h2 id="footer-contact">ติดต่อเรา</h2>
+                        <p>โทร {phone}</p>
+                        <p>อีเมล {email}</p>
+                    </section>
+
+                    <section className="site-footer-section" aria-labelledby="footer-menu">
+                        <h2 id="footer-menu">เมนูสำคัญ</h2>
+                        <button type="button" onClick={onOpenStore}>หน้าแรก</button>
+                        <button type="button" onClick={onOpenStore}>สินค้า</button>
+                    </section>
+
+                    <section className="site-footer-section" aria-labelledby="footer-social">
+                        <h2 id="footer-social">โซเชียล</h2>
+                        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer">Facebook</a>
+                        <a href="https://line.me/" target="_blank" rel="noreferrer">LINE</a>
+                    </section>
+
+                    <section className="site-footer-section" aria-labelledby="footer-info">
+                        <h2 id="footer-info">ข้อมูลเพิ่มเติม</h2>
+                        <button type="button">นโยบายความเป็นส่วนตัว</button>
+                    </section>
+                </div>
+
+                <div className="site-footer-bottom">
+                    © 2026 CLOTHING SHOP All rights reserved.
+                </div>
+            </div>
+        </footer>
+    );
+}
+
 function App() {
     const [products, setProducts] = useState([]);
     const [productsLoading, setProductsLoading] = useState(true);
@@ -109,6 +149,7 @@ function App() {
     const [adminPage, setAdminPage] = useState('dashboard');
     const [previewProductId, setPreviewProductId] = useState(null);
     const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now());
+    const [storeContact, setStoreContact] = useState({ full_name: '', email: '', phone: '' });
 
     const [loginForm, setLoginForm] = useState({ username: '', password: '' });
     const [rememberLogin, setRememberLogin] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY)));
@@ -284,6 +325,12 @@ function App() {
         fetchProducts();
         fetchCategories();
     }, [fetchProducts, fetchCategories]);
+
+    useEffect(() => {
+        authApi.getStoreContact()
+            .then((res) => setStoreContact(res.data || { full_name: '', email: '', phone: '' }))
+            .catch((err) => console.error('โหลดข้อมูลติดต่อร้านไม่สำเร็จ', err));
+    }, []);
 
     useEffect(() => {
         fetchProducts(isAdminView);
@@ -1197,9 +1244,12 @@ function App() {
                         onAddToCart={addToCart}
                         previewProductId={previewProductId}
                         onPreviewShown={() => setPreviewProductId(null)}
+                        showStockCounts={isAdminUser(user)}
                     />
                 )}
             </div>
+
+            <SiteFooter contact={storeContact} onOpenStore={openStore} />
 
             <StockEditModal stockEdit={stockEdit} setStockEdit={setStockEdit} onSave={handleUpdateStock} />
 

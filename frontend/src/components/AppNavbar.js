@@ -17,6 +17,7 @@ function AppNavbar({
 }) {
     const isAdmin = user?.role === 'admin';
     const isMember = Boolean(user) && !isAdmin;
+    const isGuest = !user;
 
     return (
         <nav className="app-navbar sticky-top">
@@ -26,7 +27,7 @@ function AppNavbar({
                 </span>
 
                 <div className="app-nav-actions">
-                    {!isAdmin && (
+                    {isGuest && (
                         <>
                             <button className="nav-pill is-light" onClick={onOpenStore}>
                                 หน้าแรก

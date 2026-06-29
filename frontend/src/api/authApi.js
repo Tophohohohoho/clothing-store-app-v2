@@ -15,6 +15,8 @@ export const verifyPasswordResetCode = (payload) => apiClient.post('/api/passwor
 
 export const resetPasswordWithCode = (payload) => apiClient.post('/api/password-reset/complete', payload);
 
+export const getStoreContact = () => apiClient.get('/api/store/contact');
+
 export const updateProfile = (userId, payload) => apiClient.put(`/api/users/${userId}/profile`, payload);
 
 export const getAddresses = (userId) => apiClient.get(`/api/users/${userId}/addresses`);

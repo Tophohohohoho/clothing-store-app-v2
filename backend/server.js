@@ -622,6 +622,22 @@ app.get('/api/categories', async (req, res) => {
     }
 });
 
+app.get('/api/store/contact', async (req, res) => {
+    try {
+        const [admins] = await query(
+            `SELECT full_name, email, phone
+             FROM \`user\`
+             WHERE role = 'admin' AND status_user = 1
+             ORDER BY created_at ASC, user_id ASC
+             LIMIT 1`,
+        );
+
+        res.json(admins[0] || { full_name: '', email: '', phone: '' });
+    } catch (err) {
+        respondError(res, err, 'โหลดข้อมูลติดต่อร้านไม่สำเร็จ');
+    }
+});
+
 app.post('/api/admin/categories', async (req, res) => {
     try {
         const categoryName = String(req.body.category_name || '').trim();

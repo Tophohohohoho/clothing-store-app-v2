@@ -3272,6 +3272,66 @@ body {
     outline: none;
 }
 
+.site-footer {
+    margin-top: 36px;
+    background: #20252b;
+    color: #f8fafc;
+}
+
+.site-footer-inner {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+}
+
+.site-footer-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 28px;
+    padding: 38px 0 32px;
+}
+
+.site-footer-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 9px;
+}
+
+.site-footer-section h2 {
+    margin: 0 0 5px;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.site-footer-section p,
+.site-footer-section a,
+.site-footer-section button {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    color: #cbd5e1;
+    background: transparent;
+    font: inherit;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    text-align: left;
+    text-decoration: none;
+}
+
+.site-footer-section a:hover,
+.site-footer-section button:hover {
+    color: #ffd02f;
+}
+
+.site-footer-bottom {
+    padding: 17px 0 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    color: #d8dee8;
+    font-size: 0.88rem;
+    text-align: center;
+}
+
 .admin-page {
     display: grid;
     gap: 22px;
@@ -5120,12 +5180,40 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    width: min(420px, 100%);
+    width: min(640px, 100%);
 }
 
 .store-search-field {
     position: relative;
     flex: 1 1 auto;
+}
+
+.store-filter-field {
+    position: relative;
+    flex: 0 0 190px;
+    margin: 0;
+}
+
+.store-filter-field > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.store-filter-field::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    width: 8px;
+    height: 8px;
+    transform: translateY(-62%) rotate(45deg);
+    border-right: 2px solid #7a8490;
+    border-bottom: 2px solid #7a8490;
+    pointer-events: none;
 }
 
 .store-search-field svg {
@@ -5142,10 +5230,10 @@ body {
     pointer-events: none;
 }
 
-.store-search input {
+.store-search input,
+.store-filter-field select {
     width: 100%;
     min-height: 44px;
-    padding: 0 42px;
     border: 1px solid var(--line);
     border-radius: 14px;
     background: #fff;
@@ -5154,13 +5242,28 @@ body {
     outline: none;
 }
 
-.store-search input:focus {
+.store-search input {
+    padding: 0 42px;
+}
+
+.store-filter-field select {
+    appearance: none;
+    padding: 0 38px 0 14px;
+    font-weight: 700;
+}
+
+.store-search input:focus,
+.store-filter-field select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 4px rgba(189, 90, 60, 0.14);
 }
 
 .store-search-field:focus-within svg {
     stroke: var(--accent-dark);
+}
+
+.store-filter-field:focus-within::after {
+    border-color: var(--accent-dark);
 }
 
 .store-search button {
@@ -6449,6 +6552,10 @@ body {
         flex-direction: column;
     }
 
+    .site-footer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .app-nav-actions {
         width: 100%;
         justify-content: flex-start;
@@ -6519,6 +6626,20 @@ body {
 }
 
 @media (max-width: 460px) {
+    .site-footer-inner {
+        width: min(100% - 24px, 1120px);
+    }
+
+    .site-footer-grid {
+        grid-template-columns: 1fr;
+        gap: 22px;
+        padding: 30px 0 26px;
+    }
+
+    .site-footer-bottom {
+        text-align: left;
+    }
+
     .order-management-heading {
         padding: 15px;
     }
@@ -6884,7 +7005,14 @@ body {
     }
 
     .store-search {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) auto;
         width: 100%;
+    }
+
+    .store-filter-field {
+        min-width: 0;
+        flex-basis: auto;
     }
 
     .store-search-field {
@@ -8209,6 +8337,14 @@ body {
 }
 
 @media (max-width: 520px) {
+    .store-search {
+        grid-template-columns: 1fr;
+    }
+
+    .store-search button {
+        width: 100%;
+    }
+
     .checkout-shipping-options {
         grid-template-columns: 1fr;
     }
