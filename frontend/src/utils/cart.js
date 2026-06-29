@@ -8,6 +8,10 @@ export const getItemQuantity = (item) => {
     return parseInt(item.qty || item.quantity || item.amount || 1, 10) || 1;
 };
 
+export const getCartItemKey = (item) => {
+    return `${item.id}-${item.selected_size || ''}-${item.selected_color || ''}`;
+};
+
 export const getCartTotal = (cart) => {
     return cart.reduce((sum, item) => sum + getItemPrice(item) * getItemQuantity(item), 0);
 };

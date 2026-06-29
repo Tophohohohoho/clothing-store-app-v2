@@ -18,7 +18,7 @@ import AdminPage from './pages/AdminPage';
 import AdminOrderPrintPage from './pages/AdminOrderPrintPage';
 import AuthPage from './pages/AuthPage';
 import StorePage from './pages/StorePage';
-import { getCartTotal } from './utils/cart';
+import { getCartItemKey, getCartTotal } from './utils/cart';
 
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
 
@@ -128,11 +128,64 @@ function SiteFooter({ contact, onOpenStore }) {
     );
 }
 
+const formatOrderCode = (orderId) => {
+    const year = new Date().getFullYear();
+    const cleanId = Number(orderId) || 0;
+    return `#ORD-${year}-${String(cleanId).padStart(4, '0')}`;
+};
+
+function OrderSuccessModal({ orderId, onViewOrder, onContinueShopping }) {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') onContinueShopping();
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [onContinueShopping]);
+
+    return (
+        <div className="order-success-backdrop" role="presentation" onMouseDown={onContinueShopping}>
+            <section
+                className="order-success-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="order-success-title"
+                aria-describedby="order-success-description"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="order-success-icon" aria-hidden="true">✓</div>
+                <h2 id="order-success-title">สั่งซื้อสำเร็จ</h2>
+                <p id="order-success-description">ขอบคุณสำหรับการสั่งซื้อ ระบบได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว</p>
+                <div className="order-success-code">
+                    <span>เลขคำสั่งซื้อ</span>
+                    <strong>{formatOrderCode(orderId)}</strong>
+                </div>
+                <div className="order-success-actions">
+                    <button type="button" className="order-success-button primary" onClick={onViewOrder}>
+                        ดูคำสั่งซื้อ
+                    </button>
+                    <button type="button" className="order-success-button secondary" onClick={onContinueShopping}>
+                        เลือกซื้อสินค้าต่อ
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
 function App() {
     const [products, setProducts] = useState([]);
     const [productsLoading, setProductsLoading] = useState(true);
     const [categories, setCategories] = useState([]);
     const [cart, setCart] = useState([]);
+    const [selectedCartKeys, setSelectedCartKeys] = useState([]);
     const [user, setUser] = useState(() => {
         try {
             return getStoredUser();
@@ -187,6 +240,8 @@ function App() {
     const [showCheckout, setShowCheckout] = useState(false);
     const [showPosCheckout, setShowPosCheckout] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+    const [successOrderId, setSuccessOrderId] = useState(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
     const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false);
@@ -216,7 +271,8 @@ function App() {
         receipt_file_size: 0,
     });
 
-    const total = getCartTotal(cart);
+    const selectedCartItems = cart.filter((item) => selectedCartKeys.includes(getCartItemKey(item)));
+    const total = getCartTotal(selectedCartItems);
     const printOrderIds = getPrintOrderIdsFromLocation();
     const findActiveCategory = useCallback((categoryId, categoryName) => {
         const cleanName = String(categoryName || '').trim();
@@ -331,6 +387,18 @@ function App() {
             .then((res) => setStoreContact(res.data || { full_name: '', email: '', phone: '' }))
             .catch((err) => console.error('โหลดข้อมูลติดต่อร้านไม่สำเร็จ', err));
     }, []);
+
+    useEffect(() => {
+        const cartKeys = cart.map((item) => getCartItemKey(item));
+        setSelectedCartKeys((currentKeys) => {
+            const currentSet = new Set(currentKeys);
+            const nextKeys = currentKeys.filter((key) => cartKeys.includes(key));
+            cartKeys.forEach((key) => {
+                if (!currentSet.has(key)) nextKeys.push(key);
+            });
+            return nextKeys;
+        });
+    }, [cart]);
 
     useEffect(() => {
         fetchProducts(isAdminView);
@@ -757,6 +825,10 @@ function App() {
             alert('ไม่มีสินค้าในตะกร้า');
             return;
         }
+        if (selectedCartItems.length === 0) {
+            alert('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
+            return;
+        }
 
         if (user?.role === 'admin') {
             if (!redirectUnauthorizedPage('pos')) return;
@@ -768,25 +840,36 @@ function App() {
         await openMemberCheckout();
     };
 
+    const removeSelectedCartItems = () => {
+        const paidKeySet = new Set(selectedCartItems.map((item) => getCartItemKey(item)));
+        setCart((currentCart) => currentCart.filter((item) => !paidKeySet.has(getCartItemKey(item))));
+        setSelectedCartKeys((currentKeys) => currentKeys.filter((key) => !paidKeySet.has(key)));
+    };
+
     const handleConfirmPosPayment = async ({ payment_method, cash_received }) => {
         if (!redirectUnauthorizedPage('pos')) throw new Error('กรุณาเข้าสู่ระบบด้วยสิทธิ์แอดมิน');
+        if (selectedCartItems.length === 0) throw new Error('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
 
         const res = await ordersApi.checkoutPosOrder({
             user_id: user?.id,
             payment_method,
             cash_received,
-            cart_items: cart,
+            cart_items: selectedCartItems,
         });
 
         if (!res.data.success) throw new Error(res.data.error || 'บันทึกการขายไม่สำเร็จ');
 
-        setCart([]);
+        removeSelectedCartItems();
         await Promise.all([fetchProducts(), fetchAdminOrders(), fetchSystemLogs()]);
         return res.data.receipt;
     };
 
     const handleConfirmPayment = async () => {
         if (!redirectUnauthorizedPage('payment')) return;
+        if (selectedCartItems.length === 0) {
+            alert('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
+            return;
+        }
 
         if (shippingInfo.shipping_method === 'ส่งสินค้า' && !shippingInfo.address.trim()) {
             alert('กรุณากรอกที่อยู่จัดส่ง');
@@ -824,15 +907,16 @@ function App() {
                 shipping_method: shippingInfo.shipping_method,
                 receipt_image_data: shippingInfo.receipt_image_data,
                 receipt_file_name: shippingInfo.receipt_file_name,
-                cart_items: cart,
+                cart_items: selectedCartItems,
             };
 
             const res = await ordersApi.checkoutOrder(orderData);
             if (res.data.success) {
-                alert('สั่งซื้อสำเร็จ');
-                setCart([]);
+                removeSelectedCartItems();
                 setShowCheckout(false);
                 setIsCartOpen(false);
+                setSuccessOrderId(res.data.order_id);
+                setShowOrderSuccess(true);
                 setShippingInfo({ address_id: null, receiver_name: '', address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '', receipt_file_size: 0 });
                 await fetchProducts();
             }
@@ -1257,6 +1341,14 @@ function App() {
                 <CartModal
                     cart={cart}
                     setCart={setCart}
+                    selectedCartKeys={selectedCartKeys}
+                    onToggleItemSelection={(itemKey) => setSelectedCartKeys((currentKeys) => (
+                        currentKeys.includes(itemKey)
+                            ? currentKeys.filter((key) => key !== itemKey)
+                            : [...currentKeys, itemKey]
+                    ))}
+                    onSelectAllItems={() => setSelectedCartKeys(cart.map((item) => getCartItemKey(item)))}
+                    onClearSelection={() => setSelectedCartKeys([])}
                     onClose={() => setIsCartOpen(false)}
                     onCheckout={handleCheckout}
                     checkoutLabel={user?.role === 'admin' ? 'ไปหน้ารับชำระ' : 'ชำระเงินทันที'}
@@ -1277,7 +1369,7 @@ function App() {
 
             {showPosCheckout && (
                 <PosCheckoutModal
-                    cart={cart}
+                    cart={selectedCartItems}
                     cashier={user}
                     onClose={() => setShowPosCheckout(false)}
                     onConfirm={handleConfirmPosPayment}
@@ -1340,6 +1432,20 @@ function App() {
                     isSubmitting={isLoggingOut}
                     onCancel={() => setShowLogoutConfirm(false)}
                     onConfirm={handleLogout}
+                />
+            )}
+
+            {showOrderSuccess && (
+                <OrderSuccessModal
+                    orderId={successOrderId}
+                    onViewOrder={async () => {
+                        setShowOrderSuccess(false);
+                        await openOrderHistory();
+                    }}
+                    onContinueShopping={() => {
+                        setShowOrderSuccess(false);
+                        openStore();
+                    }}
                 />
             )}
         </div>

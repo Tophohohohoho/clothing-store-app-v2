@@ -1,14 +1,28 @@
 import { useEffect } from 'react';
-import { getCartCount, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
+import { getCartCount, getCartItemKey, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
 });
 
-function CartModal({ cart, setCart, onClose, onCheckout, checkoutLabel = 'ชำระเงินทันที' }) {
+function CartModal({
+    cart,
+    setCart,
+    selectedCartKeys,
+    onToggleItemSelection,
+    onSelectAllItems,
+    onClearSelection,
+    onClose,
+    onCheckout,
+    checkoutLabel = 'ชำระเงินทันที',
+}) {
     const itemCount = getCartCount(cart);
-    const cartTotal = getCartTotal(cart);
+    const selectedKeySet = new Set(selectedCartKeys);
+    const selectedCart = cart.filter((item) => selectedKeySet.has(getCartItemKey(item)));
+    const selectedItemCount = getCartCount(selectedCart);
+    const selectedCartTotal = getCartTotal(selectedCart);
+    const isAllSelected = cart.length > 0 && selectedCart.length === cart.length;
 
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -99,17 +113,43 @@ function CartModal({ cart, setCart, onClose, onCheckout, checkoutLabel = 'ชำ
                     </div>
                 ) : (
                     <>
+                        <div className="cart-selection-bar">
+                            <label className="cart-select-all">
+                                <input
+                                    type="checkbox"
+                                    checked={isAllSelected}
+                                    onChange={(event) => (event.target.checked ? onSelectAllItems() : onClearSelection())}
+                                />
+                                <span>เลือกทั้งหมด</span>
+                            </label>
+                            <span>เลือกชำระ {selectedItemCount} จาก {itemCount} ชิ้น</span>
+                        </div>
+
                         <div className="cart-items" aria-live="polite">
                             {cart.map((item, index) => {
                                 const price = getItemPrice(item);
                                 const quantity = getItemQuantity(item);
                                 const lineTotal = price * quantity;
-                                const itemKey = `${item.id}-${item.selected_size || ''}-${item.selected_color || ''}`;
+                                const itemKey = getCartItemKey(item);
+                                const isSelected = selectedKeySet.has(itemKey);
                                 const stock = Number(item.stock);
                                 const isAtStockLimit = Number.isFinite(stock) && stock >= 0 && quantity >= stock;
 
                                 return (
-                                    <article className="cart-item" key={itemKey} style={{ '--cart-item-delay': `${Math.min(index * 45, 180)}ms` }}>
+                                    <article
+                                        className={`cart-item ${isSelected ? 'is-selected' : ''}`}
+                                        key={itemKey}
+                                        style={{ '--cart-item-delay': `${Math.min(index * 45, 180)}ms` }}
+                                    >
+                                        <label className="cart-item-select" aria-label={`เลือก ${item.name} เพื่อชำระเงิน`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => onToggleItemSelection(itemKey)}
+                                            />
+                                            <span aria-hidden="true" />
+                                        </label>
+
                                         <div className="cart-item-image">
                                             <span aria-hidden="true">{item.name?.charAt(0) || 'C'}</span>
                                             {item.image_url && (
@@ -172,19 +212,24 @@ function CartModal({ cart, setCart, onClose, onCheckout, checkoutLabel = 'ชำ
                         <footer className="cart-modal-footer">
                             <div className="cart-summary">
                                 <div>
-                                    <span>จำนวนสินค้า</span>
-                                    <strong>{itemCount} ชิ้น</strong>
+                                    <span>จำนวนสินค้าที่เลือก</span>
+                                    <strong>{selectedItemCount} ชิ้น</strong>
                                 </div>
                                 <div className="cart-summary-total">
-                                    <span>ยอดรวมทั้งหมด</span>
-                                    <strong>฿{formatCurrency(cartTotal)}</strong>
+                                    <span>ยอดรวมที่ต้องชำระ</span>
+                                    <strong>฿{formatCurrency(selectedCartTotal)}</strong>
                                 </div>
                             </div>
-                            <button type="button" className="cart-checkout-button" onClick={onCheckout}>
+                            <button
+                                type="button"
+                                className="cart-checkout-button"
+                                onClick={onCheckout}
+                                disabled={selectedItemCount === 0}
+                            >
                                 <span>{checkoutLabel}</span>
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
                             </button>
-                            <p className="cart-checkout-note">ตรวจสอบสินค้าและจำนวนให้เรียบร้อยก่อนชำระเงิน</p>
+                            <p className="cart-checkout-note">เลือกสินค้าที่ต้องการ แล้วตรวจสอบจำนวนให้เรียบร้อยก่อนชำระเงิน</p>
                         </footer>
                     </>
                 )}
