@@ -3,6 +3,26 @@ const cors = require('cors');
 const mysql = require('mysql2');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+const loadLocalEnv = () => {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) return;
+
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+
+        const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (!match || process.env[match[1]] !== undefined) continue;
+
+        process.env[match[1]] = match[2].replace(/^['"]|['"]$/g, '');
+    }
+};
+
+loadLocalEnv();
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
@@ -20,6 +40,54 @@ const db = mysql.createConnection({
 const dbp = db.promise();
 
 const query = (sql, params = []) => dbp.query(sql, params);
+
+const hashResetCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
+
+const getSmtpTransport = () => {
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
+
+    return nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+};
+
+const sendPasswordResetEmail = async ({ email, fullName, code }) => {
+    const transport = getSmtpTransport();
+    if (!transport) return { sent: false };
+
+    await transport.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: email,
+        subject: 'รหัสยืนยันสำหรับรีเซ็ตรหัสผ่าน',
+        text: `สวัสดี ${fullName || 'ผู้ใช้งาน'}\n\nรหัสยืนยันของคุณคือ ${code}\nรหัสนี้จะหมดอายุภายใน 10 นาที\n\nหากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาไม่ต้องดำเนินการใด ๆ`,
+        html: `
+            <div style="font-family: Arial, sans-serif; color: #2b2725; line-height: 1.6;">
+                <h2>รหัสยืนยันสำหรับรีเซ็ตรหัสผ่าน</h2>
+                <p>สวัสดี ${fullName || 'ผู้ใช้งาน'}</p>
+                <p>ใช้รหัสด้านล่างเพื่อยืนยันตัวตนและตั้งรหัสผ่านใหม่</p>
+                <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: #a9472f; margin: 18px 0;">${code}</div>
+                <p>รหัสนี้จะหมดอายุภายใน 10 นาที</p>
+                <p style="color: #6f6a66;">หากคุณไม่ได้ขอรีเซ็ตรหัสผ่าน กรุณาไม่ต้องดำเนินการใด ๆ</p>
+            </div>
+        `,
+    });
+
+    return { sent: true };
+};
+
+const getPublicMailErrorMessage = (errorMessage = '') => {
+    const message = String(errorMessage || '');
+    if (/Invalid login|BadCredentials|Username and Password not accepted/i.test(message)) {
+        return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ SMTP_USER และ SMTP_PASS โดย Gmail ต้องใช้ App password';
+    }
+    return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า SMTP';
+};
 
 const respondError = (res, err, fallback = 'เกิดข้อผิดพลาดที่ฐานข้อมูล') => {
     console.error(fallback, err);
@@ -414,6 +482,17 @@ const initializeDatabase = async () => {
             KEY idx_order_admin_notes_order (order_id),
             KEY idx_order_admin_notes_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+        `CREATE TABLE IF NOT EXISTS password_reset_codes (
+            reset_id int NOT NULL AUTO_INCREMENT,
+            user_id int NOT NULL,
+            code_hash varchar(64) NOT NULL,
+            expires_at datetime NOT NULL,
+            used_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (reset_id),
+            KEY idx_password_reset_user (user_id),
+            KEY idx_password_reset_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
     ];
 
     for (const schema of schemas) {
@@ -672,16 +751,22 @@ app.delete('/api/products/:id', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     try {
-        const { username, password } = req.body;
+        const loginIdentifier = String(req.body.username || req.body.email || '').trim();
+        const password = String(req.body.password || '');
+
+        if (!loginIdentifier || !password) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อผู้ใช้หรืออีเมลและรหัสผ่าน' });
+        }
+
         const [results] = await query(
             `SELECT user_id AS id, username, full_name, email, phone, role, status_user, created_at
              FROM \`user\`
-             WHERE username = ? AND password = ? AND status_user = 1`,
-            [username, password],
+             WHERE (username = ? OR LOWER(email) = ?) AND password = ? AND status_user = 1`,
+            [loginIdentifier, loginIdentifier.toLowerCase(), password],
         );
 
         if (results.length === 0) {
-            return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
+            return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้ อีเมล หรือรหัสผ่านไม่ถูกต้อง' });
         }
 
         await writeSystemLog(results[0].id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ', getAuditRequestMeta(req));
@@ -725,6 +810,143 @@ app.post('/api/register', async (req, res) => {
         }
 
         respondError(res, err, 'สมัครสมาชิกไม่สำเร็จ');
+    }
+});
+
+app.post('/api/password-reset/request', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกอีเมลที่ลงทะเบียนไว้' });
+        }
+
+        const [users] = await query(
+            `SELECT user_id AS id, username, full_name, email
+             FROM \`user\`
+             WHERE LOWER(email) = ? AND status_user = 1
+             LIMIT 2`,
+            [email],
+        );
+
+        if (users.length === 0) {
+            return res.status(404).json({ success: false, message: 'ไม่พบบัญชีที่ใช้อีเมลนี้' });
+        }
+        if (users.length > 1) {
+            return res.status(409).json({ success: false, message: 'พบมากกว่าหนึ่งบัญชีที่ใช้อีเมลนี้ กรุณาติดต่อผู้ดูแลระบบ' });
+        }
+
+        const user = users[0];
+        const code = String(crypto.randomInt(100000, 1000000));
+        const expiresAt = new Date(Date.now() + (10 * 60 * 1000));
+
+        await query(
+            'UPDATE password_reset_codes SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
+            [user.id],
+        );
+        await query(
+            'INSERT INTO password_reset_codes (user_id, code_hash, expires_at) VALUES (?, ?, ?)',
+            [user.id, hashResetCode(code), expiresAt],
+        );
+
+        let mailResult = { sent: false };
+        let mailError = '';
+
+        try {
+            mailResult = await sendPasswordResetEmail({
+                email: user.email,
+                fullName: user.full_name || user.username,
+                code,
+            });
+        } catch (err) {
+            mailError = err.message || 'ไม่สามารถเชื่อมต่อ SMTP ได้';
+            console.error('ส่งอีเมลรีเซ็ตรหัสผ่านไม่สำเร็จ:', mailError);
+        }
+
+        const response = {
+            success: true,
+            mail_sent: mailResult.sent,
+            message: mailResult.sent
+                ? 'ส่งรหัสยืนยันไปยังอีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย'
+                : mailError
+                    ? getPublicMailErrorMessage(mailError)
+                    : 'สร้างรหัสยืนยันแล้ว แต่ยังไม่ได้ตั้งค่า SMTP สำหรับส่งอีเมล',
+        };
+
+        if (!mailResult.sent && process.env.NODE_ENV !== 'production') {
+            response.dev_code = code;
+            if (mailError) response.smtp_error = mailError;
+        }
+
+        res.json(response);
+    } catch (err) {
+        respondError(res, err, 'ส่งรหัสยืนยันไม่สำเร็จ');
+    }
+});
+
+const findValidResetCode = async ({ email, code }) => {
+    const [rows] = await query(
+        `SELECT pr.reset_id, u.user_id AS user_id
+         FROM password_reset_codes pr
+         JOIN \`user\` u ON u.user_id = pr.user_id
+         WHERE LOWER(u.email) = ?
+            AND pr.code_hash = ?
+            AND pr.used_at IS NULL
+            AND pr.expires_at > NOW()
+            AND u.status_user = 1
+         ORDER BY pr.created_at DESC
+         LIMIT 1`,
+        [email, hashResetCode(code)],
+    );
+
+    return rows[0] || null;
+};
+
+app.post('/api/password-reset/verify', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const code = String(req.body.code || '').trim();
+
+        if (!email || !/^\d{6}$/.test(code)) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกอีเมลและรหัส 6 หลักให้ครบถ้วน' });
+        }
+
+        const resetCode = await findValidResetCode({ email, code });
+        if (!resetCode) {
+            return res.status(400).json({ success: false, message: 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว' });
+        }
+
+        res.json({ success: true, message: 'ยืนยันรหัสสำเร็จ กรุณาตั้งรหัสผ่านใหม่' });
+    } catch (err) {
+        respondError(res, err, 'ตรวจสอบรหัสยืนยันไม่สำเร็จ');
+    }
+});
+
+app.post('/api/password-reset/complete', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const code = String(req.body.code || '').trim();
+        const password = String(req.body.password || '');
+
+        if (!email || !/^\d{6}$/.test(code)) {
+            return res.status(400).json({ success: false, message: 'ข้อมูลยืนยันไม่ครบถ้วน' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ success: false, message: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
+        }
+
+        const resetCode = await findValidResetCode({ email, code });
+        if (!resetCode) {
+            return res.status(400).json({ success: false, message: 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว' });
+        }
+
+        await query('UPDATE `user` SET password = ? WHERE user_id = ?', [password, resetCode.user_id]);
+        await query('UPDATE password_reset_codes SET used_at = NOW() WHERE reset_id = ?', [resetCode.reset_id]);
+        await writeSystemLog(resetCode.user_id, 'รีเซ็ตรหัสผ่าน', 'ผู้ใช้รีเซ็ตรหัสผ่านผ่านอีเมล', getAuditRequestMeta(req));
+
+        res.json({ success: true, message: 'ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสใหม่' });
+    } catch (err) {
+        respondError(res, err, 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ');
     }
 });
 

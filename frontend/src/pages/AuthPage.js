@@ -1,4 +1,13 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from '../api/authApi';
+
+const EMPTY_FORGOT_FORM = {
+    email: '',
+    code: '',
+    password: '',
+    confirmPassword: '',
+};
+const EMPTY_RESET_CODE_DIGITS = ['', '', '', '', '', ''];
 
 function AuthPage({
     isRegisterView,
@@ -17,6 +26,13 @@ function AuthPage({
 }) {
     const [showLoginPassword, setShowLoginPassword] = useState(false);
     const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [forgotStep, setForgotStep] = useState('request');
+    const [forgotForm, setForgotForm] = useState(EMPTY_FORGOT_FORM);
+    const [forgotCodeDigits, setForgotCodeDigits] = useState(EMPTY_RESET_CODE_DIGITS);
+    const [forgotMsg, setForgotMsg] = useState({ type: '', text: '' });
+    const [isForgotLoading, setIsForgotLoading] = useState(false);
+    const resetCodeInputRefs = useRef([]);
+    const forgotCode = forgotCodeDigits.join('');
 
     const switchToLogin = () => {
         setIsRegisterView(false);
@@ -24,6 +40,160 @@ function AuthPage({
 
     const switchToRegister = () => {
         setIsRegisterView(true);
+    };
+
+    const closeForgotPassword = () => {
+        setShowForgotPassword(false);
+        setForgotStep('request');
+        setForgotForm(EMPTY_FORGOT_FORM);
+        setForgotCodeDigits(EMPTY_RESET_CODE_DIGITS);
+        setForgotMsg({ type: '', text: '' });
+        setIsForgotLoading(false);
+    };
+
+    const openForgotPassword = () => {
+        setForgotForm(EMPTY_FORGOT_FORM);
+        setForgotCodeDigits(EMPTY_RESET_CODE_DIGITS);
+        setForgotStep('request');
+        setForgotMsg({ type: '', text: '' });
+        setShowForgotPassword(true);
+    };
+
+    const getForgotError = (err, fallback) => err?.response?.data?.message || err?.response?.data?.error || fallback;
+
+    const handleRequestResetCode = async (event) => {
+        event.preventDefault();
+        setIsForgotLoading(true);
+        setForgotMsg({ type: '', text: '' });
+
+        try {
+            const { data } = await requestPasswordReset({
+                email: forgotForm.email.trim(),
+            });
+            const devCodeText = data.dev_code ? ` รหัสทดสอบ: ${data.dev_code}` : '';
+            setForgotMsg({ type: 'success', text: `${data.message || 'ส่งรหัสยืนยันแล้ว'}${devCodeText}` });
+            setForgotCodeDigits(EMPTY_RESET_CODE_DIGITS);
+            setForgotForm((currentForm) => ({ ...currentForm, code: '' }));
+            setForgotStep('verify');
+        } catch (err) {
+            setForgotMsg({ type: 'error', text: getForgotError(err, 'ส่งรหัสยืนยันไม่สำเร็จ') });
+        } finally {
+            setIsForgotLoading(false);
+        }
+    };
+
+    const handleVerifyResetCode = async (event) => {
+        event.preventDefault();
+        if (forgotCode.length !== 6) {
+            setForgotMsg({ type: 'error', text: 'กรุณากรอกรหัสยืนยันให้ครบ 6 หลัก' });
+            const firstEmptyIndex = forgotCodeDigits.findIndex((digit) => !digit);
+            resetCodeInputRefs.current[firstEmptyIndex === -1 ? 5 : firstEmptyIndex]?.focus();
+            return;
+        }
+
+        setIsForgotLoading(true);
+        setForgotMsg({ type: '', text: '' });
+
+        try {
+            const { data } = await verifyPasswordResetCode({
+                email: forgotForm.email.trim(),
+                code: forgotCode,
+            });
+            setForgotMsg({ type: 'success', text: data.message || 'ยืนยันรหัสสำเร็จ' });
+            setForgotStep('reset');
+        } catch (err) {
+            setForgotMsg({ type: 'error', text: getForgotError(err, 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว') });
+        } finally {
+            setIsForgotLoading(false);
+        }
+    };
+
+    const setResetCodeAtIndex = (index, value) => {
+        const cleanValue = value.replace(/\D/g, '').slice(0, 6);
+        if (cleanValue.length > 1) {
+            const nextDigits = [...forgotCodeDigits];
+            cleanValue.split('').forEach((digit, offset) => {
+                const nextIndex = index + offset;
+                if (nextIndex < 6) nextDigits[nextIndex] = digit;
+            });
+            const nextCode = nextDigits.join('').slice(0, 6);
+            setForgotCodeDigits(nextDigits);
+            setForgotForm((currentForm) => ({ ...currentForm, code: nextCode }));
+            setForgotMsg((message) => (message.type === 'error' ? { type: '', text: '' } : message));
+            resetCodeInputRefs.current[Math.min(index + cleanValue.length, 5)]?.focus();
+            return;
+        }
+
+        const digit = cleanValue;
+        const nextDigits = [...forgotCodeDigits];
+        nextDigits[index] = digit;
+        const nextCode = nextDigits.join('').slice(0, 6);
+
+        setForgotCodeDigits(nextDigits);
+        setForgotForm((currentForm) => ({ ...currentForm, code: nextCode }));
+        setForgotMsg((message) => (message.type === 'error' ? { type: '', text: '' } : message));
+
+        if (digit && index < 5) {
+            resetCodeInputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleResetCodePaste = (event, index = 0) => {
+        event.preventDefault();
+        const pastedCode = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        if (!pastedCode) return;
+
+        const nextDigits = [...forgotCodeDigits];
+        pastedCode.split('').forEach((digit, offset) => {
+            const nextIndex = index + offset;
+            if (nextIndex < 6) nextDigits[nextIndex] = digit;
+        });
+
+        const nextCode = nextDigits.join('').slice(0, 6);
+        setForgotCodeDigits(nextDigits);
+        setForgotForm((currentForm) => ({ ...currentForm, code: nextCode }));
+        setForgotMsg((message) => (message.type === 'error' ? { type: '', text: '' } : message));
+        resetCodeInputRefs.current[Math.min(index + pastedCode.length, 5)]?.focus();
+    };
+
+    const handleResetCodeKeyDown = (event, index) => {
+        if (event.key === 'Backspace' && !forgotCodeDigits[index] && index > 0) {
+            resetCodeInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowLeft' && index > 0) {
+            event.preventDefault();
+            resetCodeInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowRight' && index < 5) {
+            event.preventDefault();
+            resetCodeInputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleCompleteReset = async (event) => {
+        event.preventDefault();
+        if (forgotForm.password !== forgotForm.confirmPassword) {
+            setForgotMsg({ type: 'error', text: 'กรุณายืนยันรหัสผ่านใหม่ให้ตรงกัน' });
+            return;
+        }
+
+        setIsForgotLoading(true);
+        setForgotMsg({ type: '', text: '' });
+
+        try {
+            const { data } = await resetPasswordWithCode({
+                email: forgotForm.email.trim(),
+                code: forgotCode,
+                password: forgotForm.password,
+            });
+            setLoginForm({ ...loginForm, password: '' });
+            setForgotMsg({ type: 'success', text: data.message || 'ตั้งรหัสผ่านใหม่สำเร็จ' });
+            setForgotStep('done');
+        } catch (err) {
+            setForgotMsg({ type: 'error', text: getForgotError(err, 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ') });
+        } finally {
+            setIsForgotLoading(false);
+        }
     };
 
     return (
@@ -174,11 +344,11 @@ function AuthPage({
                             {loginError && <div className="auth-alert error">{loginError}</div>}
 
                             <label htmlFor="login-username">
-                                ชื่อผู้ใช้
+                                ชื่อผู้ใช้หรืออีเมล
                                 <input
                                     id="login-username"
                                     type="text"
-                                    placeholder="กรอกชื่อผู้ใช้"
+                                    placeholder="กรอกชื่อผู้ใช้หรืออีเมล"
                                     value={loginForm.username}
                                     onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                                     autoComplete="username"
@@ -223,7 +393,7 @@ function AuthPage({
                                     />
                                     <span>จดจำการเข้าสู่ระบบ</span>
                                 </label>
-                                <button type="button" className="auth-forgot" onClick={() => setShowForgotPassword(true)}>
+                                <button type="button" className="auth-forgot" onClick={openForgotPassword}>
                                     ลืมรหัสผ่าน?
                                 </button>
                             </div>
@@ -239,15 +409,113 @@ function AuthPage({
 
             {showForgotPassword && (
                 <div className="auth-forgot-backdrop" role="presentation" onMouseDown={(event) => {
-                    if (event.target === event.currentTarget) setShowForgotPassword(false);
+                    if (event.target === event.currentTarget) closeForgotPassword();
                 }}>
                     <section className="auth-forgot-dialog" role="dialog" aria-modal="true" aria-labelledby="forgot-password-title">
-                        <button type="button" className="auth-forgot-close" onClick={() => setShowForgotPassword(false)} aria-label="ปิด">×</button>
+                        <button type="button" className="auth-forgot-close" onClick={closeForgotPassword} aria-label="ปิด">×</button>
                         <div className="auth-forgot-icon" aria-hidden="true">?</div>
                         <h3 id="forgot-password-title">ลืมรหัสผ่าน</h3>
-                        <p>เพื่อความปลอดภัย กรุณาติดต่อผู้ดูแลระบบเพื่อยืนยันตัวตนและขอรีเซ็ตรหัสผ่าน</p>
-                        <div className="auth-forgot-note">เตรียมชื่อผู้ใช้และอีเมลที่ลงทะเบียนไว้ เพื่อให้ตรวจสอบบัญชีได้รวดเร็วขึ้น</div>
-                        <button type="button" className="auth-submit" onClick={() => setShowForgotPassword(false)}>กลับไปเข้าสู่ระบบ</button>
+                        <p>
+                            {forgotStep === 'request' && 'กรอกอีเมลที่ลงทะเบียนไว้ ระบบจะส่งรหัสยืนยัน 6 หลักไปทางอีเมล'}
+                            {forgotStep === 'verify' && 'กรอกรหัสยืนยัน 6 หลักจากอีเมล รหัสจะหมดอายุภายใน 10 นาที'}
+                            {forgotStep === 'reset' && 'ตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณ'}
+                            {forgotStep === 'done' && 'รีเซ็ตรหัสผ่านเรียบร้อยแล้ว คุณสามารถกลับไปเข้าสู่ระบบด้วยรหัสใหม่ได้ทันที'}
+                        </p>
+
+                        {forgotMsg.text && (
+                            <div className={`auth-alert ${forgotMsg.type === 'success' ? 'success' : 'error'}`}>
+                                {forgotMsg.text}
+                            </div>
+                        )}
+
+                        {forgotStep === 'request' && (
+                            <form className="auth-forgot-form" onSubmit={handleRequestResetCode}>
+                                <label>
+                                    อีเมล
+                                    <input
+                                        type="email"
+                                        value={forgotForm.email}
+                                        onChange={(e) => setForgotForm({ ...forgotForm, email: e.target.value })}
+                                        placeholder="name@example.com"
+                                        autoComplete="email"
+                                        required
+                                    />
+                                </label>
+                                <button type="submit" className="auth-submit" disabled={isForgotLoading}>
+                                    {isForgotLoading ? 'กำลังส่งรหัส...' : 'ส่งรหัสยืนยันทางอีเมล'}
+                                </button>
+                            </form>
+                        )}
+
+                        {forgotStep === 'verify' && (
+                            <form className="auth-forgot-form" onSubmit={handleVerifyResetCode}>
+                                <fieldset className="auth-code-fieldset">
+                                    <legend>รหัสยืนยัน</legend>
+                                    <div className="auth-code-inputs" aria-label="กรอกรหัสยืนยัน 6 หลัก">
+                                        {forgotCodeDigits.map((digit, index) => (
+                                            <input
+                                                key={index}
+                                                ref={(element) => {
+                                                    resetCodeInputRefs.current[index] = element;
+                                                }}
+                                                type="text"
+                                                inputMode="numeric"
+                                                maxLength="1"
+                                                value={digit.trim()}
+                                                onChange={(event) => setResetCodeAtIndex(index, event.target.value)}
+                                                onKeyDown={(event) => handleResetCodeKeyDown(event, index)}
+                                                onPaste={(event) => handleResetCodePaste(event, index)}
+                                                onFocus={(event) => event.target.select()}
+                                                autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                                                aria-label={`รหัสหลักที่ ${index + 1}`}
+                                            />
+                                        ))}
+                                    </div>
+                                </fieldset>
+                                <button type="submit" className="auth-submit" disabled={isForgotLoading || forgotCode.length !== 6}>
+                                    {isForgotLoading ? 'กำลังตรวจสอบ...' : 'ยืนยันรหัส'}
+                                </button>
+                                <button type="button" className="auth-forgot-secondary" onClick={handleRequestResetCode} disabled={isForgotLoading}>
+                                    ส่งรหัสอีกครั้ง
+                                </button>
+                            </form>
+                        )}
+
+                        {forgotStep === 'reset' && (
+                            <form className="auth-forgot-form" onSubmit={handleCompleteReset}>
+                                <label>
+                                    รหัสผ่านใหม่
+                                    <input
+                                        type="password"
+                                        value={forgotForm.password}
+                                        onChange={(e) => setForgotForm({ ...forgotForm, password: e.target.value })}
+                                        placeholder="อย่างน้อย 8 ตัวอักษร"
+                                        autoComplete="new-password"
+                                        minLength="8"
+                                        required
+                                    />
+                                </label>
+                                <label>
+                                    ยืนยันรหัสผ่านใหม่
+                                    <input
+                                        type="password"
+                                        value={forgotForm.confirmPassword}
+                                        onChange={(e) => setForgotForm({ ...forgotForm, confirmPassword: e.target.value })}
+                                        placeholder="กรอกรหัสผ่านอีกครั้ง"
+                                        autoComplete="new-password"
+                                        minLength="8"
+                                        required
+                                    />
+                                </label>
+                                <button type="submit" className="auth-submit" disabled={isForgotLoading}>
+                                    {isForgotLoading ? 'กำลังบันทึก...' : 'ตั้งรหัสผ่านใหม่'}
+                                </button>
+                            </form>
+                        )}
+
+                        {forgotStep === 'done' && (
+                            <button type="button" className="auth-submit" onClick={closeForgotPassword}>กลับไปเข้าสู่ระบบ</button>
+                        )}
                     </section>
                 </div>
             )}

@@ -6142,8 +6142,98 @@ body {
     line-height: 1.55;
 }
 
+.auth-forgot-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+    text-align: left;
+}
+
+.auth-forgot-form label {
+    display: grid;
+    gap: 7px;
+    color: #4f4741;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.auth-forgot-form input {
+    width: 100%;
+    min-height: 48px;
+    border: 1px solid #eaded6;
+    border-radius: 12px;
+    padding: 0 14px;
+    color: var(--ink);
+    background: #fff;
+    font: inherit;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.auth-forgot-form input:focus {
+    border-color: rgba(189, 90, 60, 0.62);
+    box-shadow: 0 0 0 4px rgba(189, 90, 60, 0.12);
+}
+
+.auth-code-fieldset {
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.auth-code-fieldset legend {
+    padding: 0;
+    color: #4f4741;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.auth-code-inputs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.auth-forgot-form .auth-code-inputs input {
+    min-width: 0;
+    width: 100%;
+    min-height: 50px;
+    padding: 0;
+    text-align: center;
+    font-size: 1.18rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.auth-forgot-form .auth-submit {
+    margin-top: 4px;
+}
+
+.auth-forgot-secondary {
+    min-height: 42px;
+    border: 0;
+    color: var(--accent-dark);
+    background: transparent;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.auth-forgot-secondary:hover {
+    text-decoration: underline;
+}
+
 .auth-forgot-dialog .auth-submit {
     width: 100%;
+}
+
+.auth-forgot-dialog .auth-alert {
+    margin-top: 16px;
+    text-align: left;
 }
 
 .auth-alert.error {
@@ -6911,6 +7001,15 @@ body {
 
     .auth-forgot-dialog {
         padding: 30px 22px 24px;
+    }
+
+    .auth-code-inputs {
+        gap: 6px;
+    }
+
+    .auth-forgot-form .auth-code-inputs input {
+        min-height: 44px;
+        font-size: 1rem;
     }
 }
 
