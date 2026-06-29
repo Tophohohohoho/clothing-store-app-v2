@@ -12,6 +12,7 @@ const formatMoney = (value) => {
 const orderStatuses = ['ทั้งหมด', 'รอชำระ', 'รอตรวจสอบ', 'กำลังจัดส่ง', 'เตรียมสินค้า', 'พร้อมรับ', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
 const getApproveStatus = (order) => (isPickupOrder(order) ? 'เตรียมสินค้า' : 'กำลังจัดส่ง');
+const isPaidOrder = (order) => order.payment_status === 'ชำระเงินแล้ว';
 const getStatusClass = (status) => {
     if (status === 'ยกเลิก') return 'locked';
     if (status === 'รอชำระ') return 'low';
@@ -61,6 +62,156 @@ const formatChartLabel = (value, interval) => {
 };
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const formatDateTime = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    });
+};
+
+const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
+    const order = payload?.order || {};
+    const items = Array.isArray(payload?.items) ? payload.items : [];
+    const isPickup = order.shipping_method === 'รับหน้าร้าน';
+    const isPosSale = order.shipping_method === 'ขายหน้าร้าน';
+    const receiverName = order.receiver_name || order.full_name || order.username || 'ลูกค้าทั่วไป';
+    const phone = order.shipping_phone || order.customer_phone || order.phone || '-';
+    const addressLine = [
+        order.address_detail,
+        order.subdistrict ? `ต.${order.subdistrict}` : '',
+        order.district ? `อ.${order.district}` : '',
+        order.province ? `จ.${order.province}` : '',
+        order.postal_code,
+    ].filter(Boolean).join(' ');
+
+    return `<section class="sheet">
+        <div class="timestamp">${escapeHtml(printTimestamp)}</div>
+        <header>
+            <div>
+                <span>Shipping Document</span>
+                <h1>ใบจัดส่งสินค้า</h1>
+                <p>สำหรับแนบพัสดุและตรวจสอบก่อนส่งมอบสินค้า</p>
+            </div>
+            <div>
+                <small>เลขที่ออเดอร์</small>
+                <strong>#${escapeHtml(order.id || fallbackOrderId)}</strong>
+            </div>
+        </header>
+        <section class="grid">
+            <article>
+                <h2>ข้อมูลคำสั่งซื้อ</h2>
+                <dl>
+                    <div><dt>วันที่สั่งซื้อ</dt><dd>${escapeHtml(formatDateTime(order.created_at))}</dd></div>
+                    <div><dt>วิธีรับสินค้า</dt><dd>${escapeHtml(order.shipping_method || '-')}</dd></div>
+                    <div><dt>สถานะชำระเงิน</dt><dd>${escapeHtml(order.payment_status || '-')}</dd></div>
+                    <div><dt>สถานะออเดอร์</dt><dd>${escapeHtml(order.status || '-')}</dd></div>
+                </dl>
+            </article>
+            <article>
+                <h2>ข้อมูลลูกค้า</h2>
+                <dl>
+                    <div><dt>ชื่อลูกค้า</dt><dd>${escapeHtml(order.full_name || receiverName)}</dd></div>
+                    <div><dt>Username</dt><dd>${escapeHtml(order.username || '-')}</dd></div>
+                    <div><dt>เบอร์โทรศัพท์</dt><dd>${escapeHtml(phone)}</dd></div>
+                </dl>
+            </article>
+        </section>
+        ${isPickup || isPosSale ? `<section class="pickup">
+            <h2>วิธีรับสินค้า</h2>
+            <strong>ลูกค้ารับสินค้าด้วยตนเอง</strong>
+            <p>${escapeHtml(isPosSale ? 'รายการขายหน้าร้าน ไม่ต้องจัดส่งผ่านขนส่ง' : 'ออเดอร์นี้เป็นการรับสินค้าที่หน้าร้าน')}</p>
+        </section>` : `<section class="shipping">
+            <div>
+                <h2>ที่อยู่จัดส่ง</h2>
+                <p><strong>${escapeHtml(receiverName)}</strong></p>
+                <p>${escapeHtml(addressLine || '-')}</p>
+                <p>โทร: ${escapeHtml(phone)}</p>
+            </div>
+            <div>
+                <h2>ข้อมูลขนส่ง</h2>
+                <dl>
+                    <div><dt>บริษัทขนส่ง</dt><dd>${escapeHtml(order.shipping_company || order.delivery_company || '-')}</dd></div>
+                    <div><dt>เลขพัสดุ</dt><dd>${escapeHtml(order.tracking_no || '-')}</dd></div>
+                </dl>
+            </div>
+        </section>`}
+        <section class="items">
+            <h2>รายการสินค้าในออเดอร์</h2>
+            <table>
+                <thead><tr><th>สินค้า</th><th>ตัวเลือก</th><th class="number">จำนวน</th><th class="number">ราคาต่อชิ้น</th><th class="number">ราคารวม</th></tr></thead>
+                <tbody>${items.length ? items.map((item) => {
+                    const qty = Number(item.quantity || 0);
+                    const price = Number(item.price || 0);
+                    const options = [item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' / ') || '-';
+                    return `<tr><td>${escapeHtml(item.product_name || '-')}</td><td>${escapeHtml(options)}</td><td class="number">${qty.toLocaleString('th-TH')}</td><td class="number">฿${formatMoney(price)}</td><td class="number">฿${formatMoney(qty * price)}</td></tr>`;
+                }).join('') : '<tr><td colspan="5">ไม่มีรายการสินค้า</td></tr>'}</tbody>
+            </table>
+        </section>
+        <section class="total">
+            <div><span>ยอดสินค้า</span><strong>฿${formatMoney(order.total_price)}</strong></div>
+            <div><span>ค่าส่ง</span><strong>฿${formatMoney(order.shipping_fee)}</strong></div>
+            <div><span>ส่วนลด</span><strong>-฿${formatMoney(order.discount)}</strong></div>
+            <div class="grand"><span>ยอดรวมทั้งหมด</span><strong>฿${formatMoney(order.final_price ?? order.total_price)}</strong></div>
+        </section>
+    </section>`;
+};
+
+const writeShippingPrintDocument = (popup, bodyContent, shouldPrint = true) => {
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>ใบจัดส่งสินค้า</title>
+        <style>
+            @page{size:A4;margin:0}
+            *{box-sizing:border-box}
+            body{margin:0;background:#fff;color:#111;font-family:Arial,Tahoma,sans-serif}
+            .screen-actions{display:flex;justify-content:flex-end;gap:10px;width:min(210mm,100%);margin:0 auto 14px;padding-top:18px}
+            .screen-actions button{min-height:40px;padding:0 18px;border:0;border-radius:8px;background:#111827;color:#fff;font-weight:800}
+            .screen-actions button.secondary{background:#6b7280}
+            .sheet{width:210mm;min-height:297mm;margin:0 auto;padding:10mm;background:#fff;break-after:page}
+            .sheet:last-child{break-after:auto}
+            .timestamp{margin:0 0 8px;font-size:10px;font-weight:700}
+            header{display:flex;justify-content:space-between;gap:18px;padding-bottom:12px;border-bottom:2px solid #111}
+            header span,header small,h2{color:#111;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+            h1{margin:4px 0;color:#000;font-size:26px;font-weight:900}
+            p{margin:4px 0;color:#111;font-size:12px;line-height:1.5}
+            header p{margin:0;color:#333}
+            header strong{display:block;margin-top:4px;font-size:24px;text-align:right}
+            .grid,.shipping{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+            .grid article,.shipping,.pickup,.items,.total{break-inside:avoid}
+            .grid article,.shipping,.pickup{padding:10px;border:1px solid #111}
+            h2{margin:0 0 8px}
+            dl{display:grid;gap:6px;margin:0}
+            dl>div{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px}
+            dt{color:#444;font-size:11px;font-weight:700}
+            dd{min-width:0;margin:0;color:#000;font-size:12px;font-weight:800;overflow-wrap:anywhere}
+            .shipping{grid-template-columns:1.35fr .75fr}
+            .pickup{margin-top:12px}
+            .pickup strong{display:block;color:#000;font-size:18px}
+            .items{margin-top:12px}
+            table{width:100%;table-layout:fixed;border-collapse:collapse;color:#000;font-size:11px}
+            th,td{padding:7px 6px;border:1px solid #111;vertical-align:top;overflow-wrap:anywhere}
+            th{background:#f3f4f6;font-weight:900;text-align:left}
+            .number{text-align:right;white-space:nowrap}
+            .total{width:min(92mm,100%);display:grid;gap:6px;margin:12px 0 0 auto;padding:10px;border:1px solid #111}
+            .total>div{display:flex;justify-content:space-between;gap:14px;color:#111;font-size:12px}
+            .grand{padding-top:8px;border-top:2px solid #111;color:#000!important;font-size:15px!important;font-weight:900}
+            .state{display:grid;min-height:180mm;place-items:center;font-size:16px;font-weight:700}
+            .error{color:#991b1b}
+            @media print{.screen-actions{display:none}.sheet{width:100%;margin:0;padding:10mm;box-shadow:none}}
+        </style></head><body>
+        <div class="screen-actions"><button type="button" onclick="window.print()">สร้าง PDF / พิมพ์</button><button type="button" class="secondary" onclick="window.close()">ปิด</button></div>
+        ${bodyContent}
+        ${shouldPrint ? '<script>window.onload=()=>setTimeout(()=>window.print(),150);</script>' : ''}
+        </body></html>`);
+    popup.document.close();
+};
 
 function AdminDashboardPage({
     orders,
@@ -103,6 +254,7 @@ function AdminDashboardPage({
     const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
     const [orderNote, setOrderNote] = useState('');
     const [noteSaving, setNoteSaving] = useState(false);
+    const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
     const orderManagementRef = useRef(null);
     const scrollToOrderManagement = () => {
         orderManagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -138,6 +290,8 @@ function AdminDashboardPage({
     }, [orders, orderSearch, statusFilter, paymentFilter, deliveryFilter, orderRange.from, orderRange.to, orderSort]);
     const orderTotalPages = Math.max(1, Math.ceil(filteredOrders.length / orderPageSize));
     const visibleOrders = filteredOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
+    const visiblePaidOrderIds = visibleOrders.filter(isPaidOrder).map((order) => String(order.id));
+    const allVisiblePaidSelected = visiblePaidOrderIds.length > 0 && visiblePaidOrderIds.every((id) => selectedPrintOrderIds.includes(id));
     const selectedRange = useMemo(
         () => getDateRange(datePreset, dateFrom, dateTo),
         [datePreset, dateFrom, dateTo],
@@ -167,6 +321,11 @@ function AdminDashboardPage({
     useEffect(() => {
         if (orderPage > orderTotalPages) setOrderPage(orderTotalPages);
     }, [orderPage, orderTotalPages]);
+
+    useEffect(() => {
+        const paidIds = new Set(orders.filter(isPaidOrder).map((order) => String(order.id)));
+        setSelectedPrintOrderIds((current) => current.filter((id) => paidIds.has(id)));
+    }, [orders]);
 
     useEffect(() => {
         let active = true;
@@ -252,6 +411,81 @@ function AdminDashboardPage({
             setOrderDetails({ error: err.response?.data?.error || 'โหลดรายละเอียดออเดอร์ไม่สำเร็จ' });
         } finally {
             setOrderDetailsLoading(false);
+        }
+    };
+
+    const openOrderPrintPage = async (orderId, order = null) => {
+        if (order && !isPaidOrder(order)) {
+            alert('พิมพ์ใบจัดส่งได้เฉพาะออเดอร์ที่ชำระเงินแล้ว');
+            return;
+        }
+        const popup = window.open('', '_blank', 'width=1100,height=750');
+        if (!popup) return;
+        writeShippingPrintDocument(popup, '<section class="sheet"><div class="state">กำลังโหลดข้อมูลใบจัดส่ง PDF...</div></section>', false);
+        try {
+            const response = await adminApi.getOrderDetails(orderId);
+            const payload = response.data || null;
+            if (payload?.order?.payment_status !== 'ชำระเงินแล้ว') {
+                throw new Error(`ออเดอร์ #${payload?.order?.id || orderId} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
+            }
+            const printTimestamp = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            writeShippingPrintDocument(popup, renderShippingSheetHtml(payload, orderId, printTimestamp));
+        } catch (err) {
+            writeShippingPrintDocument(
+                popup,
+                `<section class="sheet"><div class="state error">${escapeHtml(err.response?.data?.error || err.message || 'โหลดข้อมูลใบจัดส่ง PDF ไม่สำเร็จ')}</div></section>`,
+                false,
+            );
+        }
+    };
+
+    const togglePrintOrder = (order) => {
+        if (!isPaidOrder(order)) return;
+
+        const orderId = String(order.id);
+        setSelectedPrintOrderIds((current) => (
+            current.includes(orderId)
+                ? current.filter((id) => id !== orderId)
+                : [...current, orderId]
+        ));
+    };
+
+    const toggleVisiblePaidOrders = () => {
+        setSelectedPrintOrderIds((current) => {
+            if (allVisiblePaidSelected) {
+                return current.filter((id) => !visiblePaidOrderIds.includes(id));
+            }
+            return Array.from(new Set([...current, ...visiblePaidOrderIds]));
+        });
+    };
+
+    const openSelectedPrintPage = async () => {
+        if (selectedPrintOrderIds.length === 0) {
+            alert('กรุณาเลือกออเดอร์ที่ชำระเงินแล้วก่อนพิมพ์ใบจัดส่ง');
+            return;
+        }
+        const idsToPrint = [...selectedPrintOrderIds];
+        const popup = window.open('', '_blank', 'width=1100,height=750');
+        if (!popup) return;
+        writeShippingPrintDocument(popup, '<section class="sheet"><div class="state">กำลังโหลดข้อมูลใบจัดส่ง PDF...</div></section>', false);
+        try {
+            const responses = await Promise.all(idsToPrint.map((orderId) => adminApi.getOrderDetails(orderId)));
+            const payloads = responses.map((response) => response.data || null).filter(Boolean);
+            const unpaidOrder = payloads.find((item) => item?.order?.payment_status !== 'ชำระเงินแล้ว');
+            if (unpaidOrder) {
+                throw new Error(`ออเดอร์ #${unpaidOrder.order?.id || '-'} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
+            }
+            const printTimestamp = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            writeShippingPrintDocument(
+                popup,
+                payloads.map((payload, index) => renderShippingSheetHtml(payload, idsToPrint[index], printTimestamp)).join(''),
+            );
+        } catch (err) {
+            writeShippingPrintDocument(
+                popup,
+                `<section class="sheet"><div class="state error">${escapeHtml(err.response?.data?.error || err.message || 'โหลดข้อมูลใบจัดส่ง PDF ไม่สำเร็จ')}</div></section>`,
+                false,
+            );
         }
     };
 
@@ -556,10 +790,29 @@ function AdminDashboardPage({
                     </div>
                 )}
 
+                <div className="order-print-bulk-bar">
+                    <div>
+                        <strong>พิมพ์ใบจัดส่งพร้อมกัน</strong>
+                        <span>เลือกได้เฉพาะออเดอร์ที่ชำระเงินแล้ว ระบบจะเปิดหน้า PDF/Print รวมเป็นชุดเดียว</span>
+                    </div>
+                    <button type="button" onClick={openSelectedPrintPage} disabled={selectedPrintOrderIds.length === 0}>
+                        สร้าง PDF / พิมพ์ {selectedPrintOrderIds.length > 0 ? `(${selectedPrintOrderIds.length})` : ''}
+                    </button>
+                </div>
+
                 <div className="order-table-wrap">
                     <table className="order-table">
                         <thead>
                             <tr>
+                                <th className="order-select-col">
+                                    <input
+                                        type="checkbox"
+                                        checked={allVisiblePaidSelected}
+                                        disabled={visiblePaidOrderIds.length === 0}
+                                        onChange={toggleVisiblePaidOrders}
+                                        aria-label="เลือกออเดอร์ที่ชำระเงินแล้วในหน้านี้"
+                                    />
+                                </th>
                                 <th><button type="button" onClick={() => changeOrderSort('id')}>เลขออเดอร์{orderSortMarker('id')}</button></th>
                                 <th><button type="button" onClick={() => changeOrderSort('date')}>วันที่สั่งซื้อ{orderSortMarker('date')}</button></th>
                                 <th>ลูกค้า</th>
@@ -573,12 +826,24 @@ function AdminDashboardPage({
                         </thead>
                         <tbody>
                             {ordersLoading ? [...Array(6)].map((_, index) => (
-                                <tr key={`order-skeleton-${index}`} className="order-skeleton"><td colSpan="9"><i /></td></tr>
+                                <tr key={`order-skeleton-${index}`} className="order-skeleton"><td colSpan="10"><i /></td></tr>
                             )) : visibleOrders.length ? visibleOrders.map((order) => {
                                 const paymentStatus = order.payment_status || 'รอชำระ';
                                 const currentStatus = order.status || 'รอชำระ';
+                                const orderIsPaid = isPaidOrder(order);
+                                const orderIdText = String(order.id);
                                 return (
                                     <tr key={order.id} onClick={() => loadOrderDetails(order)}>
+                                        <td data-label="เลือก" className="order-select-col">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedPrintOrderIds.includes(orderIdText)}
+                                                disabled={!orderIsPaid}
+                                                onClick={(event) => event.stopPropagation()}
+                                                onChange={() => togglePrintOrder(order)}
+                                                aria-label={`เลือกออเดอร์ #${order.id} สำหรับพิมพ์ใบจัดส่ง`}
+                                            />
+                                        </td>
                                         <td data-label="เลขออเดอร์"><strong className="order-number">#{order.id}</strong></td>
                                         <td data-label="วันที่สั่งซื้อ"><span className="order-date">{new Date(order.created_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</span></td>
                                         <td data-label="ลูกค้า"><strong>{order.full_name || order.username || 'ลูกค้าทั่วไป'}</strong><small>{order.username ? `@${order.username}` : ''}</small></td>
@@ -587,11 +852,24 @@ function AdminDashboardPage({
                                         <td data-label="เลขพัสดุ"><span className={order.tracking_no ? 'order-tracking active' : 'order-tracking'}>{order.tracking_no || 'ยังไม่มี'}</span></td>
                                         <td data-label="ยอดสุทธิ" className="order-total">฿{formatMoney(order.final_price ?? order.total_price)}</td>
                                         <td data-label="สถานะออเดอร์"><span className={`admin-status ${getStatusClass(currentStatus)}`}>{currentStatus}</span></td>
-                                        <td data-label="จัดการ"><button type="button" className="order-detail-trigger" onClick={(event) => { event.stopPropagation(); loadOrderDetails(order); }}>ดูรายละเอียด</button></td>
+                                        <td data-label="จัดการ">
+                                            <div className="order-row-actions">
+                                                <button type="button" className="order-detail-trigger" onClick={(event) => { event.stopPropagation(); loadOrderDetails(order); }}>ดูรายละเอียด</button>
+                                                <button
+                                                    type="button"
+                                                    className="order-print-trigger"
+                                                    disabled={!orderIsPaid}
+                                                    title={orderIsPaid ? 'เปิดหน้าใบจัดส่ง PDF' : 'พิมพ์ได้เมื่อชำระเงินแล้วเท่านั้น'}
+                                                    onClick={(event) => { event.stopPropagation(); openOrderPrintPage(order.id, order); }}
+                                                >
+                                                    พิมพ์ใบจัดส่ง
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 );
                             }) : (
-                                <tr><td colSpan="9"><div className="order-empty"><b>⌕</b><strong>ไม่พบออเดอร์</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
+                                <tr><td colSpan="10"><div className="order-empty"><b>⌕</b><strong>ไม่พบออเดอร์</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
                             )}
                         </tbody>
                     </table>

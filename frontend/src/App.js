@@ -15,6 +15,7 @@ import OrderHistoryModal from './components/OrderHistoryModal';
 import ProfileModal from './components/ProfileModal';
 import StockEditModal from './components/StockEditModal';
 import AdminPage from './pages/AdminPage';
+import AdminOrderPrintPage from './pages/AdminOrderPrintPage';
 import AuthPage from './pages/AuthPage';
 import StorePage from './pages/StorePage';
 import { getCartTotal } from './utils/cart';
@@ -71,6 +72,20 @@ const canAccessPage = (page, currentUser) => {
     if (MEMBER_PAGES.includes(page)) return Boolean(currentUser) && isMemberUser(currentUser);
     if (ADMIN_PAGES.includes(page)) return Boolean(currentUser) && isAdminUser(currentUser);
     return false;
+};
+
+const getPrintOrderIdsFromLocation = () => {
+    const batchMatch = window.location.pathname.match(/^\/admin\/orders\/print\/?$/);
+    if (batchMatch) {
+        return new URLSearchParams(window.location.search)
+            .get('ids')
+            ?.split(',')
+            .map((id) => id.trim())
+            .filter(Boolean) || [];
+    }
+
+    const match = window.location.pathname.match(/^\/admin\/orders\/([^/]+)\/print\/?$/);
+    return match ? [decodeURIComponent(match[1])] : [];
 };
 
 function App() {
@@ -161,6 +176,7 @@ function App() {
     });
 
     const total = getCartTotal(cart);
+    const printOrderIds = getPrintOrderIdsFromLocation();
     const findActiveCategory = useCallback((categoryId, categoryName) => {
         const cleanName = String(categoryName || '').trim();
         return categories.find((category) => (
@@ -1093,6 +1109,10 @@ function App() {
             setIsLoggingOut(false);
         }
     };
+
+    if (printOrderIds.length > 0 || window.location.pathname.match(/^\/admin\/orders\/print\/?$/)) {
+        return <AdminOrderPrintPage orderIds={printOrderIds} />;
+    }
 
     return (
         <div className="bg-light min-vh-100">

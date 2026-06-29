@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCartCount, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
 
 const PROMPTPAY_ID = '1234567890';
@@ -45,10 +45,25 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [receipt, setReceipt] = useState(null);
+    const hasAutoPrintedReceipt = useRef(false);
     const cashAmount = Number(cashReceived) || 0;
     const change = Math.max(cashAmount - total, 0);
     const qrPayload = useMemo(() => createPromptPayPayload(PROMPTPAY_ID, total), [total]);
     const qrCodeUrl = `https://quickchart.io/qr?size=240&margin=1&ecLevel=M&text=${encodeURIComponent(qrPayload)}`;
+
+    useEffect(() => {
+        if (!receipt) return undefined;
+        const previousTitle = document.title;
+        document.title = 'ใบเสร็จรับเงิน';
+        return () => { document.title = previousTitle; };
+    }, [receipt]);
+
+    useEffect(() => {
+        if (!receipt || hasAutoPrintedReceipt.current) return undefined;
+        hasAutoPrintedReceipt.current = true;
+        const printTimer = window.setTimeout(() => window.print(), 150);
+        return () => window.clearTimeout(printTimer);
+    }, [receipt]);
 
     const submitSale = async () => {
         setError('');

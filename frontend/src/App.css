@@ -1024,8 +1024,61 @@
 
 .order-table {
     width: 100%;
-    min-width: 1240px;
+    min-width: 1320px;
     border-collapse: collapse;
+}
+
+.order-print-bulk-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid #e5eaf1;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.order-print-bulk-bar strong,
+.order-print-bulk-bar span {
+    display: block;
+}
+
+.order-print-bulk-bar strong {
+    color: #111827;
+    font-size: .86rem;
+    font-weight: 900;
+}
+
+.order-print-bulk-bar span {
+    margin-top: 3px;
+    color: #667085;
+    font-size: .72rem;
+    line-height: 1.45;
+}
+
+.order-print-bulk-bar button {
+    min-height: 40px;
+    flex: 0 0 auto;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 10px;
+    background: #111827;
+    color: #fff;
+    font-size: .78rem;
+    font-weight: 900;
+    transition: transform .15s ease, background .15s ease, opacity .15s ease;
+}
+
+.order-print-bulk-bar button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #030712;
+}
+
+.order-print-bulk-bar button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
 }
 
 .order-table th {
@@ -1037,6 +1090,18 @@
     font-weight: 900;
     text-align: left;
     white-space: nowrap;
+}
+
+.order-select-col {
+    width: 42px;
+    max-width: 42px !important;
+    text-align: center !important;
+}
+
+.order-select-col input {
+    width: 17px;
+    height: 17px;
+    accent-color: #111827;
 }
 
 .order-table th button {
@@ -1137,6 +1202,39 @@
 .order-detail-trigger:hover {
     border-color: #9b94e7;
     background: #f4f3ff;
+}
+
+.order-row-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.order-print-trigger {
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #111827;
+    color: #fff;
+    font: inherit;
+    font-size: .68rem;
+    font-weight: 900;
+    white-space: nowrap;
+    transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.order-print-trigger:hover {
+    transform: translateY(-1px);
+    background: #030712;
+    box-shadow: 0 8px 18px rgba(17, 24, 39, .16);
+}
+
+.order-print-trigger:disabled {
+    cursor: not-allowed;
+    transform: none;
+    background: #e5e7eb;
+    color: #98a2b3;
+    box-shadow: none;
 }
 
 .order-skeleton td {
@@ -4529,6 +4627,251 @@ body {
     font-weight: 700;
 }
 
+/* A4 shipping print page */
+.print-order-page {
+    min-height: 100vh;
+    padding: 28px;
+    background: #e5e7eb;
+    color: #111;
+    font-family: Arial, "Tahoma", sans-serif;
+}
+
+.print-order-actions {
+    width: min(210mm, 100%);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0 auto 14px;
+}
+
+.print-order-actions button {
+    min-height: 40px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 8px;
+    background: #111827;
+    color: #fff;
+    font-weight: 800;
+}
+
+.print-order-actions button.secondary {
+    background: #6b7280;
+}
+
+.print-order-sheet {
+    width: min(210mm, 100%);
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 14mm;
+    background: #fff;
+    box-shadow: 0 16px 44px rgba(15, 23, 42, .18);
+    break-after: page;
+}
+
+.print-order-timestamp {
+    margin: 0 0 8px;
+    color: #111;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.print-order-sheet:last-child {
+    break-after: auto;
+}
+
+.print-order-state {
+    display: grid;
+    min-height: 180mm;
+    place-items: center;
+    color: #111;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.print-order-state.error {
+    color: #991b1b;
+}
+
+.print-order-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #111;
+}
+
+.print-order-header span,
+.print-order-header small,
+.print-order-grid h2,
+.print-order-shipping h2,
+.print-order-pickup h2,
+.print-order-items h2 {
+    color: #111;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.print-order-header h1 {
+    margin: 4px 0;
+    color: #000;
+    font-size: 26px;
+    font-weight: 900;
+}
+
+.print-order-header p {
+    margin: 0;
+    color: #333;
+    font-size: 12px;
+}
+
+.print-order-header strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 24px;
+    text-align: right;
+}
+
+.print-order-grid,
+.print-order-shipping {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.print-order-grid article,
+.print-order-shipping,
+.print-order-pickup,
+.print-order-items,
+.print-order-total {
+    break-inside: avoid;
+}
+
+.print-order-grid article,
+.print-order-shipping,
+.print-order-pickup {
+    padding: 10px;
+    border: 1px solid #111;
+}
+
+.print-order-grid h2,
+.print-order-shipping h2,
+.print-order-pickup h2,
+.print-order-items h2 {
+    margin: 0 0 8px;
+}
+
+.print-order-grid dl,
+.print-order-shipping dl {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+}
+
+.print-order-grid dl > div,
+.print-order-shipping dl > div {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 8px;
+}
+
+.print-order-grid dt,
+.print-order-shipping dt {
+    color: #444;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.print-order-grid dd,
+.print-order-shipping dd {
+    min-width: 0;
+    margin: 0;
+    color: #000;
+    font-size: 12px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.print-order-shipping {
+    grid-template-columns: 1.35fr .75fr;
+}
+
+.print-order-shipping p,
+.print-order-pickup p {
+    margin: 4px 0;
+    color: #111;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.print-order-pickup {
+    margin-top: 12px;
+}
+
+.print-order-pickup strong {
+    display: block;
+    color: #000;
+    font-size: 18px;
+}
+
+.print-order-items {
+    margin-top: 12px;
+}
+
+.print-order-items table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    color: #000;
+    font-size: 11px;
+}
+
+.print-order-items th,
+.print-order-items td {
+    padding: 7px 6px;
+    border: 1px solid #111;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.print-order-items th {
+    background: #f3f4f6;
+    font-weight: 900;
+    text-align: left;
+}
+
+.print-order-items .number {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.print-order-total {
+    width: min(92mm, 100%);
+    display: grid;
+    gap: 6px;
+    margin: 12px 0 0 auto;
+    padding: 10px;
+    border: 1px solid #111;
+}
+
+.print-order-total > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    color: #111;
+    font-size: 12px;
+}
+
+.print-order-total .grand-total {
+    padding-top: 8px;
+    border-top: 2px solid #111;
+    color: #000;
+    font-size: 15px;
+    font-weight: 900;
+}
+
 .admin-product-cell {
     display: flex;
     align-items: center;
@@ -6114,6 +6457,15 @@ body {
         width: 100%;
     }
 
+    .order-print-bulk-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .order-print-bulk-bar button {
+        width: 100%;
+    }
+
     .order-table {
         min-width: 0;
     }
@@ -6156,6 +6508,15 @@ body {
     .order-table td > strong,
     .order-table td > small {
         text-align: right;
+    }
+
+    .order-select-col {
+        width: 100%;
+        max-width: none !important;
+    }
+
+    .order-select-col input {
+        justify-self: end;
     }
 
     .order-table .order-skeleton td {
@@ -8250,8 +8611,37 @@ body {
 }
 
 @media print {
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
     body * {
         visibility: hidden !important;
+    }
+
+    .print-order-page,
+    .print-order-page * {
+        visibility: visible !important;
+    }
+
+    .print-order-page {
+        position: absolute;
+        inset: 0;
+        min-height: auto;
+        padding: 0;
+        background: #fff;
+    }
+
+    .print-order-actions {
+        display: none !important;
+    }
+
+    .print-order-sheet {
+        width: 100%;
+        min-height: auto;
+        padding: 10mm;
+        box-shadow: none;
     }
 
     .pos-receipt-print,
