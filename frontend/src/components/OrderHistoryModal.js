@@ -16,21 +16,29 @@ function OrderHistoryModal({
     const [uploadingOrderId, setUploadingOrderId] = useState(null);
     const [uploadError, setUploadError] = useState({ orderId: null, message: '' });
     const [activeView, setActiveView] = useState('active');
-    const cancelableStatuses = ['รอชำระ', 'รอตรวจสอบ'];
-    const historyStatuses = ['สำเร็จ', 'จัดส่งแล้ว', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น', 'ยกเลิก', 'ยกเลิกคำสั่งซื้อ'];
-    const completedSaleStatuses = ['สำเร็จ', 'จัดส่งแล้ว', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น'];
+    const [activePaymentView, setActivePaymentView] = useState('pending');
+    const cancelableStatuses = ['รอจัดการ', 'เตรียมสินค้า'];
+    const historyStatuses = ['สำเร็จ', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น', 'ยกเลิก', 'ยกเลิกคำสั่งซื้อ'];
+    const completedSaleStatuses = ['สำเร็จ', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น'];
     const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
+    const reuploadPaymentStatuses = ['รอชำระ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
     const orderList = Array.isArray(orders) ? orders : [];
     const isSalesMode = mode === 'sales';
     const isHistoryOrder = (order) => historyStatuses.includes(order.status);
+    const isPendingPaymentOrder = (order) => reuploadPaymentStatuses.includes(order.payment_status) || order.status === 'รอจัดการ';
     const isStoreSale = (order) => (order.shipping_method || order.delivery_type) === 'ขายหน้าร้าน';
     const activeOrders = isSalesMode
         ? orderList.filter((order) => isStoreSale(order))
         : orderList.filter((order) => !isHistoryOrder(order));
+    const pendingPaymentOrders = activeOrders.filter((order) => isPendingPaymentOrder(order));
+    const reviewPaymentOrders = activeOrders.filter((order) => order.payment_status === 'รอตรวจสอบ');
+    const paidActiveOrders = activeOrders.filter((order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status));
     const historyOrders = isSalesMode
         ? orderList.filter((order) => !isStoreSale(order) && completedSaleStatuses.includes(order.status))
         : orderList.filter((order) => isHistoryOrder(order));
-    const visibleOrders = activeView === 'active' ? activeOrders : historyOrders;
+    const visibleOrders = activeView === 'active'
+        ? (isSalesMode ? activeOrders : (activePaymentView === 'pending' ? pendingPaymentOrders : activePaymentView === 'review' ? reviewPaymentOrders : paidActiveOrders))
+        : historyOrders;
     const canUploadReceipt = !isSalesMode && Boolean(onUploadReceipt);
     const canCancelOrder = !isSalesMode && Boolean(onCancelOrder);
 
@@ -38,6 +46,23 @@ function OrderHistoryModal({
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+
+    const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+
+    const getOrderItems = (order) => {
+        if (Array.isArray(order.items) && order.items.length > 0) return order.items;
+        if (order.product_id || order.product_name || order.name) {
+            return [{
+                product_id: order.product_id,
+                product_name: order.product_name || order.name,
+                quantity: order.qty || order.quantity || 1,
+                price: order.price || 0,
+                selected_size: order.selected_size,
+                selected_color: order.selected_color,
+            }];
+        }
+        return [];
+    };
 
     const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -116,6 +141,41 @@ function OrderHistoryModal({
                         </button>
                     </div>
 
+                    {!isSalesMode && activeView === 'active' && (
+                        <div className="order-history-payment-tabs" role="tablist" aria-label="สถานะชำระเงิน">
+                            <button
+                                type="button"
+                                className={activePaymentView === 'pending' ? 'is-active' : ''}
+                                onClick={() => setActivePaymentView('pending')}
+                                role="tab"
+                                aria-selected={activePaymentView === 'pending'}
+                            >
+                                รอชำระ
+                                <span>{pendingPaymentOrders.length}</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={activePaymentView === 'review' ? 'is-active' : ''}
+                                onClick={() => setActivePaymentView('review')}
+                                role="tab"
+                                aria-selected={activePaymentView === 'review'}
+                            >
+                                รอตรวจสอบ
+                                <span>{reviewPaymentOrders.length}</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={activePaymentView === 'paid' ? 'is-active' : ''}
+                                onClick={() => setActivePaymentView('paid')}
+                                role="tab"
+                                aria-selected={activePaymentView === 'paid'}
+                            >
+                                ชำระแล้ว
+                                <span>{paidActiveOrders.length}</span>
+                            </button>
+                        </div>
+                    )}
+
                     {orderList.length === 0 ? (
                         <div className="order-history-empty">
                             <strong>{isSalesMode ? 'ยังไม่มีประวัติการขาย' : 'ยังไม่มีประวัติคำสั่งซื้อ'}</strong>
@@ -125,21 +185,24 @@ function OrderHistoryModal({
                         <div className="order-history-empty">
                             <strong>
                                 {activeView === 'active'
-                                    ? (isSalesMode ? 'ยังไม่มีประวัติการขายหน้าร้าน' : 'ยังไม่มีคำสั่งซื้อที่กำลังดำเนินการ')
+                                    ? (isSalesMode ? 'ยังไม่มีประวัติการขายหน้าร้าน' : (activePaymentView === 'pending' ? 'ยังไม่มีออเดอร์รอชำระ' : activePaymentView === 'review' ? 'ยังไม่มีออเดอร์รอตรวจสอบ' : 'ยังไม่มีออเดอร์ที่ชำระแล้วและกำลังดำเนินการ'))
                                     : (isSalesMode ? 'ยังไม่มีรายการขายออนไลน์' : 'ยังไม่มีประวัติคำสั่งซื้อย้อนหลัง')}
                             </strong>
                             <span>
                                 {activeView === 'active'
-                                    ? (isSalesMode ? 'รายการ POS หรือรายการที่ขายผ่านหน้าร้านจะแสดงที่นี่' : 'รายการที่สำเร็จหรือยกเลิกแล้วจะแสดงในประวัติคำสั่งซื้อ')
-                                    : (isSalesMode ? 'รายการที่ลูกค้าสั่งผ่านหน้าร้านออนไลน์จะแสดงที่นี่' : 'คำสั่งซื้อที่ยังไม่จบจะแสดงในแท็บคำสั่งซื้อ')}
+                                    ? (isSalesMode ? 'รายการ POS หรือรายการที่ขายผ่านหน้าร้านจะแสดงที่นี่' : (activePaymentView === 'pending' ? 'ออเดอร์ที่ยังไม่แนบสลิปหรือยังไม่ชำระจะแสดงที่นี่' : activePaymentView === 'review' ? 'ออเดอร์ที่แนบสลิปแล้วและรอแอดมินยืนยันจะแสดงที่นี่' : 'ออเดอร์ที่ชำระแล้วแต่ยังไม่จบกระบวนการจะแสดงที่นี่'))
+                                    : (isSalesMode ? 'รายการที่ลูกค้าสั่งผ่านหน้าร้านออนไลน์จะแสดงที่นี่' : 'ออเดอร์ที่จบกระบวนการแล้วจะแสดงในแท็บนี้')}
                             </span>
                         </div>
                     ) : (
                         visibleOrders.map((item, index) => {
-                            const qty = Number(item.qty || item.quantity || 1);
-                            const rawUnitPrice = Number(item.price || 0);
-                            const productTotal = Number(item.total_price ?? (rawUnitPrice * qty));
-                            const unitPrice = Number(rawUnitPrice || (qty > 0 ? productTotal / qty : productTotal) || 0);
+                            const orderItems = getOrderItems(item);
+                            const itemCount = orderItems.reduce((sum, orderItem) => sum + Number(orderItem.qty || orderItem.quantity || 0), 0);
+                            const productTotal = Number(item.total_price ?? orderItems.reduce((sum, orderItem) => {
+                                const qty = Number(orderItem.qty || orderItem.quantity || 1);
+                                const price = Number(orderItem.price || 0);
+                                return sum + (qty * price);
+                            }, 0));
                             const shippingFee = Number(item.shipping_fee || 0);
                             const discount = Number(item.discount || 0);
                             const finalPrice = Number(item.final_price ?? (productTotal + shippingFee - discount));
@@ -147,7 +210,7 @@ function OrderHistoryModal({
                             const uploadInputId = `receipt-upload-${item.id || index}`;
                             const orderTitle = isSalesMode
                                 ? `คำสั่งซื้อของ ${item.full_name || item.username || 'ลูกค้าทั่วไป'}`
-                                : (item.name || item.product_name || 'สินค้าแฟชั่น');
+                                : (orderItems.length > 1 ? `สินค้า ${orderItems.length} รายการ` : (item.name || item.product_name || 'สินค้าแฟชั่น'));
 
                             return (
                                 <article className="order-history-card" key={item.id || index}>
@@ -164,18 +227,41 @@ function OrderHistoryModal({
                                             <h3>{orderTitle}</h3>
                                             {item.detail && <p>{item.detail}</p>}
                                             <div className="order-history-tags">
-                                                {item.selected_size && <span>ไซซ์ {item.selected_size}</span>}
-                                                {item.selected_color && <span>สี {item.selected_color}</span>}
                                                 {isSalesMode && item.username && <span>ลูกค้า {item.username}</span>}
                                                 {isSalesMode && item.payment_method && <span>{item.payment_method}</span>}
-                                                <span>จำนวน {qty} ชิ้น</span>
+                                                <span>สินค้า {orderItems.length || 1} รายการ</span>
+                                                <span>จำนวน {itemCount || Number(item.qty || item.quantity || 1)} ชิ้น</span>
                                             </div>
                                         </div>
                                         <div className="order-history-price">
-                                            <span>{isSalesMode ? 'ยอดขาย' : 'ราคาต่อชิ้น'}</span>
-                                            <strong>฿{formatMoney(isSalesMode ? finalPrice : unitPrice)}</strong>
+                                            <span>{isSalesMode ? 'ยอดขาย' : 'รวมสินค้า'}</span>
+                                            <strong>฿{formatMoney(isSalesMode ? finalPrice : productTotal)}</strong>
                                         </div>
                                     </div>
+
+                                    {orderItems.length > 0 && (
+                                        <div className="order-history-item-list">
+                                            {orderItems.map((orderItem, itemIndex) => {
+                                                const qty = Number(orderItem.qty || orderItem.quantity || 1);
+                                                const unitPrice = Number(orderItem.price || 0);
+                                                return (
+                                                    <div className="order-history-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
+                                                        <div>
+                                                            <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
+                                                            <span>
+                                                                {[
+                                                                    orderItem.selected_size ? `ไซซ์ ${orderItem.selected_size}` : '',
+                                                                    orderItem.selected_color ? `สี ${orderItem.selected_color}` : '',
+                                                                    `จำนวน ${qty} ชิ้น`,
+                                                                ].filter(Boolean).join(' / ')}
+                                                            </span>
+                                                        </div>
+                                                        <b>฿{formatMoney(unitPrice * qty)}</b>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
 
                                     {(item.tracking_no || item.payment_status) && (
                                         <div className="order-history-meta">
@@ -188,13 +274,13 @@ function OrderHistoryModal({
                                             {item.payment_status && (
                                                 <div>
                                                     <span>สถานะชำระเงิน</span>
-                                                    <strong>{item.payment_status}</strong>
+                                                    <strong>{formatPaymentStatus(item.payment_status)}</strong>
                                                 </div>
                                             )}
                                         </div>
                                     )}
 
-                                    {canUploadReceipt && item.status === 'รอชำระ' && (
+                                    {canUploadReceipt && (reuploadPaymentStatuses.includes(item.payment_status) || item.status === 'รอจัดการ') && (
                                         <div className="order-history-upload-panel">
                                             <input
                                                 id={uploadInputId}

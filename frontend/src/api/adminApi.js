@@ -22,6 +22,8 @@ export const updateOrderStatus = (orderId, status, trackingNo = '', userId = nul
     user_id: userId,
 });
 
+export const reviewOrderPayment = (orderId, payload) => apiClient.put(`/api/admin/orders/${orderId}/payment-review`, payload);
+
 export const getCustomers = (params = {}) => apiClient.get('/api/admin/customers', { params });
 
 export const changeUserRole = (userId, newRole, actorId) => apiClient.post('/api/admin/change-role', {

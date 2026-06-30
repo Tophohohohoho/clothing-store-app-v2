@@ -9,15 +9,27 @@ const formatMoney = (value) => {
     });
 };
 
-const orderStatuses = ['ทั้งหมด', 'รอชำระ', 'รอตรวจสอบ', 'กำลังจัดส่ง', 'เตรียมสินค้า', 'พร้อมรับ', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
+const orderStatuses = ['ทั้งหมด', 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
+const paymentStatuses = ['รอชำระ', 'รอตรวจสอบ', 'ชำระเงินแล้ว', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'ยกเลิก'];
+const blockedFulfillmentStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const rejectionReasons = ['ไม่พบยอดเงินเข้า', 'ยอดไม่ตรง', 'รูปไม่ใช่สลิปโอนเงิน', 'เลขอ้างอิงไม่ถูกต้อง', 'สงสัยสลิปปลอม'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
-const getApproveStatus = (order) => (isPickupOrder(order) ? 'เตรียมสินค้า' : 'กำลังจัดส่ง');
-const isPaidOrder = (order) => order.payment_status === 'ชำระเงินแล้ว';
+const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status);
+const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+const getPaymentStatusClass = (status) => {
+    const normalizedStatus = formatPaymentStatus(status) || 'รอชำระ';
+    if (normalizedStatus === 'ชำระเงินแล้ว') return 'paid';
+    if (normalizedStatus === 'รอตรวจสอบ') return 'review';
+    if (normalizedStatus === 'ยกเลิก') return 'cancelled';
+    if (['หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า'].includes(normalizedStatus)) return 'rejected';
+    if (normalizedStatus === 'สงสัยสลิปปลอม') return 'suspicious';
+    return 'waiting';
+};
 const getStatusClass = (status) => {
     if (status === 'ยกเลิก') return 'locked';
-    if (status === 'รอชำระ') return 'low';
-    if (status === 'รอตรวจสอบ') return 'pending';
-    if (['กำลังจัดส่ง', 'เตรียมสินค้า'].includes(status)) return 'shipping';
+    if (status === 'รอจัดการ') return 'low';
+    if (status === 'เตรียมสินค้า') return 'pending';
+    if (['กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'].includes(status)) return 'shipping';
     return 'paid';
 };
 
@@ -111,7 +123,7 @@ const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
                 <dl>
                     <div><dt>วันที่สั่งซื้อ</dt><dd>${escapeHtml(formatDateTime(order.created_at))}</dd></div>
                     <div><dt>วิธีรับสินค้า</dt><dd>${escapeHtml(order.shipping_method || '-')}</dd></div>
-                    <div><dt>สถานะชำระเงิน</dt><dd>${escapeHtml(order.payment_status || '-')}</dd></div>
+                    <div><dt>สถานะชำระเงิน</dt><dd>${escapeHtml(formatPaymentStatus(order.payment_status) || '-')}</dd></div>
                     <div><dt>สถานะออเดอร์</dt><dd>${escapeHtml(order.status || '-')}</dd></div>
                 </dl>
             </article>
@@ -218,10 +230,14 @@ function AdminDashboardPage({
     ordersLoading = false,
     onDeleteOrder,
     onUpdateOrderStatus,
+    onReviewOrderPayment,
     setAdminPage,
     setIsAdminView,
     currentUser,
+    view = 'dashboard',
 }) {
+    const showOrderManagement = view === 'orders';
+    const showDashboard = !showOrderManagement;
     const [trackingInputs, setTrackingInputs] = useState({});
     const [statusFilter, setStatusFilter] = useState('ทั้งหมด');
     const [trackingErrors, setTrackingErrors] = useState({});
@@ -254,10 +270,17 @@ function AdminDashboardPage({
     const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
     const [orderNote, setOrderNote] = useState('');
     const [noteSaving, setNoteSaving] = useState(false);
+    const [paymentReviewSaving, setPaymentReviewSaving] = useState('');
+    const [paymentReviewError, setPaymentReviewError] = useState('');
+    const [paymentReviewForm, setPaymentReviewForm] = useState({
+        verified_amount: '',
+        transaction_ref: '',
+        review_note: '',
+    });
     const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
     const orderManagementRef = useRef(null);
     const scrollToOrderManagement = () => {
-        orderManagementRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setAdminPage?.('admin-orders');
     };
     const orderRange = useMemo(
         () => getDateRange(orderDatePreset, orderDateFrom, orderDateTo),
@@ -276,8 +299,11 @@ function AdminDashboardPage({
                 order.tracking_no,
             ].join(' ').toLowerCase();
             return (!keyword || searchable.includes(keyword))
-                && (statusFilter === 'ทั้งหมด' || (order.status || 'รอชำระ') === statusFilter)
-                && (paymentFilter === 'ทั้งหมด' || (order.payment_status || 'รอชำระ') === paymentFilter)
+                && (statusFilter === 'ทั้งหมด' || (order.status || 'รอจัดการ') === statusFilter)
+                && (paymentFilter === 'ทั้งหมด'
+                    || (paymentFilter === 'ชำระเงินแล้ว'
+                        ? ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status)
+                        : (order.payment_status || 'รอชำระ') === paymentFilter))
                 && (deliveryFilter === 'ทั้งหมด' || (order.shipping_method || '-') === deliveryFilter)
                 && (!Number.isNaN(orderDate.getTime()) && orderDate >= from && orderDate <= to);
         }).sort((a, b) => {
@@ -328,6 +354,7 @@ function AdminDashboardPage({
     }, [orders]);
 
     useEffect(() => {
+        if (!showDashboard) return;
         let active = true;
         const loadDashboard = async () => {
             setDashboardLoading(true);
@@ -347,7 +374,7 @@ function AdminDashboardPage({
         };
         loadDashboard();
         return () => { active = false; };
-    }, [selectedRange.from, selectedRange.to, chartInterval]);
+    }, [selectedRange.from, selectedRange.to, chartInterval, showDashboard]);
 
     const navigateQuickAction = (target, view = '') => {
         if (target === 'store') {
@@ -400,13 +427,30 @@ function AdminDashboardPage({
         setTrackingInputs((current) => ({ ...current, [orderId]: value }));
     };
 
+    const closeOrderDetailModal = () => {
+        setSelectedOrder(null);
+        setOrderDetails(null);
+        setOrderDetailsLoading(false);
+        setOrderNote('');
+        setPaymentReviewError('');
+        setPaymentReviewSaving('');
+        setPaymentReviewForm({ verified_amount: '', transaction_ref: '', review_note: '' });
+    };
+
     const loadOrderDetails = async (order) => {
         setSelectedOrder(order);
         setOrderDetails(null);
         setOrderDetailsLoading(true);
         try {
             const response = await adminApi.getOrderDetails(order.id);
-            setOrderDetails(response.data || null);
+            const payload = response.data || null;
+            setOrderDetails(payload);
+            setPaymentReviewError('');
+            setPaymentReviewForm({
+                verified_amount: payload?.order?.verified_amount ?? '',
+                transaction_ref: payload?.order?.transaction_ref || '',
+                review_note: payload?.order?.review_note || '',
+            });
         } catch (err) {
             setOrderDetails({ error: err.response?.data?.error || 'โหลดรายละเอียดออเดอร์ไม่สำเร็จ' });
         } finally {
@@ -416,7 +460,7 @@ function AdminDashboardPage({
 
     const openOrderPrintPage = async (orderId, order = null) => {
         if (order && !isPaidOrder(order)) {
-            alert('พิมพ์ใบจัดส่งได้เฉพาะออเดอร์ที่ชำระเงินแล้ว');
+            alert('พิมพ์ใบจัดส่งได้เฉพาะออเดอร์ที่ชำระแล้ว');
             return;
         }
         const popup = window.open('', '_blank', 'width=1100,height=750');
@@ -425,7 +469,7 @@ function AdminDashboardPage({
         try {
             const response = await adminApi.getOrderDetails(orderId);
             const payload = response.data || null;
-            if (payload?.order?.payment_status !== 'ชำระเงินแล้ว') {
+            if (!isPaidOrder(payload?.order || {})) {
                 throw new Error(`ออเดอร์ #${payload?.order?.id || orderId} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
             }
             const printTimestamp = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
@@ -461,7 +505,7 @@ function AdminDashboardPage({
 
     const openSelectedPrintPage = async () => {
         if (selectedPrintOrderIds.length === 0) {
-            alert('กรุณาเลือกออเดอร์ที่ชำระเงินแล้วก่อนพิมพ์ใบจัดส่ง');
+            alert('กรุณาเลือกออเดอร์ที่ชำระแล้วก่อนพิมพ์ใบจัดส่ง');
             return;
         }
         const idsToPrint = [...selectedPrintOrderIds];
@@ -471,7 +515,7 @@ function AdminDashboardPage({
         try {
             const responses = await Promise.all(idsToPrint.map((orderId) => adminApi.getOrderDetails(orderId)));
             const payloads = responses.map((response) => response.data || null).filter(Boolean);
-            const unpaidOrder = payloads.find((item) => item?.order?.payment_status !== 'ชำระเงินแล้ว');
+            const unpaidOrder = payloads.find((item) => !isPaidOrder(item?.order || {}));
             if (unpaidOrder) {
                 throw new Error(`ออเดอร์ #${unpaidOrder.order?.id || '-'} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
             }
@@ -504,6 +548,63 @@ function AdminDashboardPage({
         }
     };
 
+    const refreshSelectedOrderDetails = async (orderId) => {
+        const response = await adminApi.getOrderDetails(orderId);
+        const payload = response.data || null;
+        setOrderDetails(payload);
+        if (payload?.order) {
+            setSelectedOrder((current) => current ? ({
+                ...current,
+                status: payload.order.status,
+                payment_status: payload.order.payment_status,
+                tracking_no: payload.order.tracking_no,
+            }) : current);
+            setPaymentReviewForm({
+                verified_amount: payload.order.verified_amount ?? '',
+                transaction_ref: payload.order.transaction_ref || '',
+                review_note: payload.order.review_note || '',
+            });
+        }
+        return payload;
+    };
+
+    const updatePaymentReviewForm = (field, value) => {
+        setPaymentReviewError('');
+        setPaymentReviewForm((current) => ({ ...current, [field]: value }));
+    };
+
+    const reviewPaymentEvidence = async (action) => {
+        if (!selectedOrder || paymentReviewSaving) return;
+
+        const needsReason = ['reject', 'request_new', 'suspicious'].includes(action);
+        if (needsReason && !paymentReviewForm.review_note.trim()) {
+            setPaymentReviewError('กรุณาเลือกหรือกรอกเหตุผลการตรวจสอบ');
+            return;
+        }
+
+        setPaymentReviewSaving(action);
+        setPaymentReviewError('');
+        try {
+            const payload = {
+                action,
+                user_id: currentUser?.id,
+                verified_amount: paymentReviewForm.verified_amount,
+                transaction_ref: paymentReviewForm.transaction_ref,
+                review_note: paymentReviewForm.review_note,
+            };
+            if (onReviewOrderPayment) {
+                await onReviewOrderPayment(selectedOrder.id, payload);
+            } else {
+                await adminApi.reviewOrderPayment(selectedOrder.id, payload);
+            }
+            await refreshSelectedOrderDetails(selectedOrder.id);
+        } catch (err) {
+            setPaymentReviewError(err.response?.data?.error || 'บันทึกผลตรวจสอบการชำระเงินไม่สำเร็จ');
+        } finally {
+            setPaymentReviewSaving('');
+        }
+    };
+
     const changeOrderSort = (key) => {
         setOrderSort((current) => ({
             key,
@@ -529,11 +630,11 @@ function AdminDashboardPage({
             `#${order.id}`,
             new Date(order.created_at).toLocaleString('th-TH'),
             order.full_name || order.username || 'ลูกค้าทั่วไป',
-            order.payment_status || 'รอชำระ',
+            formatPaymentStatus(order.payment_status) || 'รอชำระ',
             order.shipping_method || '-',
             order.tracking_no || '-',
             Number(order.final_price ?? order.total_price) || 0,
-            order.status || 'รอชำระ',
+            order.status || 'รอจัดการ',
         ]);
         const fileName = `order-report-${orderRange.from}-${orderRange.to}`;
         if (format === 'pdf') {
@@ -568,11 +669,17 @@ function AdminDashboardPage({
     const runOrderStep = async (order, nextStatus) => {
         if (savingOrderId) return;
         const trackingNo = trackingInputs[order.id] || '';
+        const paymentStatus = orderDetails?.order?.payment_status || order.payment_status;
 
-        if (nextStatus === 'จัดส่งแล้ว' && !trackingNo.trim()) {
+        if (blockedFulfillmentStatuses.includes(nextStatus) && !isPaidOrder({ payment_status: paymentStatus })) {
+            alert('ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง');
+            return;
+        }
+
+        if (nextStatus === 'กำลังจัดส่ง' && !trackingNo.trim()) {
             setTrackingErrors((current) => ({
                 ...current,
-                [order.id]: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นจัดส่งแล้ว',
+                [order.id]: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง',
             }));
             return;
         }
@@ -601,8 +708,15 @@ function AdminDashboardPage({
         }
     };
 
+    const detailOrder = orderDetails?.order || null;
+    const detailPaymentStatus = formatPaymentStatus(detailOrder?.payment_status) || 'รอชำระ';
+    const detailOrderIsPaid = isPaidOrder(detailOrder || selectedOrder || {});
+    const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
+
     return (
         <div className="commerce-dashboard">
+            {showDashboard && (
+                <>
             <section className="commerce-heading">
                 <div>
                     <span>STORE PERFORMANCE</span>
@@ -697,9 +811,9 @@ function AdminDashboardPage({
                 <aside className="commerce-card commerce-notifications">
                     <header className="commerce-card-header"><div><span>ATTENTION NEEDED</span><h2>ศูนย์แจ้งเตือน</h2></div><b>{Object.values(dashboardData.notifications || {}).reduce((sum, value) => sum + Number(value || 0), 0)}</b></header>
                     {[
-                        ['new_orders', 'ออเดอร์ใหม่วันนี้', 'blue', () => setStatusFilter('ทั้งหมด')],
-                        ['waiting_payment', 'รอชำระเงิน', 'amber', () => setStatusFilter('รอชำระ')],
-                        ['waiting_review', 'รอตรวจสอบสลิป', 'purple', () => setStatusFilter('รอตรวจสอบ')],
+                        ['new_orders', 'ออเดอร์ใหม่วันนี้', 'blue', () => navigateQuickAction('admin-orders')],
+                        ['waiting_payment', 'รอชำระเงิน', 'amber', () => navigateQuickAction('admin-orders')],
+                        ['waiting_review', 'รอตรวจสอบสลิป', 'purple', () => navigateQuickAction('admin-orders')],
                         ['low_stock', 'สินค้าใกล้หมด', 'orange', () => navigateQuickAction('add-product', 'products')],
                         ['out_of_stock', 'สินค้าหมดสต๊อก', 'red', () => navigateQuickAction('add-product', 'products')],
                     ].map(([key, label, color, action]) => (
@@ -741,7 +855,11 @@ function AdminDashboardPage({
                     )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลลูกค้า</p>}
                 </div>
             </section>
+                </>
+            )}
 
+            {showOrderManagement && (
+                <>
             <section ref={orderManagementRef} className="order-management">
                 <header className="order-management-heading">
                     <div>
@@ -763,10 +881,7 @@ function AdminDashboardPage({
                     </label>
                     <select value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}>
                         <option value="ทั้งหมด">การชำระเงินทั้งหมด</option>
-                        <option value="รอชำระ">รอชำระ</option>
-                        <option value="รอตรวจสอบ">รอตรวจสอบ</option>
-                        <option value="ชำระเงินแล้ว">ชำระเงินแล้ว</option>
-                        <option value="ยกเลิก">ยกเลิก</option>
+                        {paymentStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
                     </select>
                     <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                         {orderStatuses.map((status) => <option key={status} value={status}>{status === 'ทั้งหมด' ? 'สถานะออเดอร์ทั้งหมด' : status}</option>)}
@@ -793,7 +908,7 @@ function AdminDashboardPage({
                 <div className="order-print-bulk-bar">
                     <div>
                         <strong>พิมพ์ใบจัดส่งพร้อมกัน</strong>
-                        <span>เลือกได้เฉพาะออเดอร์ที่ชำระเงินแล้ว ระบบจะเปิดหน้า PDF/Print รวมเป็นชุดเดียว</span>
+                        <span>เลือกได้เฉพาะออเดอร์ที่ชำระแล้ว ระบบจะเปิดหน้า PDF/Print รวมเป็นชุดเดียว</span>
                     </div>
                     <button type="button" onClick={openSelectedPrintPage} disabled={selectedPrintOrderIds.length === 0}>
                         สร้าง PDF / พิมพ์ {selectedPrintOrderIds.length > 0 ? `(${selectedPrintOrderIds.length})` : ''}
@@ -810,7 +925,7 @@ function AdminDashboardPage({
                                         checked={allVisiblePaidSelected}
                                         disabled={visiblePaidOrderIds.length === 0}
                                         onChange={toggleVisiblePaidOrders}
-                                        aria-label="เลือกออเดอร์ที่ชำระเงินแล้วในหน้านี้"
+                                        aria-label="เลือกออเดอร์ที่ชำระแล้วในหน้านี้"
                                     />
                                 </th>
                                 <th><button type="button" onClick={() => changeOrderSort('id')}>เลขออเดอร์{orderSortMarker('id')}</button></th>
@@ -828,8 +943,8 @@ function AdminDashboardPage({
                             {ordersLoading ? [...Array(6)].map((_, index) => (
                                 <tr key={`order-skeleton-${index}`} className="order-skeleton"><td colSpan="10"><i /></td></tr>
                             )) : visibleOrders.length ? visibleOrders.map((order) => {
-                                const paymentStatus = order.payment_status || 'รอชำระ';
-                                const currentStatus = order.status || 'รอชำระ';
+                                const paymentStatus = formatPaymentStatus(order.payment_status) || 'รอชำระ';
+                                const currentStatus = order.status || 'รอจัดการ';
                                 const orderIsPaid = isPaidOrder(order);
                                 const orderIdText = String(order.id);
                                 return (
@@ -847,7 +962,7 @@ function AdminDashboardPage({
                                         <td data-label="เลขออเดอร์"><strong className="order-number">#{order.id}</strong></td>
                                         <td data-label="วันที่สั่งซื้อ"><span className="order-date">{new Date(order.created_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</span></td>
                                         <td data-label="ลูกค้า"><strong>{order.full_name || order.username || 'ลูกค้าทั่วไป'}</strong><small>{order.username ? `@${order.username}` : ''}</small></td>
-                                        <td data-label="การชำระเงิน"><span className={`payment-badge ${paymentStatus === 'ชำระเงินแล้ว' ? 'paid' : paymentStatus === 'รอตรวจสอบ' ? 'review' : paymentStatus === 'ยกเลิก' ? 'cancelled' : 'waiting'}`}>{paymentStatus}</span></td>
+                                        <td data-label="การชำระเงิน"><span className={`payment-badge ${getPaymentStatusClass(paymentStatus)}`}>{paymentStatus}</span></td>
                                         <td data-label="วิธีรับสินค้า"><span className="delivery-badge">{order.shipping_method || '-'}</span></td>
                                         <td data-label="เลขพัสดุ"><span className={order.tracking_no ? 'order-tracking active' : 'order-tracking'}>{order.tracking_no || 'ยังไม่มี'}</span></td>
                                         <td data-label="ยอดสุทธิ" className="order-total">฿{formatMoney(order.final_price ?? order.total_price)}</td>
@@ -859,7 +974,7 @@ function AdminDashboardPage({
                                                     type="button"
                                                     className="order-print-trigger"
                                                     disabled={!orderIsPaid}
-                                                    title={orderIsPaid ? 'เปิดหน้าใบจัดส่ง PDF' : 'พิมพ์ได้เมื่อชำระเงินแล้วเท่านั้น'}
+                                                    title={orderIsPaid ? 'เปิดหน้าใบจัดส่ง PDF' : 'พิมพ์ได้เมื่อชำระแล้วเท่านั้น'}
                                                     onClick={(event) => { event.stopPropagation(); openOrderPrintPage(order.id, order); }}
                                                 >
                                                     พิมพ์ใบจัดส่ง
@@ -894,17 +1009,17 @@ function AdminDashboardPage({
             </section>
 
             {selectedOrder && (
-                <div className="order-modal-backdrop" role="presentation" onMouseDown={() => setSelectedOrder(null)}>
+                <div className="order-modal-backdrop" role="presentation" onMouseDown={closeOrderDetailModal}>
                     <div className="order-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
                         <header>
                             <div><span>ORDER DETAILS</span><h2>คำสั่งซื้อ #{selectedOrder.id}</h2><p>{new Date(selectedOrder.created_at).toLocaleString('th-TH')}</p></div>
-                            <button type="button" onClick={() => setSelectedOrder(null)}>×</button>
+                            <button type="button" onClick={closeOrderDetailModal}>×</button>
                         </header>
                         {orderDetailsLoading ? <div className="order-modal-loading"><i /><i /><i /></div> : orderDetails?.error ? <div className="commerce-error">{orderDetails.error}</div> : orderDetails && (
                             <div className="order-modal-body">
                                 <section className="order-detail-summary">
                                     <div><span>ลูกค้า</span><strong>{orderDetails.order.full_name || orderDetails.order.username}</strong><small>{orderDetails.order.email || '-'} · {orderDetails.order.customer_phone || '-'}</small></div>
-                                    <div><span>สถานะการชำระเงิน</span><strong>{orderDetails.order.payment_status || '-'}</strong><small>{orderDetails.order.payment_method || '-'}</small></div>
+                                    <div><span>สถานะการชำระเงิน</span><strong>{detailPaymentStatus}</strong><small>{orderDetails.order.payment_method || '-'}</small></div>
                                     <div><span>ยอดสุทธิ</span><strong>฿{formatMoney(orderDetails.order.final_price)}</strong><small>สินค้า ฿{formatMoney(orderDetails.order.total_price)} · ค่าส่ง ฿{formatMoney(orderDetails.order.shipping_fee)}</small></div>
                                     <div><span>สถานะออเดอร์</span><strong>{orderDetails.order.status}</strong><small>{orderDetails.order.tracking_no || 'ยังไม่มีเลขพัสดุ'}</small></div>
                                 </section>
@@ -933,6 +1048,35 @@ function AdminDashboardPage({
                                     <section className="order-detail-card">
                                         <h3>หลักฐานการชำระเงิน</h3>
                                         {orderDetails.order.receipt_image ? <a href={orderDetails.order.receipt_image} target="_blank" rel="noreferrer" className="order-receipt"><img src={orderDetails.order.receipt_image} alt={`สลิปออเดอร์ ${selectedOrder.id}`} /><span>เปิดดูภาพเต็ม</span></a> : <div className="order-no-receipt">ยังไม่มีหลักฐานการชำระเงิน</div>}
+                                        {shouldWarnPaymentReview && (
+                                            <div className="payment-review-warning">
+                                                ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง
+                                            </div>
+                                        )}
+                                        <div className="payment-review-box">
+                                            <div className="payment-review-meta">
+                                                <div><span>ยอดที่ต้องชำระ</span><strong>฿{formatMoney(orderDetails.order.final_price)}</strong></div>
+                                                <label>ยอดที่ตรวจพบ<input type="number" min="0" step="0.01" value={paymentReviewForm.verified_amount} onChange={(event) => updatePaymentReviewForm('verified_amount', event.target.value)} placeholder="0.00" /></label>
+                                                <label>เลขอ้างอิงรายการ<input value={paymentReviewForm.transaction_ref} onChange={(event) => updatePaymentReviewForm('transaction_ref', event.target.value)} placeholder="เช่น Ref / Transaction ID" /></label>
+                                                <div><span>ผู้ตรวจสอบ</span><strong>{orderDetails.order.reviewer_full_name || orderDetails.order.reviewer_username || '-'}</strong></div>
+                                                <div><span>เวลาตรวจสอบ</span><strong>{orderDetails.order.reviewed_at ? new Date(orderDetails.order.reviewed_at).toLocaleString('th-TH') : '-'}</strong></div>
+                                            </div>
+                                            <label className="payment-review-note">
+                                                หมายเหตุผลการตรวจสอบ
+                                                <select value={rejectionReasons.includes(paymentReviewForm.review_note) ? paymentReviewForm.review_note : ''} onChange={(event) => updatePaymentReviewForm('review_note', event.target.value)}>
+                                                    <option value="">เลือกเหตุผลสำเร็จรูป</option>
+                                                    {rejectionReasons.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+                                                </select>
+                                                <textarea value={paymentReviewForm.review_note} onChange={(event) => updatePaymentReviewForm('review_note', event.target.value)} placeholder="ระบุเหตุผลหรือรายละเอียดเพิ่มเติม..." />
+                                            </label>
+                                            {paymentReviewError && <div className="payment-review-error">{paymentReviewError}</div>}
+                                            <div className="payment-review-actions">
+                                                <button type="button" className="approve" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('approve')}>{paymentReviewSaving === 'approve' ? 'กำลังบันทึก...' : 'อนุมัติการชำระเงิน'}</button>
+                                                <button type="button" className="request" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('request_new')}>{paymentReviewSaving === 'request_new' ? 'กำลังบันทึก...' : 'ขอหลักฐานใหม่'}</button>
+                                                <button type="button" className="reject" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('reject')}>{paymentReviewSaving === 'reject' ? 'กำลังบันทึก...' : 'ปฏิเสธหลักฐาน'}</button>
+                                                <button type="button" className="suspicious" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('suspicious')}>{paymentReviewSaving === 'suspicious' ? 'กำลังบันทึก...' : 'สงสัยสลิปปลอม'}</button>
+                                            </div>
+                                        </div>
                                     </section>
                                     <section className="order-detail-card">
                                         <h3>ประวัติสถานะ</h3>
@@ -949,20 +1093,32 @@ function AdminDashboardPage({
                                 </section>
 
                                 <section className="order-modal-actions">
-                                    {!isPickupOrder(selectedOrder) && !['รอชำระ', 'รอตรวจสอบ', 'ยกเลิก', 'จัดส่งแล้ว'].includes(selectedOrder.status) && (
+                                    {!isPickupOrder(selectedOrder) && selectedOrder.status === 'เตรียมสินค้า' && (
                                         <label>เลขพัสดุ<input value={trackingInputs[selectedOrder.id] || ''} onChange={(event) => updateTrackingInput(selectedOrder.id, event.target.value)} placeholder="กรอกเลขพัสดุ" />{trackingErrors[selectedOrder.id] && <small>{trackingErrors[selectedOrder.id]}</small>}</label>
                                     )}
+                                    {!detailOrderIsPaid && (
+                                        <div className="order-payment-lock">
+                                            ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง
+                                        </div>
+                                    )}
                                     <div>
-                                        {selectedOrder.status === 'รอตรวจสอบ' && orderDetails.order.receipt_image && <button type="button" className="success" disabled={savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, getApproveStatus(selectedOrder))}>ยืนยันการชำระเงิน</button>}
-                                        {selectedOrder.status === 'กำลังจัดส่ง' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'จัดส่งแล้ว')}>บันทึกและจัดส่งแล้ว</button>}
-                                        {selectedOrder.status === 'เตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับ')}>พร้อมรับสินค้า</button>}
-                                        <button type="button" className="danger" onClick={() => onDeleteOrder(selectedOrder.id)}>ลบออเดอร์</button>
+                                        {selectedOrder.status === 'รอจัดการ' && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เตรียมสินค้า')}>เตรียมสินค้า</button>}
+                                        {selectedOrder.status === 'เตรียมสินค้า' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'กำลังจัดส่ง')}>เริ่มจัดส่ง</button>}
+                                        {selectedOrder.status === 'เตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
+                                        {selectedOrder.status === 'กำลังจัดส่ง' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'จัดส่งแล้ว')}>จัดส่งแล้ว</button>}
+                                        {selectedOrder.status === 'จัดส่งแล้ว' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
+                                        {selectedOrder.status === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
+                                        {!isPaidOrder(orderDetails.order) && (
+                                            <button type="button" className="danger" onClick={() => onDeleteOrder(selectedOrder.id, { onDeleted: closeOrderDetailModal })}>ลบออเดอร์</button>
+                                        )}
                                     </div>
                                 </section>
                             </div>
                         )}
                     </div>
                 </div>
+            )}
+                </>
             )}
 
         </div>

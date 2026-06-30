@@ -4,7 +4,8 @@ import AdminDashboardPage from './AdminDashboardPage';
 import AdminStockLogsPage from './AdminStockLogsPage';
 
 const adminTabs = [
-    { id: 'dashboard', label: 'Dashboard & ออเดอร์' },
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'admin-orders', label: 'จัดการออเดอร์สินค้า' },
     { id: 'add-product', label: 'จัดการสินค้า' },
     { id: 'customers', label: 'จัดการลูกค้า' },
     { id: 'stock-logs', label: 'ประวัติการเคลื่อนไหว' },
@@ -28,6 +29,7 @@ function AdminPage(props) {
             </div>
 
             {adminPage === 'dashboard' && <AdminDashboardPage {...props} />}
+            {adminPage === 'admin-orders' && <AdminDashboardPage {...props} view="orders" />}
             {adminPage === 'add-product' && <AdminAddProductPage {...props} />}
             {adminPage === 'customers' && <AdminCustomersPage {...props} />}
             {adminPage === 'stock-logs' && <AdminStockLogsPage {...props} />}

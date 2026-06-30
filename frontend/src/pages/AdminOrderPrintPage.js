@@ -18,6 +18,9 @@ const formatPrintTimestamp = () => new Date().toLocaleString('th-TH', {
     timeStyle: 'short',
 });
 
+const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order?.payment_status);
+const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+
 function AdminOrderPrintPage({ orderIds }) {
     const [payloads, setPayloads] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,7 +41,7 @@ function AdminOrderPrintPage({ orderIds }) {
             try {
                 const responses = await Promise.all(idsToLoad.map((id) => adminApi.getOrderDetails(id)));
                 const loadedPayloads = responses.map((response) => response.data || null).filter(Boolean);
-                const unpaidOrder = loadedPayloads.find((item) => item?.order?.payment_status !== 'ชำระเงินแล้ว');
+                const unpaidOrder = loadedPayloads.find((item) => !isPaidOrder(item?.order));
                 if (unpaidOrder) {
                     throw new Error(`ออเดอร์ #${unpaidOrder.order?.id || '-'} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
                 }
@@ -110,7 +113,7 @@ function AdminOrderPrintPage({ orderIds }) {
                             <dl>
                                 <div><dt>วันที่สั่งซื้อ</dt><dd>{formatDate(order.created_at)}</dd></div>
                                 <div><dt>วิธีรับสินค้า</dt><dd>{order.shipping_method || '-'}</dd></div>
-                                <div><dt>สถานะชำระเงิน</dt><dd>{order.payment_status || '-'}</dd></div>
+                                <div><dt>สถานะชำระเงิน</dt><dd>{formatPaymentStatus(order.payment_status) || '-'}</dd></div>
                                 <div><dt>สถานะออเดอร์</dt><dd>{order.status || '-'}</dd></div>
                             </dl>
                         </article>

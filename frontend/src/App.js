@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -180,6 +180,160 @@ function OrderSuccessModal({ orderId, onViewOrder, onContinueShopping }) {
     );
 }
 
+function CancelOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isSubmitting) onClose();
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSubmitting, onClose]);
+
+    return (
+        <div className="cancel-order-backdrop" role="presentation" onMouseDown={() => !isSubmitting && onClose()}>
+            <section
+                className="cancel-order-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cancel-order-title"
+                aria-describedby="cancel-order-description"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="cancel-order-icon" aria-hidden="true">!</div>
+                <div>
+                    <span className="cancel-order-eyebrow">Cancel order</span>
+                    <h2 id="cancel-order-title">ยืนยันการยกเลิกคำสั่งซื้อ</h2>
+                    <p id="cancel-order-description">
+                        คุณต้องการยกเลิกคำสั่งซื้อ #{orderId} ใช่หรือไม่?<br />
+                        การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                    </p>
+                </div>
+                <div className="cancel-order-actions">
+                    <button type="button" className="cancel-order-secondary" onClick={onClose} disabled={isSubmitting}>
+                        ไม่ยกเลิก
+                    </button>
+                    <button type="button" className="cancel-order-danger" onClick={onConfirm} disabled={isSubmitting}>
+                        {isSubmitting ? 'กำลังยกเลิก...' : 'ยืนยันการยกเลิก'}
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function DeleteOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isSubmitting) onClose();
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSubmitting, onClose]);
+
+    return (
+        <div className="cancel-order-backdrop delete-order-backdrop" role="presentation" onMouseDown={() => !isSubmitting && onClose()}>
+            <section
+                className="cancel-order-modal delete-order-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="delete-order-title"
+                aria-describedby="delete-order-description"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="cancel-order-icon delete-order-icon" aria-hidden="true">!</div>
+                <div>
+                    <span className="cancel-order-eyebrow delete-order-eyebrow">Delete order</span>
+                    <h2 id="delete-order-title">ยืนยันการลบคำสั่งซื้อ</h2>
+                    <p id="delete-order-description">
+                        คุณต้องการลบคำสั่งซื้อ #{orderId} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+                    </p>
+                </div>
+                <div className="cancel-order-actions delete-order-actions">
+                    <button type="button" className="cancel-order-secondary" onClick={onClose} disabled={isSubmitting}>
+                        ยกเลิก
+                    </button>
+                    <button type="button" className="cancel-order-danger" onClick={onConfirm} disabled={isSubmitting}>
+                        {isSubmitting ? 'กำลังลบ...' : 'ลบคำสั่งซื้อ'}
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function OrderStatusConfirmModal({ orderId, status, isSubmitting, onClose, onConfirm }) {
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape' && !isSubmitting) onClose();
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSubmitting, onClose]);
+
+    return (
+        <div className="cancel-order-backdrop order-status-backdrop" role="presentation" onMouseDown={() => !isSubmitting && onClose()}>
+            <section
+                className="cancel-order-modal order-status-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="order-status-title"
+                aria-describedby="order-status-description"
+                onMouseDown={(event) => event.stopPropagation()}
+            >
+                <div className="cancel-order-icon order-status-icon" aria-hidden="true">✓</div>
+                <div>
+                    <span className="cancel-order-eyebrow order-status-eyebrow">Update status</span>
+                    <h2 id="order-status-title">ยืนยันการเปลี่ยนสถานะ</h2>
+                    <p id="order-status-description">
+                        คุณต้องการเปลี่ยนสถานะออเดอร์ #{orderId} เป็น "{status}" ใช่หรือไม่?
+                    </p>
+                </div>
+                <div className="cancel-order-actions order-status-actions">
+                    <button type="button" className="cancel-order-secondary" onClick={onClose} disabled={isSubmitting}>
+                        ยกเลิก
+                    </button>
+                    <button type="button" className="cancel-order-danger order-status-confirm" onClick={onConfirm} disabled={isSubmitting}>
+                        {isSubmitting ? 'กำลังอัปเดต...' : 'ยืนยัน'}
+                    </button>
+                </div>
+            </section>
+        </div>
+    );
+}
+
+function OrderToast({ toast, onClose }) {
+    if (!toast?.message) return null;
+
+    return (
+        <div className={`order-toast ${toast.type || 'success'}`} role={toast.type === 'error' ? 'alert' : 'status'} aria-live="polite">
+            <span className="order-toast-icon" aria-hidden="true">{toast.type === 'error' ? '!' : '✓'}</span>
+            <strong>{toast.message}</strong>
+            <button type="button" onClick={onClose} aria-label="ปิดการแจ้งเตือน">×</button>
+        </div>
+    );
+}
+
 function App() {
     const [products, setProducts] = useState([]);
     const [productsLoading, setProductsLoading] = useState(true);
@@ -242,6 +396,16 @@ function App() {
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
     const [showOrderSuccess, setShowOrderSuccess] = useState(false);
     const [successOrderId, setSuccessOrderId] = useState(null);
+    const [cancelOrderRequest, setCancelOrderRequest] = useState(null);
+    const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+    const [deleteOrderRequest, setDeleteOrderRequest] = useState(null);
+    const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [pendingOrderId, setPendingOrderId] = useState(null);
+    const [pendingStatus, setPendingStatus] = useState('');
+    const [pendingTrackingNo, setPendingTrackingNo] = useState('');
+    const [isUpdatingOrderStatus, setIsUpdatingOrderStatus] = useState(false);
+    const [orderToast, setOrderToast] = useState({ type: '', message: '' });
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false);
     const [isSalesHistoryOpen, setIsSalesHistoryOpen] = useState(false);
@@ -253,6 +417,7 @@ function App() {
     const [profilePhone, setProfilePhone] = useState('');
     const [addresses, setAddresses] = useState([]);
     const [addressForm, setAddressForm] = useState(emptyAddress);
+    const orderStatusResolverRef = useRef(null);
     const [shippingInfo, setShippingInfo] = useState({
         address_id: null,
         receiver_name: '',
@@ -274,6 +439,9 @@ function App() {
     const selectedCartItems = cart.filter((item) => selectedCartKeys.includes(getCartItemKey(item)));
     const total = getCartTotal(selectedCartItems);
     const printOrderIds = getPrintOrderIdsFromLocation();
+    const showOrderToast = useCallback((type, message) => {
+        setOrderToast({ type, message });
+    }, []);
     const findActiveCategory = useCallback((categoryId, categoryName) => {
         const cleanName = String(categoryName || '').trim();
         return categories.find((category) => (
@@ -401,6 +569,14 @@ function App() {
     }, [cart]);
 
     useEffect(() => {
+        if (!orderToast.message) return undefined;
+        const timer = window.setTimeout(() => {
+            setOrderToast({ type: '', message: '' });
+        }, 3200);
+        return () => window.clearTimeout(timer);
+    }, [orderToast.message]);
+
+    useEffect(() => {
         fetchProducts(isAdminView);
         fetchCategories(isAdminView);
     }, [fetchProducts, fetchCategories, isAdminView]);
@@ -418,7 +594,7 @@ function App() {
             return;
         }
 
-        if (adminPage === 'dashboard') fetchAdminOrders();
+        if (adminPage === 'admin-orders') fetchAdminOrders();
         if (adminPage === 'customers') fetchCustomers();
         if (adminPage === 'stock-logs') {
             setActivityLogsLoading(true);
@@ -925,45 +1101,101 @@ function App() {
         }
     };
 
-    const handleDeleteOrder = async (orderId) => {
-        if (!window.confirm(`ยืนยันการลบคำสั่งซื้อ #${orderId}?`)) return;
+    const handleDeleteOrder = (orderId, options = {}) => {
+        setDeleteOrderRequest({ orderId, onDeleted: options.onDeleted });
+    };
 
+    const closeDeleteOrderModal = () => {
+        if (isDeletingOrder) return;
+        setDeleteOrderRequest(null);
+    };
+
+    const confirmDeleteOrder = async () => {
+        const orderId = deleteOrderRequest?.orderId;
+        if (!orderId || isDeletingOrder) return;
+
+        setIsDeletingOrder(true);
         try {
             await adminApi.deleteAdminOrder(orderId, user?.id);
-            alert('ลบคำสั่งซื้อสำเร็จ');
+            setDeleteOrderRequest(null);
+            deleteOrderRequest?.onDeleted?.();
             await fetchAdminOrders();
             await fetchSystemLogs();
+            showOrderToast('success', 'ลบคำสั่งซื้อสำเร็จ');
         } catch (err) {
-            alert('ไม่สามารถลบคำสั่งซื้อได้');
+            showOrderToast('error', err.response?.data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+        } finally {
+            setIsDeletingOrder(false);
         }
     };
 
-    const handleUpdateOrderStatus = async (orderId, trackingNo = '', status = 'รอตรวจสอบ') => {
-        if (status === 'จัดส่งแล้ว' && !String(trackingNo || '').trim()) {
-            return {
-                success: false,
-                field: 'tracking_no',
-                message: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นจัดส่งแล้ว',
-            };
-        }
+    const closeOrderStatusModal = () => {
+        if (isUpdatingOrderStatus) return;
 
-        const confirmText = `ยืนยันเปลี่ยนสถานะออเดอร์ #${orderId} เป็น "${status}"?`;
-        if (!window.confirm(confirmText)) {
-            return { success: false };
-        }
+        setConfirmModalOpen(false);
+        setPendingOrderId(null);
+        setPendingStatus('');
+        setPendingTrackingNo('');
+        orderStatusResolverRef.current?.({ success: false });
+        orderStatusResolverRef.current = null;
+    };
 
+    const confirmOrderStatusUpdate = async () => {
+        if (!pendingOrderId || isUpdatingOrderStatus) return;
+
+        setIsUpdatingOrderStatus(true);
         try {
-            await adminApi.updateOrderStatus(orderId, status, trackingNo, user?.id);
+            await adminApi.updateOrderStatus(pendingOrderId, pendingStatus, pendingTrackingNo, user?.id);
             await fetchAdminOrders();
             await fetchSystemLogs();
-            return { success: true };
+            const result = { success: true };
+            orderStatusResolverRef.current?.(result);
+            orderStatusResolverRef.current = null;
+            setConfirmModalOpen(false);
+            setPendingOrderId(null);
+            setPendingStatus('');
+            setPendingTrackingNo('');
         } catch (err) {
-            return {
+            const result = {
                 success: false,
                 field: err.response?.data?.field || 'form',
                 message: err.response?.data?.error || 'ไม่สามารถอัปเดตสถานะได้',
             };
+            orderStatusResolverRef.current?.(result);
+            orderStatusResolverRef.current = null;
+            setConfirmModalOpen(false);
+            setPendingOrderId(null);
+            setPendingStatus('');
+            setPendingTrackingNo('');
+        } finally {
+            setIsUpdatingOrderStatus(false);
         }
+    };
+
+    const handleUpdateOrderStatus = (orderId, trackingNo = '', status = 'เตรียมสินค้า') => {
+        if (status === 'กำลังจัดส่ง' && !String(trackingNo || '').trim()) {
+            return {
+                success: false,
+                field: 'tracking_no',
+                message: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง',
+            };
+        }
+
+        orderStatusResolverRef.current?.({ success: false });
+        setPendingOrderId(orderId);
+        setPendingStatus(status);
+        setPendingTrackingNo(trackingNo);
+        setConfirmModalOpen(true);
+
+        return new Promise((resolve) => {
+            orderStatusResolverRef.current = resolve;
+        });
+    };
+
+    const handleReviewOrderPayment = async (orderId, payload) => {
+        await adminApi.reviewOrderPayment(orderId, payload);
+        await fetchAdminOrders();
+        await fetchSystemLogs();
     };
 
     const handleUploadOrderReceipt = async (orderId, payload) => {
@@ -976,20 +1208,34 @@ function App() {
         }
     };
 
-    const handleCancelCustomerOrder = async (orderId) => {
-        if (!window.confirm(`ยืนยันยกเลิกคำสั่งซื้อ #${orderId}? สินค้าจะถูกคืนเข้าสต็อก`)) return;
+    const handleCancelCustomerOrder = (orderId) => {
+        setCancelOrderRequest({ orderId });
+    };
 
+    const closeCancelOrderModal = () => {
+        if (isCancellingOrder) return;
+        setCancelOrderRequest(null);
+    };
+
+    const confirmCancelCustomerOrder = async () => {
+        const orderId = cancelOrderRequest?.orderId;
+        if (!orderId || isCancellingOrder) return;
+
+        setIsCancellingOrder(true);
         try {
             await ordersApi.cancelOrder(orderId, {
                 user_id: user?.id,
                 username: user?.username,
             });
-            alert('ยกเลิกคำสั่งซื้อเรียบร้อยแล้ว');
+            setCancelOrderRequest(null);
+            showOrderToast('success', 'ยกเลิกคำสั่งซื้อสำเร็จ');
             await fetchOrderHistory();
             await fetchProducts(isAdminView);
             if (isAdminView) await fetchAdminOrders();
         } catch (err) {
-            alert(err.response?.data?.error || 'ยกเลิกคำสั่งซื้อไม่สำเร็จ');
+            showOrderToast('error', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+        } finally {
+            setIsCancellingOrder(false);
         }
     };
 
@@ -1245,6 +1491,8 @@ function App() {
         return <AdminOrderPrintPage orderIds={printOrderIds} />;
     }
 
+    const shouldShowSiteFooter = !isAdminUser(user);
+
     return (
         <div className="bg-light min-vh-100">
             <AppNavbar
@@ -1253,8 +1501,6 @@ function App() {
                 isAdminView={isAdminView}
                 onOpenStore={openStore}
                 onOpenAdmin={() => redirectUnauthorizedPage('admin-dashboard') && setIsAdminView(true)}
-                adminPage={adminPage}
-                setAdminPage={setAdminPage}
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenOrderHistory={openOrderHistory}
                 onOpenSalesHistory={openSalesHistory}
@@ -1316,6 +1562,7 @@ function App() {
                         onDeleteCategory={handleDeleteCategory}
                         onDeleteOrder={handleDeleteOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}
+                        onReviewOrderPayment={handleReviewOrderPayment}
                         onOpenStockEdit={(product) => setStockEdit({ id: product.id, amount: 0, remark: '', name: product.name })}
                         onUpdateUser={handleUpdateUser}
                         onDeleteUser={handleDeleteUser}
@@ -1333,7 +1580,7 @@ function App() {
                 )}
             </div>
 
-            <SiteFooter contact={storeContact} onOpenStore={openStore} />
+            {shouldShowSiteFooter && <SiteFooter contact={storeContact} onOpenStore={openStore} />}
 
             <StockEditModal stockEdit={stockEdit} setStockEdit={setStockEdit} onSave={handleUpdateStock} />
 
@@ -1383,6 +1630,34 @@ function App() {
                     onClose={() => setIsOrderHistoryOpen(false)}
                     onUploadReceipt={handleUploadOrderReceipt}
                     onCancelOrder={handleCancelCustomerOrder}
+                />
+            )}
+
+            {cancelOrderRequest && (
+                <CancelOrderConfirmModal
+                    orderId={cancelOrderRequest.orderId}
+                    isSubmitting={isCancellingOrder}
+                    onClose={closeCancelOrderModal}
+                    onConfirm={confirmCancelCustomerOrder}
+                />
+            )}
+
+            {deleteOrderRequest && (
+                <DeleteOrderConfirmModal
+                    orderId={deleteOrderRequest.orderId}
+                    isSubmitting={isDeletingOrder}
+                    onClose={closeDeleteOrderModal}
+                    onConfirm={confirmDeleteOrder}
+                />
+            )}
+
+            {confirmModalOpen && (
+                <OrderStatusConfirmModal
+                    orderId={pendingOrderId}
+                    status={pendingStatus}
+                    isSubmitting={isUpdatingOrderStatus}
+                    onClose={closeOrderStatusModal}
+                    onConfirm={confirmOrderStatusUpdate}
                 />
             )}
 
@@ -1448,6 +1723,8 @@ function App() {
                     }}
                 />
             )}
+
+            <OrderToast toast={orderToast} onClose={() => setOrderToast({ type: '', message: '' })} />
         </div>
     );
 }

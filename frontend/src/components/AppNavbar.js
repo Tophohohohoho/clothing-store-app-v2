@@ -6,8 +6,6 @@ function AppNavbar({
     isAdminView,
     onOpenStore,
     onOpenAdmin,
-    adminPage,
-    setAdminPage,
     onOpenCart,
     onOpenOrderHistory,
     onOpenSalesHistory,
@@ -58,45 +56,6 @@ function AppNavbar({
                         <button className="nav-pill is-info" onClick={onOpenSalesHistory}>
                             ประวัติการขาย
                         </button>
-                    )}
-
-                    {isAdmin && isAdminView && (
-                        <select
-                            className="nav-select"
-                            value={adminPage}
-                            onChange={(e) => {
-                                const nextPage = e.target.value;
-                                if (nextPage === 'store') {
-                                    onOpenStore();
-                                    return;
-                                }
-                                if (nextPage === 'admin-categories') {
-                                    sessionStorage.setItem('adminProductView', 'categories');
-                                    setAdminPage('add-product');
-                                    return;
-                                }
-                                if (nextPage === 'admin-stock') {
-                                    sessionStorage.setItem('adminProductView', 'products');
-                                    setAdminPage('add-product');
-                                    return;
-                                }
-                                if (nextPage === 'admin-orders' || nextPage === 'sales-report') {
-                                    setAdminPage('dashboard');
-                                    return;
-                                }
-                                setAdminPage(nextPage);
-                            }}
-                        >
-                            <option value="dashboard">Dashboard</option>
-                            <option value="store">ระบบขายหน้าร้าน</option>
-                            <option value="add-product">จัดการสินค้า</option>
-                            <option value="admin-categories">จัดการประเภทสินค้า</option>
-                            <option value="admin-stock">จัดการสต็อก</option>
-                            <option value="admin-orders">จัดการคำสั่งซื้อ</option>
-                            <option value="sales-report">รายงานยอดขาย</option>
-                            <option value="customers">จัดการสมาชิก</option>
-                            <option value="stock-logs">บันทึกการทำงานของแอดมิน</option>
-                        </select>
                     )}
 
                     {user ? (
