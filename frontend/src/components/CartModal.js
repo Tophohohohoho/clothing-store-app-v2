@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { getCartCount, getCartItemKey, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
+import { confirmNotification, notify } from './AppNotification';
 
 const formatCurrency = (value) => Number(value || 0).toLocaleString('th-TH', {
     minimumFractionDigits: 2,
@@ -45,10 +46,17 @@ function CartModal({
         && (cartItem.selected_color || '') === (item.selected_color || '')
     );
 
-    const decreaseQty = (item) => {
+    const decreaseQty = async (item) => {
         const quantity = getItemQuantity(item);
         if (quantity <= 1) {
-            if (window.confirm(`ลบ ${item.name} ออกจากตะกร้า?`)) {
+            const shouldRemove = await confirmNotification({
+                type: 'danger',
+                title: 'ลบสินค้าออกจากตะกร้า?',
+                message: `ต้องการลบ ${item.name} ออกจากตะกร้าหรือไม่`,
+                confirmText: 'ลบสินค้า',
+                cancelText: 'ยกเลิก',
+            });
+            if (shouldRemove) {
                 setCart((currentCart) => currentCart.filter((cartItem) => !isSameCartItem(cartItem, item)));
             }
             return;
@@ -63,7 +71,7 @@ function CartModal({
         const stock = Number(item.stock);
         const quantity = getItemQuantity(item);
         if (Number.isFinite(stock) && stock >= 0 && quantity >= stock) {
-            alert(`สินค้าในคลังมีเพียง ${stock} ชิ้น`);
+            notify({ type: 'warning', title: 'สินค้าไม่พอ', message: `สินค้าในคลังมีเพียง ${stock} ชิ้น` });
             return;
         }
 
@@ -72,8 +80,15 @@ function CartModal({
         )));
     };
 
-    const removeItem = (item) => {
-        if (window.confirm(`ลบ ${item.name} ออกจากตะกร้า?`)) {
+    const removeItem = async (item) => {
+        const shouldRemove = await confirmNotification({
+            type: 'danger',
+            title: 'ลบสินค้าออกจากตะกร้า?',
+            message: `ต้องการลบ ${item.name} ออกจากตะกร้าหรือไม่`,
+            confirmText: 'ลบสินค้า',
+            cancelText: 'ยกเลิก',
+        });
+        if (shouldRemove) {
             setCart((currentCart) => currentCart.filter((cartItem) => !isSameCartItem(cartItem, item)));
         }
     };

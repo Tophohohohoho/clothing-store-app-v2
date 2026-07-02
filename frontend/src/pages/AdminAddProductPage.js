@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
+import { notify } from '../components/AppNotification';
 
 const AdminIcon = ({ name, size = 16 }) => {
     const paths = {
@@ -107,11 +108,11 @@ function ProductColorEditor({ colors = [], onChange }) {
     const addColor = () => {
         const name = colorName.trim();
         if (!name) {
-            alert('กรุณากรอกชื่อสี');
+            notify({ type: 'warning', title: 'ข้อมูลสียังไม่ครบ', message: 'กรุณากรอกชื่อสี' });
             return;
         }
         if (colors.some((color) => color.name.trim().toLocaleLowerCase('th-TH') === name.toLocaleLowerCase('th-TH'))) {
-            alert('มีสีชื่อนี้อยู่แล้ว');
+            notify({ type: 'warning', title: 'สีซ้ำ', message: 'มีสีชื่อนี้อยู่แล้ว' });
             return;
         }
 
@@ -334,7 +335,7 @@ function AdminAddProductPage({
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+            notify({ type: 'warning', title: 'ไฟล์ไม่ถูกต้อง', message: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น' });
             event.target.value = '';
             return;
         }
@@ -367,7 +368,7 @@ function AdminAddProductPage({
         if (!file) return;
 
         if (!file.type.startsWith('image/')) {
-            alert('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+            notify({ type: 'warning', title: 'ไฟล์ไม่ถูกต้อง', message: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น' });
             event.target.value = '';
             return;
         }
@@ -1278,3 +1279,4 @@ function AdminAddProductPage({
 }
 
 export default AdminAddProductPage;
+

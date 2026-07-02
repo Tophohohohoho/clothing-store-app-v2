@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
+import { notify } from '../components/AppNotification';
 
 const formatMoney = (value) => {
     const amount = Number(value) || 0;
@@ -460,7 +461,7 @@ function AdminDashboardPage({
 
     const openOrderPrintPage = async (orderId, order = null) => {
         if (order && !isPaidOrder(order)) {
-            alert('พิมพ์ใบจัดส่งได้เฉพาะออเดอร์ที่ชำระแล้ว');
+            notify({ type: 'warning', title: 'ยังพิมพ์ใบจัดส่งไม่ได้', message: 'พิมพ์ใบจัดส่งได้เฉพาะออเดอร์ที่ชำระแล้ว' });
             return;
         }
         const popup = window.open('', '_blank', 'width=1100,height=750');
@@ -505,7 +506,7 @@ function AdminDashboardPage({
 
     const openSelectedPrintPage = async () => {
         if (selectedPrintOrderIds.length === 0) {
-            alert('กรุณาเลือกออเดอร์ที่ชำระแล้วก่อนพิมพ์ใบจัดส่ง');
+            notify({ type: 'warning', title: 'ยังไม่ได้เลือกออเดอร์', message: 'กรุณาเลือกออเดอร์ที่ชำระแล้วก่อนพิมพ์ใบจัดส่ง' });
             return;
         }
         const idsToPrint = [...selectedPrintOrderIds];
@@ -542,7 +543,7 @@ function AdminDashboardPage({
             const response = await adminApi.getOrderDetails(selectedOrder.id);
             setOrderDetails(response.data || null);
         } catch (err) {
-            alert(err.response?.data?.error || 'เพิ่มหมายเหตุไม่สำเร็จ');
+            notify({ type: 'error', title: 'เพิ่มหมายเหตุไม่สำเร็จ', message: err.response?.data?.error || 'เพิ่มหมายเหตุไม่สำเร็จ' });
         } finally {
             setNoteSaving(false);
         }
@@ -672,7 +673,7 @@ function AdminDashboardPage({
         const paymentStatus = orderDetails?.order?.payment_status || order.payment_status;
 
         if (blockedFulfillmentStatuses.includes(nextStatus) && !isPaidOrder({ payment_status: paymentStatus })) {
-            alert('ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง');
+            notify({ type: 'warning', title: 'ยังดำเนินการจัดส่งไม่ได้', message: 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง' });
             return;
         }
 
@@ -700,7 +701,7 @@ function AdminDashboardPage({
                 if (result.field === 'tracking_no') {
                     setTrackingErrors((current) => ({ ...current, [order.id]: result.message }));
                 } else {
-                    alert(result.message);
+                    notify({ type: 'error', title: 'อัปเดตสถานะไม่สำเร็จ', message: result.message });
                 }
             }
         } finally {

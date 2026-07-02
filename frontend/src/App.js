@@ -14,6 +14,7 @@ import PosCheckoutModal from './components/PosCheckoutModal';
 import OrderHistoryModal from './components/OrderHistoryModal';
 import ProfileModal from './components/ProfileModal';
 import StockEditModal from './components/StockEditModal';
+import AppNotificationHost, { confirmNotification, notify } from './components/AppNotification';
 import AdminPage from './pages/AdminPage';
 import AdminOrderPrintPage from './pages/AdminOrderPrintPage';
 import AuthPage from './pages/AuthPage';
@@ -789,16 +790,16 @@ function App() {
         try {
             const stockAmount = Number(newProduct.stock);
             if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
-                alert('กรุณากรอกสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
                 return;
             }
             const selectedCategory = findActiveCategory(newProduct.category_id, newProduct.category_name);
             if (!selectedCategory) {
-                alert('กรุณาเลือกหมวดหมู่สินค้า');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
                 return;
             }
             if (Number(newProduct.has_color) === 1 && (!Array.isArray(newProduct.colors) || newProduct.colors.length === 0)) {
-                alert('กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
                 return;
             }
 
@@ -826,13 +827,13 @@ function App() {
             });
             const productId = res.data.insertId || res.data.id;
 
-            alert('เพิ่มสินค้าสำเร็จ');
+            notify({ type: 'success', title: 'เพิ่มสินค้าสำเร็จ', message: 'ระบบบันทึกสินค้าใหม่เรียบร้อยแล้ว' });
             setNewProduct(emptyProduct);
             await fetchProducts(false);
             setPreviewProductId(productId);
             setIsAdminView(false);
         } catch (err) {
-            alert('เพิ่มสินค้าล้มเหลว');
+            notify({ type: 'error', title: 'เพิ่มสินค้าล้มเหลว', message: 'กรุณาลองใหม่อีกครั้ง' });
         }
     };
 
@@ -840,11 +841,11 @@ function App() {
         try {
             const stockAmount = Number(stockEdit.amount);
             if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
-                alert('กรุณากรอกจำนวนสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกจำนวนสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
                 return;
             }
             if (!stockEdit.remark.trim()) {
-                alert('กรุณากรอกหมายเหตุทุกครั้งเมื่อรับสต็อก');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกหมายเหตุทุกครั้งเมื่อรับสต็อก' });
                 return;
             }
 
@@ -855,12 +856,12 @@ function App() {
                 user_id: user?.id,
             });
 
-            alert('ปรับปรุงสต็อกสำเร็จ');
+            notify({ type: 'success', title: 'ปรับปรุงสต็อกสำเร็จ', message: 'ข้อมูลสต็อกและประวัติได้รับการอัปเดตแล้ว' });
             setStockEdit({ id: null, amount: 0, remark: '', name: '' });
             await fetchProducts(true);
             await fetchStockLogs();
         } catch (err) {
-            alert('เกิดข้อผิดพลาดในการปรับสต็อก');
+            notify({ type: 'error', title: 'ปรับสต็อกไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการปรับสต็อก' });
         }
     };
 
@@ -868,11 +869,11 @@ function App() {
         try {
             const selectedCategory = findActiveCategory(editProduct.category_id, editProduct.category_name);
             if (!selectedCategory) {
-                alert('กรุณาเลือกหมวดหมู่สินค้า');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
                 return;
             }
             if (Number(editProduct.has_color) === 1 && (!Array.isArray(editProduct.colors) || editProduct.colors.length === 0)) {
-                alert('กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี');
+                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
                 return;
             }
 
@@ -895,12 +896,12 @@ function App() {
 
             const res = await productsApi.editProduct(productData);
             if (res.data.success) {
-                alert('แก้ไขข้อมูลสินค้าสำเร็จ');
+                notify({ type: 'success', title: 'แก้ไขข้อมูลสินค้าสำเร็จ', message: 'ข้อมูลสินค้าถูกอัปเดตเรียบร้อยแล้ว' });
                 setEditProduct({ id: null, name: '', price: 0, description: '' });
                 await fetchProducts(true);
             }
         } catch (err) {
-            alert('เกิดข้อผิดพลาดในการแก้ไขสินค้า');
+            notify({ type: 'error', title: 'แก้ไขสินค้าไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการแก้ไขสินค้า' });
         }
     };
 
@@ -998,11 +999,11 @@ function App() {
 
     const handleCheckout = async () => {
         if (cart.length === 0) {
-            alert('ไม่มีสินค้าในตะกร้า');
+            notify({ type: 'warning', title: 'ไม่มีสินค้าในตะกร้า', message: 'กรุณาเลือกสินค้าเข้าตะกร้าก่อนชำระเงิน' });
             return;
         }
         if (selectedCartItems.length === 0) {
-            alert('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
+            notify({ type: 'warning', title: 'ยังไม่ได้เลือกสินค้า', message: 'กรุณาเลือกสินค้าที่ต้องการชำระเงิน' });
             return;
         }
 
@@ -1043,24 +1044,29 @@ function App() {
     const handleConfirmPayment = async () => {
         if (!redirectUnauthorizedPage('payment')) return;
         if (selectedCartItems.length === 0) {
-            alert('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
+            notify({ type: 'warning', title: 'ยังไม่ได้เลือกสินค้า', message: 'กรุณาเลือกสินค้าที่ต้องการชำระเงิน' });
             return;
         }
 
         if (shippingInfo.shipping_method === 'ส่งสินค้า' && !shippingInfo.address.trim()) {
-            alert('กรุณากรอกที่อยู่จัดส่ง');
+            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกที่อยู่จัดส่ง' });
             return;
         }
 
         if (shippingInfo.shipping_method === 'ส่งสินค้า') {
             if (!shippingInfo.subdistrict.trim() || !shippingInfo.district.trim() || !shippingInfo.province.trim() || !shippingInfo.postal_code.trim()) {
-                alert('กรุณากรอกตำบล/แขวง อำเภอ/เขต จังหวัด และรหัสไปรษณีย์');
+                notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกตำบล/แขวง อำเภอ/เขต จังหวัด และรหัสไปรษณีย์' });
                 return;
             }
         }
 
         if (!shippingInfo.phone.trim()) {
-            alert('กรุณากรอกเบอร์โทรศัพท์');
+            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
+            return;
+        }
+
+        if (!shippingInfo.receipt_image_data) {
+            notify({ type: 'warning', title: 'ยังไม่ได้อัปโหลดสลิป', message: 'กรุณาอัปโหลดสลิปโอนเงินก่อนส่งหลักฐานการชำระเงิน' });
             return;
         }
 
@@ -1097,7 +1103,8 @@ function App() {
                 await fetchProducts();
             }
         } catch (err) {
-            alert('เกิดข้อผิดพลาดในการส่งข้อมูล');
+            notify({ type: 'error', title: 'ส่งข้อมูลไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการส่งข้อมูล' });
+            throw err;
         }
     };
 
@@ -1201,10 +1208,15 @@ function App() {
     const handleUploadOrderReceipt = async (orderId, payload) => {
         try {
             await ordersApi.uploadReceipt(orderId, payload);
-            alert('แนบสลิปเรียบร้อยแล้ว รอแอดมินตรวจสอบ');
+            notify({
+                type: 'success',
+                title: 'แนบสลิปเรียบร้อยแล้ว รอแอดมินตรวจสอบ',
+                message: 'ระบบรีเฟรชข้อมูลคำสั่งซื้อให้แล้ว',
+            });
             await fetchOrderHistory();
         } catch (err) {
-            alert(err.response?.data?.error || 'ไม่สามารถแนบสลิปได้');
+            notify({ type: 'error', title: 'แนบสลิปไม่สำเร็จ', message: err.response?.data?.error || 'ไม่สามารถแนบสลิปได้' });
+            throw err;
         }
     };
 
@@ -1268,10 +1280,10 @@ function App() {
             });
 
             setUserEdit({ id: null, username: '', password: '', full_name: '', email: '', phone: '' });
-            alert('อัปเดตข้อมูลสมาชิกสำเร็จ');
+            notify({ type: 'success', title: 'อัปเดตข้อมูลสมาชิกสำเร็จ', message: 'ข้อมูลสมาชิกถูกบันทึกเรียบร้อยแล้ว' });
             await fetchCustomers();
         } catch (err) {
-            alert('เกิดข้อผิดพลาดในการแก้ไขสมาชิก');
+            notify({ type: 'error', title: 'แก้ไขสมาชิกไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการแก้ไขสมาชิก' });
         }
     };
 
@@ -1349,7 +1361,7 @@ function App() {
         event.preventDefault();
 
         if (!addressForm.receiver_name.trim() || !addressForm.address_detail.trim()) {
-            alert('กรุณากรอกชื่อผู้รับและที่อยู่');
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
             return;
         }
 
@@ -1364,9 +1376,9 @@ function App() {
             const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
             setAddressForm(defaultAddress ? { ...emptyAddress, ...defaultAddress } : emptyAddress);
             applyAddressToCheckout(defaultAddress);
-            alert('บันทึกที่อยู่สำเร็จ');
+            notify({ type: 'success', title: 'บันทึกที่อยู่สำเร็จ', message: 'ข้อมูลที่อยู่ถูกอัปเดตเรียบร้อยแล้ว' });
         } catch (err) {
-            alert(err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ');
+            notify({ type: 'error', title: 'บันทึกที่อยู่ไม่สำเร็จ', message: err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ' });
         }
     };
 
@@ -1403,14 +1415,21 @@ function App() {
             const selected = list.find((item) => item.address_id === address.address_id) || address;
             setAddressForm({ ...emptyAddress, ...selected, is_default: 1 });
             applyAddressToCheckout(selected);
-            alert('ตั้งเป็นที่อยู่หลักแล้ว');
+            notify({ type: 'success', title: 'ตั้งเป็นที่อยู่หลักแล้ว', message: 'ระบบจะใช้ที่อยู่นี้เป็นค่าเริ่มต้น' });
         } catch (err) {
-            alert(err.response?.data?.error || 'ตั้งที่อยู่หลักไม่สำเร็จ');
+            notify({ type: 'error', title: 'ตั้งที่อยู่หลักไม่สำเร็จ', message: err.response?.data?.error || 'ตั้งที่อยู่หลักไม่สำเร็จ' });
         }
     };
 
     const handleDeleteAddress = async (address) => {
-        if (!window.confirm(`ยืนยันลบที่อยู่ของ ${address.receiver_name || 'ผู้รับ'}?`)) return;
+        const shouldDelete = await confirmNotification({
+            type: 'danger',
+            title: 'ลบที่อยู่นี้?',
+            message: `ยืนยันลบที่อยู่ของ ${address.receiver_name || 'ผู้รับ'} หรือไม่`,
+            confirmText: 'ลบที่อยู่',
+            cancelText: 'ยกเลิก',
+        });
+        if (!shouldDelete) return;
 
         try {
             await authApi.deleteAddress(user.id, address.address_id);
@@ -1445,9 +1464,9 @@ function App() {
                 applyAddressToCheckout(defaultAddress);
             }
 
-            alert('ลบที่อยู่สำเร็จ');
+            notify({ type: 'success', title: 'ลบที่อยู่สำเร็จ', message: 'รายการที่อยู่ถูกลบเรียบร้อยแล้ว' });
         } catch (err) {
-            alert(err.response?.data?.error || 'ลบที่อยู่ไม่สำเร็จ');
+            notify({ type: 'error', title: 'ลบที่อยู่ไม่สำเร็จ', message: err.response?.data?.error || 'ลบที่อยู่ไม่สำเร็จ' });
         }
     };
 
@@ -1495,6 +1514,8 @@ function App() {
 
     return (
         <div className="bg-light min-vh-100">
+            <AppNotificationHost />
+
             <AppNavbar
                 user={user}
                 cart={cart}

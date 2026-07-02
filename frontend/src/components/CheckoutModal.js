@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { notify } from './AppNotification';
 
 const BANK_ACCOUNT = '123-4-56789-0';
 const BANK_ACCOUNT_DIGITS = '1234567890';
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const ACCEPTED_RECEIPT_TYPES = ['image/png', 'image/jpeg'];
 
 const emptyThaiAddressData = {
     provinces: [],
@@ -33,6 +34,8 @@ const formatAddressLine = (address) => [
     address?.province ? `จ.${address.province}` : '',
     address?.postal_code,
 ].filter(Boolean).join(' ');
+
+const formatFileSize = (bytes) => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
 
 const formatAddressOption = (address) => {
     const prefix = Number(address.is_default) === 1 ? '[หลัก] ' : '';
@@ -216,17 +219,17 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
 
     const handleSaveNewAddress = async () => {
         if (!newAddress.receiver_name.trim() || !newAddress.address_detail.trim()) {
-            alert('กรุณากรอกชื่อผู้รับและที่อยู่');
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
             return;
         }
 
         if (!newAddress.phone.trim()) {
-            alert('กรุณากรอกเบอร์โทรศัพท์');
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
             return;
         }
 
         if (!newAddress.province || !newAddress.district || !newAddress.subdistrict || !newAddress.postal_code) {
-            alert('กรุณาเลือกจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์');
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณาเลือกจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์' });
             return;
         }
 
@@ -236,7 +239,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             setIsAddingAddress(false);
             setNewAddress(emptyNewAddress);
         } catch (err) {
-            alert(err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ');
+            notify({ type: 'error', title: 'บันทึกที่อยู่ไม่สำเร็จ', message: err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ' });
         } finally {
             setIsSavingAddress(false);
         }
@@ -246,7 +249,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         if (!file) return;
 
         if (!ACCEPTED_RECEIPT_TYPES.includes(file.type)) {
-            setReceiptError('รองรับเฉพาะไฟล์ JPG, PNG หรือ WebP');
+            setReceiptError('รองรับเฉพาะไฟล์ JPG และ PNG เท่านั้น');
             return;
         }
 
@@ -289,6 +292,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             receipt_file_size: 0,
         }));
         setReceiptError('');
+        if (receiptInputRef.current) receiptInputRef.current.value = '';
     };
 
     const copyBankAccount = async () => {
@@ -317,9 +321,14 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
             return;
         }
+        if (!shippingInfo.receipt_image_data) {
+            setValidationError('กรุณาอัปโหลดสลิปโอนเงิน');
+            return;
+        }
         try {
             setIsSubmitting(true);
             await onConfirm();
+            removeReceipt();
         } finally {
             setIsSubmitting(false);
         }
@@ -517,7 +526,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                 ref={receiptInputRef}
                                 type="file"
                                 className="checkout-receipt-input"
-                                accept="image/png,image/jpeg,image/webp"
+                                accept="image/png,image/jpeg,image/jpg"
                                 onChange={handleReceiptChange}
                             />
                             {!shippingInfo.receipt_image_data ? (
@@ -537,7 +546,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     </span>
                                     <strong>{isDraggingReceipt ? 'วางไฟล์เพื่ออัปโหลด' : 'ลากสลิปมาวางที่นี่'}</strong>
                                     <span>หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์</span>
-                                    <small>JPG, PNG, WebP ขนาดไม่เกิน 5 MB</small>
+                                    <small>JPG, PNG ขนาดไม่เกิน 5 MB</small>
                                 </button>
                             ) : (
                                 <div className="checkout-receipt-preview">
@@ -547,13 +556,11 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                         <div>
                                             <strong>อัปโหลดสลิปเรียบร้อยแล้ว</strong>
                                             <small>{shippingInfo.receipt_file_name}</small>
-                                            {shippingInfo.receipt_file_size > 0 && (
-                                                <small>{(shippingInfo.receipt_file_size / 1024 / 1024).toFixed(2)} MB</small>
-                                            )}
+                                            {shippingInfo.receipt_file_size > 0 && <small>{formatFileSize(shippingInfo.receipt_file_size)}</small>}
                                         </div>
                                         <div className="checkout-file-actions">
-                                            <button type="button" onClick={() => receiptInputRef.current?.click()}>เปลี่ยนไฟล์</button>
-                                            <button type="button" className="is-danger" onClick={removeReceipt}>ลบ</button>
+                                            <button type="button" onClick={() => receiptInputRef.current?.click()}>เปลี่ยนรูป</button>
+                                            <button type="button" className="is-danger" onClick={removeReceipt}>ลบรูป</button>
                                         </div>
                                     </div>
                                 </div>
@@ -561,7 +568,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                             {receiptError && <div className="checkout-field-error">{receiptError}</div>}
                             {!shippingInfo.receipt_image_data && !receiptError && (
                                 <div className="checkout-receipt-later-note">
-                                    ยังไม่พร้อมชำระ? สามารถบันทึกคำสั่งซื้อตอนนี้ แล้วกลับมาแนบสลิปภายหลังได้ในประวัติคำสั่งซื้อ
+                                    กรุณาอัปโหลดสลิปโอนเงินก่อนส่งหลักฐานการชำระเงิน
                                 </div>
                             )}
                         </div>
@@ -588,10 +595,10 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                         )}
                         <div className="d-flex gap-2 w-100">
                             <button className="btn btn-light rounded-pill px-4 py-2 fw-medium flex-grow-1" onClick={onClose} disabled={isSubmitting}>ย้อนกลับ</button>
-                            <button className="btn btn-primary w-100 fw-bold py-2 checkout-confirm-button" onClick={handleConfirm} disabled={isSubmitting}>
+                            <button className="btn btn-primary w-100 fw-bold py-2 checkout-confirm-button" onClick={handleConfirm} disabled={isSubmitting || !shippingInfo.receipt_image_data}>
                                 {isSubmitting ? (
                                     <><span className="checkout-spinner" aria-hidden="true" />กำลังส่งข้อมูล...</>
-                                ) : shippingInfo.receipt_image_data ? 'ยืนยันการชำระเงิน' : 'บันทึกคำสั่งซื้อก่อน'}
+                                ) : shippingInfo.receipt_image_data ? 'ส่งหลักฐานการชำระเงิน' : 'กรุณาอัปโหลดสลิปโอนเงิน'}
                             </button>
                         </div>
                     </div>

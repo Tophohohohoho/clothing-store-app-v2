@@ -1178,6 +1178,8 @@ app.get('/api/admin/orders', async (req, res) => {
                 u.full_name,
                 a.address_detail AS address,
                 a.phone,
+                pay.payment_type,
+                pay.payment_amount,
                 pay.receipt_image
             FROM orders o
             LEFT JOIN \`user\` u ON o.user_id = u.user_id
@@ -1186,10 +1188,58 @@ app.get('/api/admin/orders', async (req, res) => {
                 FROM address
                 WHERE user_id = o.user_id
             )
-            LEFT JOIN payment pay ON pay.order_id = o.order_id
+            LEFT JOIN payment pay ON pay.payment_id = (
+                SELECT MAX(payment_id)
+                FROM payment
+                WHERE order_id = o.order_id
+            )
             ORDER BY o.order_date DESC
         `);
-        res.json(results.map(normalizeOrder));
+        const orderIds = results.map((order) => order.order_id).filter(Boolean);
+        let itemsByOrder = {};
+
+        if (orderIds.length > 0) {
+            const [items] = await query(
+                `SELECT
+                    od.order_id,
+                    od.order_detail_id,
+                    od.product_id,
+                    od.quantity,
+                    od.price,
+                    od.selected_size,
+                    od.selected_color,
+                    p.product_name,
+                    p.product_image
+                 FROM order_detail od
+                 LEFT JOIN product p ON p.product_id = od.product_id
+                 WHERE od.order_id IN (?)
+                 ORDER BY od.order_id DESC, od.order_detail_id ASC`,
+                [orderIds],
+            );
+
+            itemsByOrder = items.reduce((grouped, item) => {
+                const orderId = item.order_id;
+                if (!grouped[orderId]) grouped[orderId] = [];
+                grouped[orderId].push({
+                    order_detail_id: item.order_detail_id,
+                    product_id: item.product_id,
+                    product_name: item.product_name,
+                    name: item.product_name,
+                    product_image: item.product_image,
+                    quantity: item.quantity,
+                    qty: item.quantity,
+                    price: item.price,
+                    selected_size: item.selected_size,
+                    selected_color: item.selected_color,
+                });
+                return grouped;
+            }, {});
+        }
+
+        res.json(results.map((order) => ({
+            ...normalizeOrder(order),
+            items: itemsByOrder[order.order_id] || [],
+        })));
     } catch (err) {
         respondError(res, err, 'โหลดคำสั่งซื้อไม่สำเร็จ');
     }
