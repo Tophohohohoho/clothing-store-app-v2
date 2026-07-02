@@ -4,7 +4,7 @@ import { notify } from './AppNotification';
 const BANK_ACCOUNT = '123-4-56789-0';
 const BANK_ACCOUNT_DIGITS = '1234567890';
 const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
-const ACCEPTED_RECEIPT_TYPES = ['image/png', 'image/jpeg'];
+const ACCEPTED_RECEIPT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 const emptyThaiAddressData = {
     provinces: [],
@@ -249,7 +249,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         if (!file) return;
 
         if (!ACCEPTED_RECEIPT_TYPES.includes(file.type)) {
-            setReceiptError('รองรับเฉพาะไฟล์ JPG และ PNG เท่านั้น');
+            setReceiptError('รองรับเฉพาะไฟล์ JPG, JPEG, PNG และ WEBP เท่านั้น');
             return;
         }
 
@@ -319,10 +319,6 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         }
         if (cleanPhone.length < 9 || cleanPhone.length > 10) {
             setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
-            return;
-        }
-        if (!shippingInfo.receipt_image_data) {
-            setValidationError('กรุณาอัปโหลดสลิปโอนเงิน');
             return;
         }
         try {
@@ -526,7 +522,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                 ref={receiptInputRef}
                                 type="file"
                                 className="checkout-receipt-input"
-                                accept="image/png,image/jpeg,image/jpg"
+                                accept="image/png,image/jpeg,image/jpg,image/webp"
                                 onChange={handleReceiptChange}
                             />
                             {!shippingInfo.receipt_image_data ? (
@@ -546,7 +542,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     </span>
                                     <strong>{isDraggingReceipt ? 'วางไฟล์เพื่ออัปโหลด' : 'ลากสลิปมาวางที่นี่'}</strong>
                                     <span>หรือคลิกเพื่อเลือกไฟล์จากอุปกรณ์</span>
-                                    <small>JPG, PNG ขนาดไม่เกิน 5 MB</small>
+                                    <small>JPG, JPEG, PNG, WEBP ขนาดไม่เกิน 5 MB</small>
                                 </button>
                             ) : (
                                 <div className="checkout-receipt-preview">
@@ -568,7 +564,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                             {receiptError && <div className="checkout-field-error">{receiptError}</div>}
                             {!shippingInfo.receipt_image_data && !receiptError && (
                                 <div className="checkout-receipt-later-note">
-                                    กรุณาอัปโหลดสลิปโอนเงินก่อนส่งหลักฐานการชำระเงิน
+                                    สามารถสร้างออเดอร์ก่อน แล้วอัปโหลดสลิปจากประวัติคำสั่งซื้อภายหลังได้
                                 </div>
                             )}
                         </div>
@@ -595,10 +591,10 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                         )}
                         <div className="d-flex gap-2 w-100">
                             <button className="btn btn-light rounded-pill px-4 py-2 fw-medium flex-grow-1" onClick={onClose} disabled={isSubmitting}>ย้อนกลับ</button>
-                            <button className="btn btn-primary w-100 fw-bold py-2 checkout-confirm-button" onClick={handleConfirm} disabled={isSubmitting || !shippingInfo.receipt_image_data}>
+                            <button className="btn btn-primary w-100 fw-bold py-2 checkout-confirm-button" onClick={handleConfirm} disabled={isSubmitting}>
                                 {isSubmitting ? (
                                     <><span className="checkout-spinner" aria-hidden="true" />กำลังส่งข้อมูล...</>
-                                ) : shippingInfo.receipt_image_data ? 'ส่งหลักฐานการชำระเงิน' : 'กรุณาอัปโหลดสลิปโอนเงิน'}
+                                ) : shippingInfo.receipt_image_data ? 'ส่งหลักฐานการชำระเงิน' : 'สร้างออเดอร์และชำระภายหลัง'}
                             </button>
                         </div>
                     </div>

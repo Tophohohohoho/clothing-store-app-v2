@@ -1,5 +1,12 @@
 import { useState } from 'react';
 
+const BANK_ACCOUNT = '123-4-56789-0';
+const BANK_ACCOUNT_DIGITS = '1234567890';
+const BANK_NAME = 'ธนาคารกสิกรไทย';
+const BANK_ACCOUNT_NAME = 'บริษัท เสื้อผ้าแฟชั่น จำกัด';
+const ACCEPTED_RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const REJECTED_PAYMENT_STATUSES = ['ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
+
 function OrderHistoryModal({
     orders,
     username,
@@ -11,24 +18,28 @@ function OrderHistoryModal({
     historyTabLabel = 'ประวัติคำสั่งซื้อ',
     onClose,
     onUploadReceipt,
+    onCancelReceipt,
     onCancelOrder,
 }) {
     const [uploadingOrderId, setUploadingOrderId] = useState(null);
+    const [cancellingReceiptOrderId, setCancellingReceiptOrderId] = useState(null);
     const [uploadError, setUploadError] = useState({ orderId: null, message: '' });
     const [receiptDrafts, setReceiptDrafts] = useState({});
     const [activeView, setActiveView] = useState('active');
     const [activePaymentView, setActivePaymentView] = useState('pending');
     const [receiptOrder, setReceiptOrder] = useState(null);
+    const [slipPreview, setSlipPreview] = useState(null);
     const [salesOrderSearch, setSalesOrderSearch] = useState('');
-    const cancelableStatuses = ['รอจัดการ', 'เตรียมสินค้า'];
+    const [isAccountCopied, setIsAccountCopied] = useState(false);
+    const cancelableStatuses = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'รอจัดการ', 'เตรียมสินค้า'];
     const historyStatuses = ['สำเร็จ', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น', 'ยกเลิก', 'ยกเลิกคำสั่งซื้อ'];
     const completedSaleStatuses = ['สำเร็จ', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น'];
     const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
-    const reuploadPaymentStatuses = ['รอชำระ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
+    const reuploadPaymentStatuses = ['รอชำระ', ...REJECTED_PAYMENT_STATUSES];
     const orderList = Array.isArray(orders) ? orders : [];
     const isSalesMode = mode === 'sales';
     const isHistoryOrder = (order) => historyStatuses.includes(order.status);
-    const isPendingPaymentOrder = (order) => reuploadPaymentStatuses.includes(order.payment_status) || order.status === 'รอจัดการ';
+    const isPendingPaymentOrder = (order) => reuploadPaymentStatuses.includes(order.payment_status) || ['รอชำระเงิน', 'รอจัดการ'].includes(order.status);
     const isStoreSale = (order) => (order.shipping_method || order.delivery_type) === 'ขายหน้าร้าน';
     const activeOrders = isSalesMode
         ? orderList.filter((order) => isStoreSale(order))
@@ -51,6 +62,7 @@ function OrderHistoryModal({
         : visibleOrders;
     const canUploadReceipt = !isSalesMode && Boolean(onUploadReceipt);
     const canCancelOrder = !isSalesMode && Boolean(onCancelOrder);
+    const canCancelReceipt = !isSalesMode && Boolean(onCancelReceipt);
 
     const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
         minimumFractionDigits: 2,
@@ -83,6 +95,16 @@ function OrderHistoryModal({
 
     const getPaymentMethod = (order) => order.payment_method || order.payment_type || 'ไม่ระบุ';
 
+    const copyBankAccount = async () => {
+        try {
+            await navigator.clipboard.writeText(BANK_ACCOUNT_DIGITS);
+            setIsAccountCopied(true);
+            window.setTimeout(() => setIsAccountCopied(false), 1800);
+        } catch {
+            setIsAccountCopied(false);
+        }
+    };
+
     const getReceiptAmounts = (order, finalPrice) => {
         const cashReceived = Number(order.cash_received ?? order.payment_amount ?? finalPrice);
         const change = Number(order.change ?? Math.max(cashReceived - Number(finalPrice || 0), 0));
@@ -114,8 +136,8 @@ function OrderHistoryModal({
     const handleReceiptChange = async (orderId, file) => {
         if (!file || !onUploadReceipt) return;
 
-        if (!['image/jpeg', 'image/png'].includes(file.type)) {
-            setUploadError({ orderId, message: 'รองรับเฉพาะไฟล์ JPG และ PNG เท่านั้น' });
+        if (!ACCEPTED_RECEIPT_TYPES.includes(file.type)) {
+            setUploadError({ orderId, message: 'รองรับเฉพาะไฟล์ JPG, JPEG, PNG และ WEBP เท่านั้น' });
             setReceiptDrafts((current) => {
                 const next = { ...current };
                 delete next[orderId];
@@ -178,6 +200,21 @@ function OrderHistoryModal({
             setUploadError({ orderId, message: err.response?.data?.error || 'ไม่สามารถส่งหลักฐานการชำระเงินได้' });
         } finally {
             setUploadingOrderId(null);
+        }
+    };
+
+    const cancelCurrentReceipt = async (orderId) => {
+        if (!onCancelReceipt || cancellingReceiptOrderId) return;
+
+        try {
+            setUploadError({ orderId: null, message: '' });
+            setCancellingReceiptOrderId(orderId);
+            await onCancelReceipt(orderId);
+            removeReceiptDraft(orderId);
+        } catch (err) {
+            setUploadError({ orderId, message: err.response?.data?.error || 'ไม่สามารถยกเลิกสลิปเดิมได้' });
+        } finally {
+            setCancellingReceiptOrderId(null);
         }
     };
 
@@ -314,6 +351,15 @@ function OrderHistoryModal({
                             const finalPrice = Number(item.final_price ?? (productTotal + shippingFee - discount));
                             const { cashReceived, change } = getReceiptAmounts(item, finalPrice);
                             const canCancel = canCancelOrder && cancelableStatuses.includes(item.status);
+                            const hasSubmittedReceipt = Boolean(item.receipt_image);
+                            const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
+                            const isReceiptApproved = ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(item.payment_status);
+                            const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(item.payment_status);
+                            const canSendReceipt = canUploadReceipt
+                                && !isReceiptWaitingReview
+                                && !isReceiptApproved
+                                && (isReceiptRejected || reuploadPaymentStatuses.includes(item.payment_status) || ['รอชำระเงิน', 'รอจัดการ'].includes(item.status));
+                            const canCancelSubmittedReceipt = canCancelReceipt && isReceiptWaitingReview && hasSubmittedReceipt;
                             const uploadInputId = `receipt-upload-${item.id || index}`;
                             const receiptDraft = receiptDrafts[item.id];
                             const saleDateTime = item.created_at || item.order_date;
@@ -448,13 +494,100 @@ function OrderHistoryModal({
                                         </div>
                                     )}
 
-                                    {canUploadReceipt && (reuploadPaymentStatuses.includes(item.payment_status) || item.status === 'รอจัดการ') && (
+                                    {!isSalesMode && item.payment_status === 'ชำระเงินแล้ว' && (
+                                        <div className="order-history-payment-alert is-success">
+                                            อนุมัติการชำระเงินแล้ว
+                                        </div>
+                                    )}
+
+                                    {!isSalesMode && item.payment_status === 'รอตรวจสอบ' && (
+                                        <div className="order-history-payment-alert is-warning">
+                                            ส่งหลักฐานการชำระเงินเรียบร้อย กรุณารอแอดมินตรวจสอบ ถ้าส่งรูปผิดให้ ยกเลิกสลิปเดิม ก่อนอัปโหลดใหม่
+                                        </div>
+                                    )}
+
+                                    {!isSalesMode && REJECTED_PAYMENT_STATUSES.includes(item.payment_status) && (
+                                        <div className="order-history-payment-alert is-danger">
+                                            หลักฐานถูกปฏิเสธ{item.review_note ? `: ${item.review_note}` : ''}
+                                        </div>
+                                    )}
+
+                                    {!isSalesMode && hasSubmittedReceipt && (
+                                        <div className="order-history-submitted-slip">
+                                            <div className="order-history-submitted-slip-info">
+                                                <span>สลิปที่ส่งไปแล้ว</span>
+                                                <strong>
+                                                    {isReceiptApproved
+                                                        ? 'อนุมัติแล้ว'
+                                                        : isReceiptWaitingReview
+                                                            ? 'กำลังรอตรวจสอบ'
+                                                            : isReceiptRejected
+                                                                ? 'ถูกปฏิเสธ สามารถส่งใหม่ได้'
+                                                                : 'มีสลิปในระบบ'}
+                                                </strong>
+                                                {item.receipt_file_name && <small>ไฟล์: {item.receipt_file_name}</small>}
+                                                {item.payment_date && <small>ส่งเมื่อ {formatDateTime(item.payment_date)}</small>}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="order-history-slip-preview"
+                                                onClick={() => setSlipPreview({ src: item.receipt_image, orderId: item.id })}
+                                            >
+                                                <img src={item.receipt_image} alt={`สลิปคำสั่งซื้อ ${item.id}`} />
+                                                <span>ดูรูปใหญ่</span>
+                                            </button>
+                                            {canCancelSubmittedReceipt && (
+                                                <button
+                                                    type="button"
+                                                    className="order-history-cancel-slip"
+                                                    onClick={() => cancelCurrentReceipt(item.id)}
+                                                    disabled={cancellingReceiptOrderId === item.id}
+                                                >
+                                                    {cancellingReceiptOrderId === item.id ? 'กำลังยกเลิกสลิป...' : 'ยกเลิกสลิปเดิม'}
+                                                </button>
+                                            )}
+                                            {isReceiptApproved && (
+                                                <small className="order-history-slip-note">แอดมินอนุมัติแล้ว ไม่สามารถยกเลิกหรือเปลี่ยนสลิปได้</small>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {!canSendReceipt && uploadError.orderId === item.id && uploadError.message && (
+                                        <div className="order-history-upload-error">{uploadError.message}</div>
+                                    )}
+
+                                    {canSendReceipt && (
                                         <div className="order-history-upload-panel">
+                                            <div className="order-history-bank-card">
+                                                <div>
+                                                    <span>เลขออเดอร์</span>
+                                                    <strong>#{item.id}</strong>
+                                                </div>
+                                                <div>
+                                                    <span>ยอดที่ต้องชำระ</span>
+                                                    <strong>฿{formatMoney(finalPrice)}</strong>
+                                                </div>
+                                                <div>
+                                                    <span>ชื่อบัญชี</span>
+                                                    <strong>{BANK_ACCOUNT_NAME}</strong>
+                                                </div>
+                                                <div>
+                                                    <span>ธนาคาร</span>
+                                                    <strong>{BANK_NAME}</strong>
+                                                </div>
+                                                <div className="order-history-bank-account">
+                                                    <span>เลขบัญชี</span>
+                                                    <strong>{BANK_ACCOUNT}</strong>
+                                                    <button type="button" onClick={copyBankAccount}>
+                                                        {isAccountCopied ? 'คัดลอกแล้ว' : 'คัดลอกเลขบัญชี'}
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <input
                                                 id={uploadInputId}
                                                 className="order-history-upload-input"
                                                 type="file"
-                                                accept="image/png,image/jpeg,image/jpg"
+                                                accept="image/png,image/jpeg,image/jpg,image/webp"
                                                 disabled={uploadingOrderId === item.id}
                                                 onChange={(event) => {
                                                     handleReceiptChange(item.id, event.target.files?.[0]);
@@ -472,7 +605,7 @@ function OrderHistoryModal({
                                                     </span>
                                                     <span>
                                                         <strong>อัปโหลดสลิปโอนเงิน</strong>
-                                                        <small>รองรับไฟล์ JPG, PNG ขนาดไม่เกิน 5MB</small>
+                                                        <small>รองรับไฟล์ JPG, JPEG, PNG, WEBP ขนาดไม่เกิน 5MB</small>
                                                     </span>
                                                 </label>
                                             ) : (
@@ -568,6 +701,34 @@ function OrderHistoryModal({
                     <button type="button" onClick={onClose}>ปิดหน้าต่าง</button>
                 </footer>
             </section>
+
+            {slipPreview && (
+                <div
+                    className="order-slip-lightbox"
+                    role="presentation"
+                    onMouseDown={(event) => {
+                        event.stopPropagation();
+                        setSlipPreview(null);
+                    }}
+                >
+                    <section
+                        className="order-slip-lightbox-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="order-slip-lightbox-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <header>
+                            <div>
+                                <span>PAYMENT SLIP</span>
+                                <h2 id="order-slip-lightbox-title">สลิปคำสั่งซื้อ #{slipPreview.orderId}</h2>
+                            </div>
+                            <button type="button" onClick={() => setSlipPreview(null)} aria-label="ปิดรูปสลิป">×</button>
+                        </header>
+                        <img src={slipPreview.src} alt={`สลิปคำสั่งซื้อ ${slipPreview.orderId}`} />
+                    </section>
+                </div>
+            )}
 
             {receiptOrder && (() => {
                 const receiptItems = getOrderItems(receiptOrder);

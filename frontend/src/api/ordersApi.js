@@ -8,4 +8,6 @@ export const getOrderHistory = (username) => apiClient.get(`/api/orders/history/
 
 export const uploadReceipt = (orderId, payload) => apiClient.put(`/api/orders/${orderId}/receipt`, payload);
 
+export const cancelReceipt = (orderId, payload) => apiClient.put(`/api/orders/${orderId}/receipt/cancel`, payload);
+
 export const cancelOrder = (orderId, payload) => apiClient.put(`/api/orders/${orderId}/cancel`, payload);

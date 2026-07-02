@@ -1065,11 +1065,6 @@ function App() {
             return;
         }
 
-        if (!shippingInfo.receipt_image_data) {
-            notify({ type: 'warning', title: 'ยังไม่ได้อัปโหลดสลิป', message: 'กรุณาอัปโหลดสลิปโอนเงินก่อนส่งหลักฐานการชำระเงิน' });
-            return;
-        }
-
         try {
             const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : DELIVERY_FEE;
             const orderData = {
@@ -1099,8 +1094,16 @@ function App() {
                 setIsCartOpen(false);
                 setSuccessOrderId(res.data.order_id);
                 setShowOrderSuccess(true);
+                notify({
+                    type: shippingInfo.receipt_image_data ? 'success' : 'info',
+                    title: shippingInfo.receipt_image_data ? 'ส่งหลักฐานการชำระเงินเรียบร้อย' : 'สร้างออเดอร์เรียบร้อย',
+                    message: shippingInfo.receipt_image_data
+                        ? 'กรุณารอแอดมินตรวจสอบ'
+                        : 'สามารถอัปโหลดสลิปได้จากประวัติคำสั่งซื้อ',
+                });
                 setShippingInfo({ address_id: null, receiver_name: '', address: '', phone: '', subdistrict: '', district: '', province: '', postal_code: '', shipping_fee: DELIVERY_FEE, discount: 0, payment_method: 'โอนเงินผ่านธนาคาร', shipping_method: 'ส่งสินค้า', receipt_image_data: '', receipt_file_name: '', receipt_file_size: 0 });
                 await fetchProducts();
+                await fetchOrderHistory();
             }
         } catch (err) {
             notify({ type: 'error', title: 'ส่งข้อมูลไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการส่งข้อมูล' });
@@ -1207,15 +1210,30 @@ function App() {
 
     const handleUploadOrderReceipt = async (orderId, payload) => {
         try {
-            await ordersApi.uploadReceipt(orderId, payload);
+            const response = await ordersApi.uploadReceipt(orderId, payload);
             notify({
                 type: 'success',
-                title: 'แนบสลิปเรียบร้อยแล้ว รอแอดมินตรวจสอบ',
-                message: 'ระบบรีเฟรชข้อมูลคำสั่งซื้อให้แล้ว',
+                title: 'ส่งหลักฐานการชำระเงินเรียบร้อย',
+                message: response.data?.message || 'กรุณารอแอดมินตรวจสอบ',
             });
             await fetchOrderHistory();
         } catch (err) {
             notify({ type: 'error', title: 'แนบสลิปไม่สำเร็จ', message: err.response?.data?.error || 'ไม่สามารถแนบสลิปได้' });
+            throw err;
+        }
+    };
+
+    const handleCancelOrderReceipt = async (orderId) => {
+        try {
+            const response = await ordersApi.cancelReceipt(orderId, { user_id: user?.id });
+            notify({
+                type: 'success',
+                title: 'ยกเลิกสลิปเดิมแล้ว',
+                message: response.data?.message || 'สามารถอัปโหลดสลิปใหม่ได้',
+            });
+            await fetchOrderHistory();
+        } catch (err) {
+            notify({ type: 'error', title: 'ยกเลิกสลิปไม่สำเร็จ', message: err.response?.data?.error || 'ไม่สามารถยกเลิกสลิปได้' });
             throw err;
         }
     };
@@ -1650,6 +1668,7 @@ function App() {
                     username={user?.username}
                     onClose={() => setIsOrderHistoryOpen(false)}
                     onUploadReceipt={handleUploadOrderReceipt}
+                    onCancelReceipt={handleCancelOrderReceipt}
                     onCancelOrder={handleCancelCustomerOrder}
                 />
             )}

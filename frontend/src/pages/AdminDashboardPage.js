@@ -10,25 +10,26 @@ const formatMoney = (value) => {
     });
 };
 
-const orderStatuses = ['ทั้งหมด', 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
-const paymentStatuses = ['รอชำระ', 'รอตรวจสอบ', 'ชำระเงินแล้ว', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'ยกเลิก'];
+const orderStatuses = ['ทั้งหมด', 'รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
+const paymentStatuses = ['รอชำระ', 'รอตรวจสอบ', 'ชำระเงินแล้ว', 'ถูกปฏิเสธ', 'ยกเลิก'];
 const blockedFulfillmentStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
-const rejectionReasons = ['ไม่พบยอดเงินเข้า', 'ยอดไม่ตรง', 'รูปไม่ใช่สลิปโอนเงิน', 'เลขอ้างอิงไม่ถูกต้อง', 'สงสัยสลิปปลอม'];
+const rejectionReasons = ['ยอดเงินไม่ถูกต้อง', 'รูปไม่ชัด', 'ไม่พบรายการโอน', 'หลักฐานไม่ถูกต้อง', 'อื่น ๆ'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
 const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status);
+const isCancelledOrder = (order) => order?.status === 'ยกเลิก' || order?.payment_status === 'ยกเลิก';
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
 const getPaymentStatusClass = (status) => {
     const normalizedStatus = formatPaymentStatus(status) || 'รอชำระ';
     if (normalizedStatus === 'ชำระเงินแล้ว') return 'paid';
     if (normalizedStatus === 'รอตรวจสอบ') return 'review';
     if (normalizedStatus === 'ยกเลิก') return 'cancelled';
-    if (['หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า'].includes(normalizedStatus)) return 'rejected';
-    if (normalizedStatus === 'สงสัยสลิปปลอม') return 'suspicious';
+    if (normalizedStatus === 'ถูกปฏิเสธ' || ['หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'].includes(normalizedStatus)) return 'rejected';
     return 'waiting';
 };
 const getStatusClass = (status) => {
     if (status === 'ยกเลิก') return 'locked';
-    if (status === 'รอจัดการ') return 'low';
+    if (status === 'รอตรวจสอบการชำระเงิน') return 'pending';
+    if (['รอชำระเงิน', 'รอจัดการ'].includes(status)) return 'low';
     if (status === 'เตรียมสินค้า') return 'pending';
     if (['กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'].includes(status)) return 'shipping';
     return 'paid';
@@ -278,8 +279,10 @@ function AdminDashboardPage({
         transaction_ref: '',
         review_note: '',
     });
+    const [receiptPreview, setReceiptPreview] = useState(null);
     const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
     const orderManagementRef = useRef(null);
+    const paymentReviewRequestRef = useRef('');
     const scrollToOrderManagement = () => {
         setAdminPage?.('admin-orders');
     };
@@ -317,6 +320,7 @@ function AdminDashboardPage({
     }, [orders, orderSearch, statusFilter, paymentFilter, deliveryFilter, orderRange.from, orderRange.to, orderSort]);
     const orderTotalPages = Math.max(1, Math.ceil(filteredOrders.length / orderPageSize));
     const visibleOrders = filteredOrders.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
+    const pendingSlipReviewCount = orders.filter((order) => order.payment_status === 'รอตรวจสอบ').length;
     const visiblePaidOrderIds = visibleOrders.filter(isPaidOrder).map((order) => String(order.id));
     const allVisiblePaidSelected = visiblePaidOrderIds.length > 0 && visiblePaidOrderIds.every((id) => selectedPrintOrderIds.includes(id));
     const selectedRange = useMemo(
@@ -435,17 +439,37 @@ function AdminDashboardPage({
         setOrderNote('');
         setPaymentReviewError('');
         setPaymentReviewSaving('');
+        paymentReviewRequestRef.current = '';
         setPaymentReviewForm({ verified_amount: '', transaction_ref: '', review_note: '' });
     };
 
     const loadOrderDetails = async (order) => {
+        console.log('[OrderDetailModal] open requested', {
+            selectedOrder: order || null,
+            selectedData: order || null,
+        });
+
+        if (!order?.id) {
+            console.log('[OrderDetailModal] blocked empty modal open', {
+                selectedOrder: order || null,
+                selectedData: order || null,
+            });
+            return;
+        }
+
         setSelectedOrder(order);
         setOrderDetails(null);
         setOrderDetailsLoading(true);
+        setPaymentReviewSaving('');
+        paymentReviewRequestRef.current = '';
         try {
             const response = await adminApi.getOrderDetails(order.id);
             const payload = response.data || null;
-            setOrderDetails(payload);
+            console.log('[OrderDetailModal] details loaded', {
+                selectedOrder: order,
+                selectedData: payload,
+            });
+            setOrderDetails(payload?.order ? payload : { error: 'ไม่พบข้อมูล' });
             setPaymentReviewError('');
             setPaymentReviewForm({
                 verified_amount: payload?.order?.verified_amount ?? '',
@@ -458,6 +482,15 @@ function AdminDashboardPage({
             setOrderDetailsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!selectedOrder && !orderDetails && !orderDetailsLoading) return;
+        console.log('[OrderDetailModal] render state', {
+            selectedOrder,
+            selectedData: orderDetails,
+            orderDetailsLoading,
+        });
+    }, [selectedOrder, orderDetails, orderDetailsLoading]);
 
     const openOrderPrintPage = async (orderId, order = null) => {
         if (order && !isPaidOrder(order)) {
@@ -575,16 +608,24 @@ function AdminDashboardPage({
     };
 
     const reviewPaymentEvidence = async (action) => {
-        if (!selectedOrder || paymentReviewSaving) return;
+        if (!selectedOrder || paymentReviewSaving || paymentReviewRequestRef.current) return;
 
-        const needsReason = ['reject', 'request_new', 'suspicious'].includes(action);
+        const currentPaymentStatus = formatPaymentStatus(orderDetails?.order?.payment_status || selectedOrder.payment_status);
+        if (currentPaymentStatus !== 'รอตรวจสอบ') {
+            setPaymentReviewError('คำสั่งซื้อนี้ตรวจสอบการชำระเงินแล้ว');
+            return;
+        }
+
+        const needsReason = action === 'reject';
         if (needsReason && !paymentReviewForm.review_note.trim()) {
             setPaymentReviewError('กรุณาเลือกหรือกรอกเหตุผลการตรวจสอบ');
             return;
         }
 
+        paymentReviewRequestRef.current = `${selectedOrder.id}:${action}`;
         setPaymentReviewSaving(action);
         setPaymentReviewError('');
+        let reviewSaved = false;
         try {
             const payload = {
                 action,
@@ -598,8 +639,15 @@ function AdminDashboardPage({
             } else {
                 await adminApi.reviewOrderPayment(selectedOrder.id, payload);
             }
+            reviewSaved = true;
             await refreshSelectedOrderDetails(selectedOrder.id);
+            notify({
+                type: 'success',
+                title: action === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานแล้ว',
+                message: action === 'approve' ? 'อัปเดตสถานะออเดอร์เรียบร้อย' : 'ลูกค้าสามารถอัปโหลดสลิปใหม่ได้',
+            });
         } catch (err) {
+            if (!reviewSaved) paymentReviewRequestRef.current = '';
             setPaymentReviewError(err.response?.data?.error || 'บันทึกผลตรวจสอบการชำระเงินไม่สำเร็จ');
         } finally {
             setPaymentReviewSaving('');
@@ -710,9 +758,13 @@ function AdminDashboardPage({
     };
 
     const detailOrder = orderDetails?.order || null;
+    const detailItems = Array.isArray(orderDetails?.items) ? orderDetails.items : [];
+    const detailHistory = Array.isArray(orderDetails?.history) ? orderDetails.history : [];
+    const detailNotes = Array.isArray(orderDetails?.notes) ? orderDetails.notes : [];
     const detailPaymentStatus = formatPaymentStatus(detailOrder?.payment_status) || 'รอชำระ';
     const detailOrderIsPaid = isPaidOrder(detailOrder || selectedOrder || {});
-    const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
+    const paymentReviewDisabled = !detailOrder?.receipt_image || Boolean(paymentReviewSaving) || detailPaymentStatus !== 'รอตรวจสอบ';
+    const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
 
     return (
         <div className="commerce-dashboard">
@@ -875,6 +927,13 @@ function AdminDashboardPage({
                     </div>
                 </header>
 
+                {pendingSlipReviewCount > 0 && (
+                    <div className="payment-review-admin-alert">
+                        <strong>มีหลักฐานการชำระเงินใหม่รอตรวจสอบ {pendingSlipReviewCount.toLocaleString('th-TH')} รายการ</strong>
+                        <button type="button" onClick={() => setPaymentFilter('รอตรวจสอบ')}>ดูรายการรอตรวจสอบ</button>
+                    </div>
+                )}
+
                 <div className="order-filter-panel">
                     <label className="order-search">
                         <span>⌕</span>
@@ -1011,56 +1070,90 @@ function AdminDashboardPage({
 
             {selectedOrder && (
                 <div className="order-modal-backdrop" role="presentation" onMouseDown={closeOrderDetailModal}>
-                    <div className="order-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+                    <div className="order-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-modal-title" onMouseDown={(event) => event.stopPropagation()}>
                         <header>
-                            <div><span>ORDER DETAILS</span><h2>คำสั่งซื้อ #{selectedOrder.id}</h2><p>{new Date(selectedOrder.created_at).toLocaleString('th-TH')}</p></div>
-                            <button type="button" onClick={closeOrderDetailModal}>×</button>
+                            <div>
+                                <span>ORDER DETAILS</span>
+                                <h2 id="order-detail-modal-title">รายละเอียดคำสั่งซื้อ #{selectedOrder.id}</h2>
+                                <p>{selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString('th-TH') : 'ไม่ระบุวันที่สั่งซื้อ'}</p>
+                            </div>
+                            <button type="button" onClick={closeOrderDetailModal} aria-label="ปิดหน้าต่างรายละเอียดคำสั่งซื้อ">×</button>
                         </header>
-                        {orderDetailsLoading ? <div className="order-modal-loading"><i /><i /><i /></div> : orderDetails?.error ? <div className="commerce-error">{orderDetails.error}</div> : orderDetails && (
+                        {orderDetailsLoading ? (
+                            <div className="order-modal-loading" role="status" aria-live="polite">
+                                <strong>กำลังโหลดรายละเอียดคำสั่งซื้อ...</strong>
+                                <i /><i /><i />
+                            </div>
+                        ) : orderDetails?.error ? (
+                            <div className="order-modal-state">
+                                <strong>{orderDetails.error || 'ไม่พบข้อมูล'}</strong>
+                                <span>ไม่สามารถแสดงรายละเอียดคำสั่งซื้อนี้ได้ กรุณาลองเปิดใหม่อีกครั้ง</span>
+                                <button type="button" onClick={closeOrderDetailModal}>ปิดหน้าต่าง</button>
+                            </div>
+                        ) : !detailOrder ? (
+                            <div className="order-modal-state">
+                                <strong>ไม่พบข้อมูล</strong>
+                                <span>ยังไม่มีข้อมูลรายละเอียดสำหรับคำสั่งซื้อนี้</span>
+                                <button type="button" onClick={closeOrderDetailModal}>ปิดหน้าต่าง</button>
+                            </div>
+                        ) : (
                             <div className="order-modal-body">
                                 <section className="order-detail-summary">
-                                    <div><span>ลูกค้า</span><strong>{orderDetails.order.full_name || orderDetails.order.username}</strong><small>{orderDetails.order.email || '-'} · {orderDetails.order.customer_phone || '-'}</small></div>
-                                    <div><span>สถานะการชำระเงิน</span><strong>{detailPaymentStatus}</strong><small>{orderDetails.order.payment_method || '-'}</small></div>
-                                    <div><span>ยอดสุทธิ</span><strong>฿{formatMoney(orderDetails.order.final_price)}</strong><small>สินค้า ฿{formatMoney(orderDetails.order.total_price)} · ค่าส่ง ฿{formatMoney(orderDetails.order.shipping_fee)}</small></div>
-                                    <div><span>สถานะออเดอร์</span><strong>{orderDetails.order.status}</strong><small>{orderDetails.order.tracking_no || 'ยังไม่มีเลขพัสดุ'}</small></div>
+                                    <div><span>ลูกค้า</span><strong>{detailOrder.full_name || detailOrder.username || 'ลูกค้าทั่วไป'}</strong><small>{detailOrder.email || '-'} · {detailOrder.customer_phone || '-'}</small></div>
+                                    <div><span>สถานะการชำระเงิน</span><strong>{detailPaymentStatus}</strong><small>{detailOrder.payment_method || '-'}</small></div>
+                                    <div><span>ยอดสุทธิ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong><small>สินค้า ฿{formatMoney(detailOrder.total_price)} · ค่าส่ง ฿{formatMoney(detailOrder.shipping_fee)}</small></div>
+                                    <div><span>สถานะออเดอร์</span><strong>{detailOrder.status || '-'}</strong><small>{detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ'}</small></div>
                                 </section>
 
                                 <div className="order-modal-grid">
                                     <section className="order-detail-card">
                                         <h3>สินค้าในออเดอร์</h3>
                                         <div className="order-items">
-                                            {orderDetails.items.map((item) => (
+                                            {detailItems.length ? detailItems.map((item) => (
                                                 <article key={item.order_detail_id}>
                                                     {item.product_image ? <img src={item.product_image} alt={item.product_name || 'สินค้า'} /> : <b>◇</b>}
                                                     <div><strong>{item.product_name || `สินค้า #${item.product_id}`}</strong><small>{[item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' · ') || 'ตัวเลือกมาตรฐาน'}</small></div>
                                                     <span>{item.quantity} × ฿{formatMoney(item.price)}</span>
                                                 </article>
-                                            ))}
+                                            )) : <div className="order-empty-inline">ไม่พบรายการสินค้าในออเดอร์นี้</div>}
                                         </div>
                                     </section>
                                     <section className="order-detail-card">
                                         <h3>ข้อมูลจัดส่ง</h3>
-                                        <p><strong>{orderDetails.order.receiver_name || orderDetails.order.full_name || '-'}</strong></p>
-                                        <p>{orderDetails.order.address_detail || selectedOrder.address || '-'}</p>
-                                        <p>{[orderDetails.order.subdistrict, orderDetails.order.district, orderDetails.order.province, orderDetails.order.postal_code].filter(Boolean).join(' ')}</p>
-                                        <p>โทร: {orderDetails.order.shipping_phone || orderDetails.order.customer_phone || '-'}</p>
-                                        <span className="delivery-badge">{orderDetails.order.shipping_method}</span>
+                                        <p><strong>{detailOrder.receiver_name || detailOrder.full_name || '-'}</strong></p>
+                                        <p>{detailOrder.address_detail || selectedOrder.address || '-'}</p>
+                                        <p>{[detailOrder.subdistrict, detailOrder.district, detailOrder.province, detailOrder.postal_code].filter(Boolean).join(' ') || '-'}</p>
+                                        <p>โทร: {detailOrder.shipping_phone || detailOrder.customer_phone || '-'}</p>
+                                        <span className="delivery-badge">{detailOrder.shipping_method || '-'}</span>
                                     </section>
                                     <section className="order-detail-card">
                                         <h3>หลักฐานการชำระเงิน</h3>
-                                        {orderDetails.order.receipt_image ? <a href={orderDetails.order.receipt_image} target="_blank" rel="noreferrer" className="order-receipt"><img src={orderDetails.order.receipt_image} alt={`สลิปออเดอร์ ${selectedOrder.id}`} /><span>เปิดดูภาพเต็ม</span></a> : <div className="order-no-receipt">ยังไม่มีหลักฐานการชำระเงิน</div>}
+                                        {detailOrder.receipt_image ? (
+                                            <button
+                                                type="button"
+                                                className="order-receipt"
+                                                onClick={() => setReceiptPreview({
+                                                    src: detailOrder.receipt_image,
+                                                    orderId: selectedOrder.id,
+                                                })}
+                                            >
+                                                <img src={detailOrder.receipt_image} alt={`สลิปออเดอร์ ${selectedOrder.id}`} />
+                                                <span>ดูภาพขนาดใหญ่</span>
+                                            </button>
+                                        ) : <div className="order-no-receipt">ยังไม่มีหลักฐานการชำระเงิน</div>}
                                         {shouldWarnPaymentReview && (
                                             <div className="payment-review-warning">
-                                                ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง
+                                                {detailPaymentStatus === 'ถูกปฏิเสธ' ? `หลักฐานถูกปฏิเสธ${detailOrder.review_note ? `: ${detailOrder.review_note}` : ''}` : 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง'}
                                             </div>
                                         )}
                                         <div className="payment-review-box">
                                             <div className="payment-review-meta">
-                                                <div><span>ยอดที่ต้องชำระ</span><strong>฿{formatMoney(orderDetails.order.final_price)}</strong></div>
+                                                <div><span>ยอดที่ต้องชำระ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong></div>
+                                                <div><span>วันที่ส่งสลิป</span><strong>{detailOrder.payment_date ? new Date(detailOrder.payment_date).toLocaleString('th-TH') : '-'}</strong></div>
                                                 <label>ยอดที่ตรวจพบ<input type="number" min="0" step="0.01" value={paymentReviewForm.verified_amount} onChange={(event) => updatePaymentReviewForm('verified_amount', event.target.value)} placeholder="0.00" /></label>
                                                 <label>เลขอ้างอิงรายการ<input value={paymentReviewForm.transaction_ref} onChange={(event) => updatePaymentReviewForm('transaction_ref', event.target.value)} placeholder="เช่น Ref / Transaction ID" /></label>
-                                                <div><span>ผู้ตรวจสอบ</span><strong>{orderDetails.order.reviewer_full_name || orderDetails.order.reviewer_username || '-'}</strong></div>
-                                                <div><span>เวลาตรวจสอบ</span><strong>{orderDetails.order.reviewed_at ? new Date(orderDetails.order.reviewed_at).toLocaleString('th-TH') : '-'}</strong></div>
+                                                <div><span>ผู้ตรวจสอบ</span><strong>{detailOrder.reviewer_full_name || detailOrder.reviewer_username || '-'}</strong></div>
+                                                <div><span>เวลาตรวจสอบ</span><strong>{detailOrder.reviewed_at ? new Date(detailOrder.reviewed_at).toLocaleString('th-TH') : '-'}</strong></div>
                                             </div>
                                             <label className="payment-review-note">
                                                 หมายเหตุผลการตรวจสอบ
@@ -1072,17 +1165,15 @@ function AdminDashboardPage({
                                             </label>
                                             {paymentReviewError && <div className="payment-review-error">{paymentReviewError}</div>}
                                             <div className="payment-review-actions">
-                                                <button type="button" className="approve" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('approve')}>{paymentReviewSaving === 'approve' ? 'กำลังบันทึก...' : 'อนุมัติการชำระเงิน'}</button>
-                                                <button type="button" className="request" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('request_new')}>{paymentReviewSaving === 'request_new' ? 'กำลังบันทึก...' : 'ขอหลักฐานใหม่'}</button>
-                                                <button type="button" className="reject" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('reject')}>{paymentReviewSaving === 'reject' ? 'กำลังบันทึก...' : 'ปฏิเสธหลักฐาน'}</button>
-                                                <button type="button" className="suspicious" disabled={!orderDetails.order.receipt_image || Boolean(paymentReviewSaving)} onClick={() => reviewPaymentEvidence('suspicious')}>{paymentReviewSaving === 'suspicious' ? 'กำลังบันทึก...' : 'สงสัยสลิปปลอม'}</button>
+                                                <button type="button" className="approve" disabled={paymentReviewDisabled} onClick={() => reviewPaymentEvidence('approve')}>{paymentReviewSaving === 'approve' ? 'กำลังบันทึก...' : 'อนุมัติการชำระเงิน'}</button>
+                                                <button type="button" className="reject" disabled={paymentReviewDisabled} onClick={() => reviewPaymentEvidence('reject')}>{paymentReviewSaving === 'reject' ? 'กำลังบันทึก...' : 'ปฏิเสธหลักฐาน'}</button>
                                             </div>
                                         </div>
                                     </section>
                                     <section className="order-detail-card">
                                         <h3>ประวัติสถานะ</h3>
                                         <div className="order-timeline">
-                                            {orderDetails.history.map((item) => <div key={item.history_id}><i /><div><strong>{item.status}</strong><span>{new Date(item.created_at).toLocaleString('th-TH')}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>)}
+                                            {detailHistory.length ? detailHistory.map((item) => <div key={item.history_id}><i /><div><strong>{item.status}</strong><span>{new Date(item.created_at).toLocaleString('th-TH')}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>) : <div className="order-empty-inline">ยังไม่มีประวัติสถานะ</div>}
                                         </div>
                                     </section>
                                 </div>
@@ -1090,7 +1181,7 @@ function AdminDashboardPage({
                                 <section className="order-detail-card order-admin-notes">
                                     <h3>หมายเหตุจากแอดมิน</h3>
                                     <div className="order-note-form"><textarea value={orderNote} onChange={(event) => setOrderNote(event.target.value)} placeholder="เพิ่มหมายเหตุภายในสำหรับทีมงาน..." /><button type="button" disabled={noteSaving || !orderNote.trim()} onClick={saveOrderNote}>{noteSaving ? 'กำลังบันทึก...' : 'เพิ่มหมายเหตุ'}</button></div>
-                                    <div className="order-note-list">{orderDetails.notes.length ? orderDetails.notes.map((item) => <article key={item.note_id}><p>{item.note}</p><small>{item.full_name || item.username || 'แอดมิน'} · {new Date(item.created_at).toLocaleString('th-TH')}</small></article>) : <span>ยังไม่มีหมายเหตุจากแอดมิน</span>}</div>
+                                    <div className="order-note-list">{detailNotes.length ? detailNotes.map((item) => <article key={item.note_id}><p>{item.note}</p><small>{item.full_name || item.username || 'แอดมิน'} · {new Date(item.created_at).toLocaleString('th-TH')}</small></article>) : <span>ยังไม่มีหมายเหตุจากแอดมิน</span>}</div>
                                 </section>
 
                                 <section className="order-modal-actions">
@@ -1109,7 +1200,7 @@ function AdminDashboardPage({
                                         {selectedOrder.status === 'กำลังจัดส่ง' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'จัดส่งแล้ว')}>จัดส่งแล้ว</button>}
                                         {selectedOrder.status === 'จัดส่งแล้ว' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
                                         {selectedOrder.status === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
-                                        {!isPaidOrder(orderDetails.order) && (
+                                        {!isPaidOrder(detailOrder) && !isCancelledOrder(detailOrder || selectedOrder) && (
                                             <button type="button" className="danger" onClick={() => onDeleteOrder(selectedOrder.id, { onDeleted: closeOrderDetailModal })}>ลบออเดอร์</button>
                                         )}
                                     </div>
@@ -1117,6 +1208,27 @@ function AdminDashboardPage({
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {receiptPreview && (
+                <div className="receipt-lightbox" role="presentation" onMouseDown={() => setReceiptPreview(null)}>
+                    <section
+                        className="receipt-lightbox-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="receipt-lightbox-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <header>
+                            <div>
+                                <span>PAYMENT SLIP</span>
+                                <h2 id="receipt-lightbox-title">สลิปคำสั่งซื้อ #{receiptPreview.orderId}</h2>
+                            </div>
+                            <button type="button" onClick={() => setReceiptPreview(null)} aria-label="ปิดรูปสลิป">×</button>
+                        </header>
+                        <img src={receiptPreview.src} alt={`สลิปคำสั่งซื้อ ${receiptPreview.orderId}`} />
+                    </section>
                 </div>
             )}
                 </>

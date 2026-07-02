@@ -6,8 +6,19 @@ const DATE_PRESETS = [
     { value: 'today', label: 'วันนี้' },
     { value: '7', label: '7 วันล่าสุด' },
     { value: '30', label: '30 วันล่าสุด' },
+    { value: 'month', label: 'เดือนนี้' },
+    { value: 'year', label: 'ปีนี้' },
     { value: 'custom', label: 'กำหนดช่วงวันที่' },
 ];
+
+const DEFAULT_FILTERS = {
+    search: '',
+    datePreset: 'all',
+    dateFrom: '',
+    dateTo: '',
+    userFilter: 'all',
+    typeFilter: 'all',
+};
 
 const getActivityType = (log, view) => {
     if (view === 'stock') {
@@ -43,12 +54,7 @@ const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoading = false }) {
     const [activityView, setActivityView] = useState('stock');
-    const [search, setSearch] = useState('');
-    const [datePreset, setDatePreset] = useState('all');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [userFilter, setUserFilter] = useState('all');
-    const [typeFilter, setTypeFilter] = useState('all');
+    const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [sort, setSort] = useState({ key: 'date', direction: 'desc' });
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -70,16 +76,30 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
     const availableTypes = useMemo(() => [...new Set(rows.map((row) => row.auditType))], [rows]);
 
     const filteredRows = useMemo(() => {
+        const { search, datePreset, dateFrom, dateTo, userFilter, typeFilter } = filters;
         const keyword = search.trim().toLowerCase();
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         let startDate = null;
         let endDate = null;
 
-        if (datePreset === 'today') startDate = startOfToday;
+        if (datePreset === 'today') {
+            startDate = startOfToday;
+            endDate = endOfToday;
+        }
         if (datePreset === '7' || datePreset === '30') {
             startDate = new Date(startOfToday);
             startDate.setDate(startDate.getDate() - Number(datePreset) + 1);
+            endDate = endOfToday;
+        }
+        if (datePreset === 'month') {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            endDate = endOfToday;
+        }
+        if (datePreset === 'year') {
+            startDate = new Date(now.getFullYear(), 0, 1);
+            endDate = endOfToday;
         }
         if (datePreset === 'custom') {
             startDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
@@ -123,7 +143,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 ? left.localeCompare(right, 'th') * direction
                 : (left - right) * direction;
         });
-    }, [rows, search, datePreset, dateFrom, dateTo, userFilter, typeFilter, sort]);
+    }, [rows, filters, sort]);
 
     const summary = useMemo(() => {
         const today = new Date().toDateString();
@@ -139,7 +159,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
     const paginatedRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
 
-    useEffect(() => setPage(1), [activityView, search, datePreset, dateFrom, dateTo, userFilter, typeFilter, pageSize]);
+    useEffect(() => setPage(1), [activityView, filters, pageSize]);
     useEffect(() => {
         if (page > totalPages) setPage(totalPages);
     }, [page, totalPages]);
@@ -170,8 +190,10 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 </head><body><h2>Audit Log Report</h2><p>จำนวน ${data.length.toLocaleString('th-TH')} รายการ · ${new Date().toLocaleString('th-TH')}</p>
                 <table><thead><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr></thead><tbody>
                 ${data.map((row) => `<tr>${row.map((item) => `<td>${String(item ?? '-').replace(/</g, '&lt;')}</td>`).join('')}</tr>`).join('')}
-                </tbody></table><script>window.onload=()=>{window.print();}<\/script></body></html>`);
+                </tbody></table></body></html>`);
             popup.document.close();
+            popup.focus();
+            popup.setTimeout(() => popup.print(), 100);
             return;
         }
 
@@ -195,12 +217,15 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
     };
 
     const clearFilters = () => {
-        setSearch('');
-        setDatePreset('all');
-        setDateFrom('');
-        setDateTo('');
-        setUserFilter('all');
-        setTypeFilter('all');
+        setFilters(DEFAULT_FILTERS);
+    };
+
+    const updateFilter = (key, value) => {
+        setFilters((current) => ({
+            ...current,
+            [key]: value,
+            ...(key === 'datePreset' && value !== 'custom' ? { dateFrom: '', dateTo: '' } : {}),
+        }));
     };
 
     return (
@@ -238,28 +263,29 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 <div className="audit-filters">
                     <label className="audit-search">
                         <span>⌕</span>
-                        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="ค้นหาผู้ใช้งาน สินค้า หมายเหตุ หรือกิจกรรม..." />
+                        <input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} placeholder="ค้นหาผู้ใช้งาน สินค้า หมายเหตุ หรือกิจกรรม..." />
                     </label>
-                    <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
+                    <select value={filters.datePreset} onChange={(event) => updateFilter('datePreset', event.target.value)} aria-label="เลือกช่วงวันที่">
                         {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>
-                    <select value={userFilter} onChange={(event) => setUserFilter(event.target.value)}>
+                    {filters.datePreset === 'custom' && (
+                        <div className="audit-custom-date">
+                            <label>ตั้งแต่ <input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></label>
+                            <label>ถึง <input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></label>
+                        </div>
+                    )}
+                    <select value={filters.userFilter} onChange={(event) => updateFilter('userFilter', event.target.value)}>
                         <option value="all">ผู้ใช้งานทั้งหมด</option>
                         {users.map((name) => <option key={name} value={name}>{name}</option>)}
                     </select>
-                    <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                    <select value={filters.typeFilter} onChange={(event) => updateFilter('typeFilter', event.target.value)}>
                         <option value="all">กิจกรรมทั้งหมด</option>
                         {availableTypes.map((type) => <option key={type} value={type}>{ACTIVITY_LABELS[type]}</option>)}
                     </select>
-                    <button type="button" className="audit-clear" onClick={clearFilters}>ล้างตัวกรอง</button>
-                </div>
-
-                {datePreset === 'custom' && (
-                    <div className="audit-custom-date">
-                        <label>ตั้งแต่ <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
-                        <label>ถึง <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
+                    <div className="audit-filter-actions">
+                        <button type="button" className="audit-clear" onClick={clearFilters}>ล้างค่า</button>
                     </div>
-                )}
+                </div>
 
                 <div className="audit-table-wrap">
                     <table className="audit-table">
@@ -304,9 +330,9 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                                     <td colSpan={activityView === 'stock' ? 7 : 6}>
                                         <div className="audit-empty">
                                             <b>⌕</b>
-                                            <strong>ไม่พบข้อมูลที่ตรงกับเงื่อนไข</strong>
+                                            <strong>ไม่พบประวัติการเคลื่อนไหวในช่วงวันที่นี้</strong>
                                             <span>ลองเปลี่ยนคำค้นหา ช่วงวันที่ หรือตัวกรองกิจกรรม</span>
-                                            <button type="button" onClick={clearFilters}>ล้างตัวกรองทั้งหมด</button>
+                                            <button type="button" onClick={clearFilters}>ล้างค่า</button>
                                         </div>
                                     </td>
                                 </tr>

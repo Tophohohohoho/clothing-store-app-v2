@@ -94,15 +94,16 @@ const respondError = (res, err, fallback = 'เกิดข้อผิดพล
     res.status(500).json({ error: err.message || fallback });
 };
 
-const saveBase64Image = async (imageData, fileName, folderName) => {
+const saveBase64Image = async (imageData, fileName, folderName, options = {}) => {
     if (!imageData) return null;
     if (!imageData.startsWith('data:image/')) {
         throw new Error('รองรับเฉพาะไฟล์รูปภาพเท่านั้น');
     }
 
-    const match = imageData.match(/^data:(image\/(png|jpe?g|webp|gif));base64,(.+)$/);
+    const allowedMimeTypes = options.allowedMimeTypes || ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    const match = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
     if (!match) {
-        throw new Error('รองรับเฉพาะไฟล์ PNG, JPG, WEBP หรือ GIF');
+        throw new Error(options.invalidTypeMessage || 'รองรับเฉพาะไฟล์รูปภาพเท่านั้น');
     }
 
     const extensionMap = {
@@ -113,14 +114,24 @@ const saveBase64Image = async (imageData, fileName, folderName) => {
         'image/gif': 'gif',
     };
     const mimeType = match[1];
+    if (!allowedMimeTypes.includes(mimeType)) {
+        throw new Error(options.invalidTypeMessage || 'ประเภทไฟล์รูปภาพไม่ถูกต้อง');
+    }
+
+    const imageBuffer = Buffer.from(match[2], 'base64');
+    if (options.maxSizeBytes && imageBuffer.length > options.maxSizeBytes) {
+        throw new Error(options.maxSizeMessage || 'ไฟล์รูปภาพมีขนาดใหญ่เกินไป');
+    }
+
     const extension = extensionMap[mimeType] || 'jpg';
     const originalName = path.parse(fileName || folderName).name.replace(/[^a-zA-Z0-9-_]/g, '-');
     const uploadDir = path.join(__dirname, 'uploads', folderName);
-    const savedFileName = `${Date.now()}-${originalName || folderName}.${extension}`;
+    const uniqueSuffix = crypto.randomBytes(6).toString('hex');
+    const savedFileName = `${Date.now()}-${uniqueSuffix}-${originalName || folderName}.${extension}`;
     const savedPath = path.join(uploadDir, savedFileName);
 
     fs.mkdirSync(uploadDir, { recursive: true });
-    await fs.promises.writeFile(savedPath, Buffer.from(match[3], 'base64'));
+    await fs.promises.writeFile(savedPath, imageBuffer);
     return `/uploads/${folderName}/${savedFileName}`;
 };
 
@@ -251,7 +262,17 @@ const writeOrderStatusHistory = async (orderId, status, userId = null, note = ''
 };
 
 const PAID_PAYMENT_STATUS = 'ชำระเงินแล้ว';
-const BLOCKED_FULFILLMENT_STATUSES = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const PAYMENT_REVIEW_STATUS = 'รอตรวจสอบ';
+const PAYMENT_REJECTED_STATUS = 'ถูกปฏิเสธ';
+const ORDER_PAYMENT_REVIEW_STATUS = 'รอตรวจสอบการชำระเงิน';
+const ORDER_WAITING_PAYMENT_STATUS = 'รอชำระเงิน';
+const RECEIPT_UPLOAD_OPTIONS = {
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
+    invalidTypeMessage: 'รองรับเฉพาะไฟล์ JPG, JPEG, PNG และ WEBP เท่านั้น',
+    maxSizeBytes: 5 * 1024 * 1024,
+    maxSizeMessage: 'ไฟล์สลิปต้องมีขนาดไม่เกิน 5 MB',
+};
+const BLOCKED_FULFILLMENT_STATUSES = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
 
 const normalizeRole = (role) => (role === 'admin' ? 'admin' : 'user');
 
@@ -433,6 +454,7 @@ const initializeDatabase = async () => {
             payment_amount decimal(10,2) NOT NULL,
             payment_date datetime DEFAULT CURRENT_TIMESTAMP,
             receipt_image varchar(255) DEFAULT NULL,
+            receipt_file_name varchar(255) DEFAULT NULL,
             verified_amount decimal(10,2) DEFAULT NULL,
             transaction_ref varchar(120) DEFAULT NULL,
             reviewed_by int DEFAULT NULL,
@@ -548,6 +570,9 @@ const initializeDatabase = async () => {
     }
     if (!(await columnExists('payment', 'verified_amount'))) {
         await query('ALTER TABLE payment ADD COLUMN verified_amount decimal(10,2) DEFAULT NULL AFTER receipt_image');
+    }
+    if (!(await columnExists('payment', 'receipt_file_name'))) {
+        await query('ALTER TABLE payment ADD COLUMN receipt_file_name varchar(255) DEFAULT NULL AFTER receipt_image');
     }
     if (!(await columnExists('payment', 'transaction_ref'))) {
         await query('ALTER TABLE payment ADD COLUMN transaction_ref varchar(120) DEFAULT NULL AFTER verified_amount');
@@ -1180,7 +1205,11 @@ app.get('/api/admin/orders', async (req, res) => {
                 a.phone,
                 pay.payment_type,
                 pay.payment_amount,
-                pay.receipt_image
+                pay.payment_date,
+                pay.receipt_image,
+                pay.receipt_file_name,
+                pay.reviewed_at,
+                pay.review_note
             FROM orders o
             LEFT JOIN \`user\` u ON o.user_id = u.user_id
             LEFT JOIN address a ON a.address_id = (
@@ -1266,6 +1295,7 @@ app.get('/api/admin/orders/:id/details', async (req, res) => {
                 pay.payment_amount,
                 pay.payment_date,
                 pay.receipt_image,
+                pay.receipt_file_name,
                 pay.verified_amount,
                 pay.transaction_ref,
                 pay.reviewed_at,
@@ -1374,6 +1404,9 @@ app.post('/api/admin/orders/delete', async (req, res) => {
 
         const [orders] = await query('SELECT order_status, payment_status FROM orders WHERE order_id = ?', [order_id]);
         if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
+        if (orders[0].order_status === 'ยกเลิก' || orders[0].payment_status === 'ยกเลิก') {
+            return res.status(403).json({ error: 'ไม่สามารถลบออเดอร์ที่ยกเลิกแล้วได้' });
+        }
         if (['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(orders[0].payment_status)) {
             return res.status(403).json({ error: 'ไม่สามารถลบออเดอร์ที่ชำระเงินแล้วได้' });
         }
@@ -2235,10 +2268,10 @@ app.post('/api/orders/checkout', async (req, res) => {
         const requestedDiscount = parseFloat(String(requested_discount ?? '').replace(/[^\d.]/g, '')) || 0;
         const discount = Math.min(Math.max(requestedDiscount, 0), totalPrice + shippingFee);
         const finalPrice = Math.max(totalPrice + shippingFee - discount, 0);
-        const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts');
+        const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts', RECEIPT_UPLOAD_OPTIONS);
         const receiptUrl = receiptPath ? `${req.protocol}://${req.get('host')}${receiptPath}` : null;
-        const initialOrderStatus = 'รอจัดการ';
-        const initialPaymentStatus = receiptUrl ? 'รอตรวจสอบ' : 'รอชำระ';
+        const initialOrderStatus = receiptUrl ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
+        const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : 'รอชำระ';
 
         if (address_id) {
             await query(
@@ -2306,7 +2339,7 @@ app.post('/api/orders/checkout', async (req, res) => {
         );
 
         const orderId = orderResult.insertId;
-        await writeOrderStatusHistory(orderId, initialOrderStatus, user_id, 'สร้างคำสั่งซื้อ');
+        await writeOrderStatusHistory(orderId, initialOrderStatus, user_id, receiptUrl ? 'สร้างคำสั่งซื้อพร้อมแนบหลักฐานการชำระเงิน' : 'สร้างคำสั่งซื้อ รอชำระเงิน');
 
         for (const item of cart_items) {
             const productId = item.id || item.product_id || item.p_id;
@@ -2346,10 +2379,21 @@ app.post('/api/orders/checkout', async (req, res) => {
         }
 
         await query(
-            'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image) VALUES (?, ?, ?, ?)',
-            [orderId, payment_method || 'โอนเงินผ่านธนาคาร', finalPrice, receiptUrl],
+            'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image, receipt_file_name) VALUES (?, ?, ?, ?, ?)',
+            [orderId, payment_method || 'โอนเงินผ่านธนาคาร', finalPrice, receiptUrl, receipt_file_name || null],
         );
         await writeSystemLog(user_id, 'สั่งซื้อสินค้า', `คำสั่งซื้อ #${orderId}`);
+        if (receiptUrl) {
+            await writeSystemLog(user_id, 'ส่งหลักฐานการชำระเงิน', `คำสั่งซื้อ #${orderId}: มีหลักฐานการชำระเงินใหม่รอตรวจสอบ`, {
+                afterData: {
+                    order_id: orderId,
+                    user_id,
+                    receipt_image: receiptUrl,
+                    uploaded_at: new Date().toISOString(),
+                    payment_status: initialPaymentStatus,
+                },
+            });
+        }
 
         res.json({ success: true, message: 'สั่งซื้อสำเร็จ', order_id: orderId });
     } catch (err) {
@@ -2360,41 +2404,149 @@ app.post('/api/orders/checkout', async (req, res) => {
 app.put('/api/orders/:id/receipt', async (req, res) => {
     try {
         const { id } = req.params;
-        const { receipt_image_data, receipt_file_name } = req.body;
-        const [orders] = await query('SELECT order_id, user_id, final_price, payment_method FROM orders WHERE order_id = ?', [id]);
+        const { receipt_image_data, receipt_file_name, note } = req.body;
+        const cleanNote = String(note || '').trim();
+        const [orders] = await query('SELECT order_id, user_id, final_price, payment_method, payment_status, order_status FROM orders WHERE order_id = ?', [id]);
 
         if (orders.length === 0) {
             return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
         }
 
-        const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts');
+        const order = orders[0];
+        if ([PAID_PAYMENT_STATUS, 'ชำระแล้ว'].includes(order.payment_status)) {
+            return res.status(403).json({ error: 'ออเดอร์นี้ชำระเงินแล้ว ไม่สามารถแทนที่สลิปได้' });
+        }
+
+        const [currentPayments] = await query(
+            'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
+            [id],
+        );
+        if (order.payment_status === PAYMENT_REVIEW_STATUS && currentPayments[0]?.receipt_image) {
+            return res.status(409).json({ error: 'มีสลิปที่กำลังรอตรวจสอบอยู่แล้ว กรุณายกเลิกสลิปเดิมก่อนส่งใหม่' });
+        }
+
+        const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts', RECEIPT_UPLOAD_OPTIONS);
         if (!receiptPath) {
             return res.status(400).json({ error: 'กรุณาแนบรูปสลิปโอนเงิน' });
         }
 
         const receiptUrl = `${req.protocol}://${req.get('host')}${receiptPath}`;
-        const order = orders[0];
         const [paymentResult] = await query(
-            'UPDATE payment SET receipt_image = ?, verified_amount = NULL, transaction_ref = NULL, reviewed_by = NULL, reviewed_at = NULL, review_note = NULL WHERE order_id = ?',
-            [receiptUrl, id],
+            'UPDATE payment SET receipt_image = ?, receipt_file_name = ?, payment_date = NOW(), verified_amount = NULL, transaction_ref = NULL, reviewed_by = NULL, reviewed_at = NULL, review_note = ? WHERE order_id = ?',
+            [receiptUrl, receipt_file_name || null, cleanNote || null, id],
         );
 
         if (paymentResult.affectedRows === 0) {
             await query(
-                'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image) VALUES (?, ?, ?, ?)',
-                [id, order.payment_method || 'โอนเงินผ่านธนาคาร', order.final_price || 0, receiptUrl],
+                'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image, receipt_file_name, review_note) VALUES (?, ?, ?, ?, ?, ?)',
+                [id, order.payment_method || 'โอนเงินผ่านธนาคาร', order.final_price || 0, receiptUrl, receipt_file_name || null, cleanNote || null],
             );
         }
 
         await query(
             'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
-            ['รอจัดการ', 'รอตรวจสอบ', id],
+            [ORDER_PAYMENT_REVIEW_STATUS, PAYMENT_REVIEW_STATUS, id],
         );
-        await writeOrderStatusHistory(id, 'ชำระเงิน: รอตรวจสอบ', order.user_id, 'ลูกค้าแนบหลักฐานการชำระเงิน');
+        await writeOrderStatusHistory(id, ORDER_PAYMENT_REVIEW_STATUS, order.user_id, cleanNote || 'ลูกค้าแนบหลักฐานการชำระเงิน รอแอดมินตรวจสอบ');
+        await writeSystemLog(order.user_id, 'ส่งหลักฐานการชำระเงิน', `คำสั่งซื้อ #${id}: มีหลักฐานการชำระเงินใหม่รอตรวจสอบ`, {
+            beforeData: {
+                order_status: order.order_status,
+                payment_status: order.payment_status,
+            },
+            afterData: {
+                order_id: Number(id),
+                user_id: order.user_id,
+                receipt_image: receiptUrl,
+                uploaded_at: new Date().toISOString(),
+                order_status: ORDER_PAYMENT_REVIEW_STATUS,
+                payment_status: PAYMENT_REVIEW_STATUS,
+                note: cleanNote || null,
+            },
+        });
 
-        res.json({ success: true, message: 'แนบสลิปเรียบร้อยแล้ว', receipt_image: receiptUrl });
+        res.json({
+            success: true,
+            message: 'ส่งหลักฐานการชำระเงินเรียบร้อย กรุณารอแอดมินตรวจสอบ',
+            receipt_image: receiptUrl,
+            receipt_file_name: receipt_file_name || null,
+            order_status: ORDER_PAYMENT_REVIEW_STATUS,
+            payment_status: PAYMENT_REVIEW_STATUS,
+        });
     } catch (err) {
         respondError(res, err, 'แนบสลิปไม่สำเร็จ');
+    }
+});
+
+app.put('/api/orders/:id/receipt/cancel', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { user_id } = req.body;
+        const [orders] = await query(
+            'SELECT order_id, user_id, order_status, payment_status FROM orders WHERE order_id = ?',
+            [id],
+        );
+
+        if (orders.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
+        }
+
+        const order = orders[0];
+        if ([PAID_PAYMENT_STATUS, 'ชำระแล้ว'].includes(order.payment_status)) {
+            return res.status(403).json({ error: 'แอดมินอนุมัติการชำระเงินแล้ว ไม่สามารถยกเลิกหรือเปลี่ยนสลิปได้' });
+        }
+
+        if (order.payment_status !== PAYMENT_REVIEW_STATUS) {
+            return res.status(400).json({ error: 'ยกเลิกได้เฉพาะสลิปที่กำลังรอตรวจสอบเท่านั้น' });
+        }
+
+        const [payments] = await query(
+            'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
+            [id],
+        );
+
+        if (!payments[0]?.receipt_image) {
+            return res.status(400).json({ error: 'ไม่พบสลิปที่ต้องยกเลิก' });
+        }
+
+        await query(
+            `UPDATE payment
+             SET receipt_image = NULL,
+                 verified_amount = NULL,
+                 transaction_ref = NULL,
+                 reviewed_by = NULL,
+                 reviewed_at = NULL,
+                 receipt_file_name = NULL,
+                 review_note = ?
+             WHERE payment_id = ?`,
+            ['ลูกค้ายกเลิกสลิปเดิมก่อนส่งใหม่', payments[0].payment_id],
+        );
+        await query(
+            'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
+            [ORDER_WAITING_PAYMENT_STATUS, 'รอชำระ', id],
+        );
+        await writeOrderStatusHistory(id, ORDER_WAITING_PAYMENT_STATUS, user_id || order.user_id, 'ลูกค้ายกเลิกสลิปเดิมก่อนส่งใหม่');
+        await writeSystemLog(user_id || order.user_id, 'ยกเลิกสลิปการชำระเงิน', `คำสั่งซื้อ #${id}: ลูกค้ายกเลิกสลิปเดิม`, {
+            beforeData: {
+                order_status: order.order_status,
+                payment_status: order.payment_status,
+                receipt_image: payments[0].receipt_image,
+            },
+            afterData: {
+                order_status: ORDER_WAITING_PAYMENT_STATUS,
+                payment_status: 'รอชำระ',
+                receipt_image: null,
+                receipt_file_name: null,
+            },
+        });
+
+        res.json({
+            success: true,
+            message: 'ยกเลิกสลิปเดิมแล้ว สามารถอัปโหลดสลิปใหม่ได้',
+            order_status: ORDER_WAITING_PAYMENT_STATUS,
+            payment_status: 'รอชำระ',
+        });
+    } catch (err) {
+        respondError(res, err, 'ยกเลิกสลิปไม่สำเร็จ');
     }
 });
 
@@ -2412,10 +2564,10 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
         const cleanNote = String(review_note || '').trim();
         const cleanRef = String(transaction_ref || '').trim();
         const actionMap = {
-            approve: { status: PAID_PAYMENT_STATUS, label: 'อนุมัติการชำระเงิน', requiresNote: false },
-            reject: { status: 'หลักฐานไม่ถูกต้อง', label: 'ปฏิเสธหลักฐาน', requiresNote: true },
-            request_new: { status: 'ไม่พบยอดเงินเข้า', label: 'ขอหลักฐานใหม่', requiresNote: true },
-            suspicious: { status: 'สงสัยสลิปปลอม', label: 'ทำเครื่องหมายว่าสงสัยสลิปปลอม', requiresNote: true },
+            approve: { paymentStatus: PAID_PAYMENT_STATUS, label: 'อนุมัติการชำระเงิน', requiresNote: false },
+            reject: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน', requiresNote: true },
+            request_new: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐานและขอหลักฐานใหม่', requiresNote: true },
+            suspicious: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน: สงสัยสลิปปลอม', requiresNote: true },
         };
         const review = actionMap[cleanAction];
 
@@ -2427,10 +2579,11 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
             return res.status(400).json({ error: 'กรุณากรอกเหตุผลการตรวจสอบ', field: 'review_note' });
         }
 
-        const [orders] = await query('SELECT order_id, payment_status FROM orders WHERE order_id = ?', [id]);
+        const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
         if (orders.length === 0) {
             return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
         }
+        const order = orders[0];
 
         const [payments] = await query(
             'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
@@ -2455,13 +2608,20 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
              WHERE payment_id = ?`,
             [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
         );
-        await query('UPDATE orders SET payment_status = ? WHERE order_id = ?', [review.status, id]);
+        const nextOrderStatus = cleanAction === 'approve'
+            ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : 'เตรียมสินค้า')
+            : ORDER_WAITING_PAYMENT_STATUS;
+        await query(
+            'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
+            [review.paymentStatus, nextOrderStatus, id],
+        );
         await writeOrderStatusHistory(
             id,
-            `ชำระเงิน: ${review.status}`,
+            nextOrderStatus,
             user_id,
             [
                 review.label,
+                `สถานะชำระเงิน: ${review.paymentStatus}`,
                 detectedAmount !== null ? `ยอดที่ตรวจพบ ฿${detectedAmount.toFixed(2)}` : '',
                 cleanRef ? `เลขอ้างอิง ${cleanRef}` : '',
                 cleanNote,
@@ -2470,11 +2630,15 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
         await writeSystemLog(
             user_id,
             'ตรวจสอบหลักฐานการชำระเงิน',
-            `คำสั่งซื้อ #${id}: ${review.label} (${review.status})`,
+            `คำสั่งซื้อ #${id}: ${review.label} (${review.paymentStatus})`,
             {
-                beforeData: { payment_status: orders[0].payment_status },
+                beforeData: {
+                    order_status: order.order_status,
+                    payment_status: order.payment_status,
+                },
                 afterData: {
-                    payment_status: review.status,
+                    order_status: nextOrderStatus,
+                    payment_status: review.paymentStatus,
                     verified_amount: detectedAmount,
                     transaction_ref: cleanRef || null,
                     review_note: cleanNote || null,
@@ -2482,7 +2646,13 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
             },
         );
 
-        res.json({ success: true, payment_status: review.status, message: 'บันทึกผลตรวจสอบการชำระเงินแล้ว' });
+        res.json({
+            success: true,
+            order_status: nextOrderStatus,
+            payment_status: review.paymentStatus,
+            review_note: cleanNote || null,
+            message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานการชำระเงินแล้ว',
+        });
     } catch (err) {
         respondError(res, err, 'ตรวจสอบหลักฐานการชำระเงินไม่สำเร็จ');
     }
@@ -2492,7 +2662,7 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
     try {
         const { id } = req.params;
         const { user_id, username } = req.body;
-        const cancelableStatuses = ['รอจัดการ', 'เตรียมสินค้า'];
+        const cancelableStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า'];
 
         const [orders] = await query(`
             SELECT o.order_id, o.user_id, o.order_status, u.username
@@ -2566,8 +2736,8 @@ app.put('/api/orders/:id/status', async (req, res) => {
         const requestedStatus = String(status || '').trim();
         const allowedStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
         const flowStatuses = deliveryType === 'รับหน้าร้าน'
-            ? ['รอจัดการ', 'เตรียมสินค้า', 'พร้อมรับสินค้า', 'เสร็จสิ้น']
-            : ['รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+            ? [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'พร้อมรับสินค้า', 'เสร็จสิ้น']
+            : [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
         const currentStatus = order.order_status;
 
         if (order.order_status === 'ยกเลิก') {
@@ -2656,6 +2826,11 @@ app.get('/api/orders/history/:username', async (req, res) => {
                 o.delivery_type AS shipping_method,
                 o.tracking_no,
                 o.order_date AS created_at,
+                pay.payment_date,
+                pay.receipt_image,
+                pay.receipt_file_name,
+                pay.reviewed_at,
+                pay.review_note,
                 od.product_id,
                 od.quantity,
                 od.price,
@@ -2664,6 +2839,11 @@ app.get('/api/orders/history/:username', async (req, res) => {
                 p.product_name AS product_name
             FROM orders o
             JOIN \`user\` u ON o.user_id = u.user_id
+            LEFT JOIN payment pay ON pay.payment_id = (
+                SELECT MAX(payment_id)
+                FROM payment
+                WHERE order_id = o.order_id
+            )
             LEFT JOIN order_detail od ON o.order_id = od.order_id
             LEFT JOIN product p ON od.product_id = p.product_id
             WHERE LOWER(u.username) = LOWER(?)
@@ -2686,6 +2866,11 @@ app.get('/api/orders/history/:username', async (req, res) => {
                     shipping_method: row.shipping_method,
                     tracking_no: row.tracking_no,
                     created_at: row.created_at,
+                    payment_date: row.payment_date,
+                    receipt_image: row.receipt_image,
+                    receipt_file_name: row.receipt_file_name,
+                    reviewed_at: row.reviewed_at,
+                    review_note: row.review_note,
                     items: [],
                 });
             }
