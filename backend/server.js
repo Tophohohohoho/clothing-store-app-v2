@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 
 const loadLocalEnv = () => {
     const envPath = path.join(__dirname, '.env');
@@ -35,13 +36,101 @@ const db = mysql.createConnection({
     host: 'localhost',
     user: 'root',
     password: '1234',
-    database: 'show',
+    database: 'shop_lru',
 });
 const dbp = db.promise();
 
 const query = (sql, params = []) => dbp.query(sql, params);
 
 const hashResetCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
+const PASSWORD_HASH_ROUNDS = 12;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
+
+const cleanText = (value) => String(value ?? '').trim();
+const cleanPhone = (value) => cleanText(value).replace(/[\s-]/g, '');
+const isBcryptHash = (value) => /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
+const hashPassword = (password) => bcrypt.hash(String(password), PASSWORD_HASH_ROUNDS);
+const verifyPassword = async (password, storedPassword) => {
+    if (isBcryptHash(storedPassword)) return bcrypt.compare(String(password), storedPassword);
+    return String(password) === String(storedPassword || '');
+};
+
+const getFirstRegisterValidationMessage = ({ username, full_name, email, phone, password, confirm_password }) => {
+    if (!cleanText(username)) return 'กรุณากรอกชื่อผู้ใช้';
+    if (!cleanText(full_name)) return 'กรุณากรอกชื่อ-นามสกุล';
+    if (!cleanText(email)) return 'กรุณากรอกอีเมล';
+    if (!EMAIL_REGEX.test(cleanText(email))) return 'รูปแบบอีเมลไม่ถูกต้อง';
+    if (!cleanText(phone)) return 'กรุณากรอกเบอร์โทร';
+    if (!PHONE_REGEX.test(cleanPhone(phone))) return 'รูปแบบเบอร์โทรไม่ถูกต้อง';
+    if (!String(password || '')) return 'กรุณากรอกรหัสผ่าน';
+    if (String(password).length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+    if (!String(confirm_password || '')) return 'กรุณากรอกยืนยันรหัสผ่าน';
+    if (String(password) !== String(confirm_password)) return 'รหัสผ่านไม่ตรงกัน';
+    return '';
+};
+
+const getThaiAddressData = (() => {
+    let cached = null;
+    return () => {
+        if (cached) return cached;
+
+        const jsonDir = path.join(__dirname, '..', 'frontend', 'public', 'api-thai', 'json');
+        const readJson = (fileName) => JSON.parse(fs.readFileSync(path.join(jsonDir, fileName), 'utf8'));
+        try {
+            cached = {
+                provinces: readJson('provinces.json').filter((item) => !item.deleted_at),
+                districts: readJson('districts.json').filter((item) => !item.deleted_at),
+                subDistricts: readJson('sub_districts.json').filter((item) => !item.deleted_at),
+            };
+        } catch (err) {
+            console.warn('โหลดข้อมูลจังหวัด/อำเภอ/ตำบลไม่สำเร็จ:', err.message);
+            cached = { provinces: [], districts: [], subDistricts: [] };
+        }
+        return cached;
+    };
+})();
+
+const getNameTh = (item) => item?.name_th || '';
+const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
+const normalizeAddressPayload = (body = {}) => ({
+    receiver_name: cleanText(body.receiver_name),
+    phone: cleanPhone(body.receiver_phone ?? body.phone),
+    address_detail: cleanText(body.address ?? body.address_detail),
+    subdistrict: cleanText(body.subdistrict),
+    district: cleanText(body.district),
+    province: cleanText(body.province),
+    postal_code: cleanText(body.postcode ?? body.postal_code),
+    address_type: cleanText(body.address_type),
+    is_default: Boolean(body.set_default_address ?? body.is_default),
+});
+
+const getFirstAddressValidationMessage = (payload) => {
+    if (!payload.receiver_name) return 'กรุณากรอกชื่อผู้รับ';
+    if (!payload.phone) return 'กรุณากรอกเบอร์โทรผู้รับ';
+    if (!PHONE_REGEX.test(payload.phone)) return 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง';
+    if (!payload.address_detail) return 'กรุณากรอกที่อยู่';
+    if (!payload.province) return 'กรุณาเลือกจังหวัด';
+    if (!payload.district) return 'กรุณาเลือกอำเภอ/เขต';
+    if (!payload.subdistrict) return 'กรุณาเลือกตำบล/แขวง';
+    if (!payload.postal_code) return 'กรุณาเลือกรหัสไปรษณีย์';
+    if (!payload.address_type) return 'กรุณากรอกประเภทที่อยู่';
+
+    const { provinces, districts, subDistricts } = getThaiAddressData();
+    if (provinces.length === 0) return '';
+
+    const province = provinces.find((item) => getNameTh(item) === payload.province);
+    if (!province) return 'จังหวัดไม่ถูกต้อง';
+
+    const district = districts.find((item) => item.province_id === province.id && getNameTh(item) === payload.district);
+    if (!district) return 'อำเภอ/เขตไม่ตรงกับจังหวัด';
+
+    const subDistrict = subDistricts.find((item) => item.district_id === district.id && getNameTh(item) === payload.subdistrict);
+    if (!subDistrict) return 'ตำบล/แขวงไม่ตรงกับอำเภอ/เขต';
+
+    if (getZipCode(subDistrict) !== String(payload.postal_code)) return 'รหัสไปรษณีย์ไม่ตรงกับตำบล/แขวง';
+    return '';
+};
 
 const getSmtpTransport = () => {
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
@@ -363,6 +452,10 @@ const initializeDatabase = async () => {
             full_name varchar(255) NOT NULL,
             email varchar(150) DEFAULT NULL,
             phone varchar(20) DEFAULT NULL,
+            privacy_notice_acknowledged tinyint DEFAULT '0',
+            privacy_notice_acknowledged_at datetime DEFAULT NULL,
+            consent_analytics tinyint DEFAULT '0',
+            consent_analytics_at datetime DEFAULT NULL,
             role varchar(50) DEFAULT NULL,
             status_user tinyint DEFAULT '1',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -586,6 +679,18 @@ const initializeDatabase = async () => {
     if (!(await columnExists('payment', 'review_note'))) {
         await query('ALTER TABLE payment ADD COLUMN review_note text DEFAULT NULL AFTER reviewed_at');
     }
+    if (!(await columnExists('user', 'privacy_notice_acknowledged'))) {
+        await query("ALTER TABLE `user` ADD COLUMN privacy_notice_acknowledged tinyint DEFAULT 0 AFTER phone");
+    }
+    if (!(await columnExists('user', 'privacy_notice_acknowledged_at'))) {
+        await query('ALTER TABLE `user` ADD COLUMN privacy_notice_acknowledged_at datetime DEFAULT NULL AFTER privacy_notice_acknowledged');
+    }
+    if (!(await columnExists('user', 'consent_analytics'))) {
+        await query("ALTER TABLE `user` ADD COLUMN consent_analytics tinyint DEFAULT 0 AFTER privacy_notice_acknowledged_at");
+    }
+    if (!(await columnExists('user', 'consent_analytics_at'))) {
+        await query('ALTER TABLE `user` ADD COLUMN consent_analytics_at datetime DEFAULT NULL AFTER consent_analytics');
+    }
 
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
     await getDefaultCategoryId();
@@ -593,9 +698,10 @@ const initializeDatabase = async () => {
 
     const [admins] = await query('SELECT user_id FROM `user` WHERE role = ? LIMIT 1', ['admin']);
     if (admins.length === 0) {
+        const adminPasswordHash = await hashPassword('admin123');
         await query(
             'INSERT INTO `user` (username, password, full_name, email, phone, role, status_user) VALUES (?, ?, ?, ?, ?, ?, 1)',
-            ['admin', 'admin123', 'System Administrator', 'admin@example.com', '0812345678', 'admin'],
+            ['admin', adminPasswordHash, 'System Administrator', 'admin@example.com', '0812345678', 'admin'],
         );
     }
 };
@@ -823,17 +929,23 @@ app.post('/api/login', async (req, res) => {
         }
 
         const [results] = await query(
-            `SELECT user_id AS id, username, full_name, email, phone, role, status_user, created_at
+            `SELECT user_id AS id, username, password, full_name, email, phone, role, status_user, created_at
              FROM \`user\`
-             WHERE (username = ? OR LOWER(email) = ?) AND password = ? AND status_user = 1`,
-            [loginIdentifier, loginIdentifier.toLowerCase(), password],
+             WHERE (username = ? OR LOWER(email) = ?) AND status_user = 1
+             LIMIT 1`,
+            [loginIdentifier, loginIdentifier.toLowerCase()],
         );
 
-        if (results.length === 0) {
+        if (results.length === 0 || !(await verifyPassword(password, results[0].password))) {
             return res.status(401).json({ success: false, message: 'ชื่อผู้ใช้ อีเมล หรือรหัสผ่านไม่ถูกต้อง' });
         }
 
+        if (!isBcryptHash(results[0].password)) {
+            await query('UPDATE `user` SET password = ? WHERE user_id = ?', [await hashPassword(password), results[0].id]);
+        }
+
         await writeSystemLog(results[0].id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ', getAuditRequestMeta(req));
+        delete results[0].password;
         res.json({ success: true, message: 'เข้าสู่ระบบสำเร็จ', user: results[0] });
     } catch (err) {
         respondError(res, err, 'เข้าสู่ระบบไม่สำเร็จ');
@@ -855,15 +967,50 @@ app.post('/api/logout', async (req, res) => {
 
 app.post('/api/register', async (req, res) => {
     try {
-        const { username, password, full_name, email, phone } = req.body;
+        const {
+            username,
+            password,
+            confirm_password,
+            full_name,
+            email,
+            phone,
+            privacy_notice_acknowledged,
+            consent_analytics,
+        } = req.body;
 
-        if (!username || !password) {
-            return res.status(400).json({ success: false, message: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' });
+        const validationMessage = getFirstRegisterValidationMessage({
+            username,
+            full_name,
+            email,
+            phone,
+            password,
+            confirm_password: confirm_password ?? req.body.confirmPassword,
+        });
+        if (validationMessage) {
+            return res.status(400).json({ success: false, message: validationMessage });
         }
 
+        if (!privacy_notice_acknowledged) {
+            return res.status(400).json({ success: false, message: 'กรุณารับทราบประกาศนโยบายความเป็นส่วนตัวก่อนสมัครสมาชิก' });
+        }
+
+        const hasAnalyticsConsent = Boolean(consent_analytics);
+        const passwordHash = await hashPassword(password);
+
         const [result] = await query(
-            'INSERT INTO `user` (username, password, full_name, email, phone, role, status_user) VALUES (?, ?, ?, ?, ?, ?, 1)',
-            [username, password, full_name || username, email || null, phone || null, 'user'],
+            `INSERT INTO \`user\`
+                (username, password, full_name, email, phone, privacy_notice_acknowledged, privacy_notice_acknowledged_at, consent_analytics, consent_analytics_at, role, status_user)
+             VALUES (?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, 1)`,
+            [
+                cleanText(username),
+                passwordHash,
+                cleanText(full_name),
+                cleanText(email),
+                cleanPhone(phone),
+                hasAnalyticsConsent ? 1 : 0,
+                hasAnalyticsConsent ? new Date() : null,
+                'user',
+            ],
         );
         await writeSystemLog(result.insertId, 'สมัครสมาชิก', `สมัครสมาชิก ${username}`);
 
@@ -1004,7 +1151,7 @@ app.post('/api/password-reset/complete', async (req, res) => {
             return res.status(400).json({ success: false, message: 'รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว' });
         }
 
-        await query('UPDATE `user` SET password = ? WHERE user_id = ?', [password, resetCode.user_id]);
+        await query('UPDATE `user` SET password = ? WHERE user_id = ?', [await hashPassword(password), resetCode.user_id]);
         await query('UPDATE password_reset_codes SET used_at = NOW() WHERE reset_id = ?', [resetCode.reset_id]);
         await writeSystemLog(resetCode.user_id, 'รีเซ็ตรหัสผ่าน', 'ผู้ใช้รีเซ็ตรหัสผ่านผ่านอีเมล', getAuditRequestMeta(req));
 
@@ -1612,11 +1759,15 @@ app.put('/api/admin/users/:id', async (req, res) => {
         const { id } = req.params;
         const { username, password, full_name, email, phone } = req.body;
         const hasPassword = password && password.trim() !== '';
+        if (hasPassword && password.length < 8) {
+            return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
+        }
+        const passwordHash = hasPassword ? await hashPassword(password) : '';
         const sql = hasPassword
             ? 'UPDATE `user` SET username = ?, password = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?'
             : 'UPDATE `user` SET username = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?';
         const params = hasPassword
-            ? [username, password, full_name || username, email || null, phone || null, id]
+            ? [username, passwordHash, full_name || username, email || null, phone || null, id]
             : [username, full_name || username, email || null, phone || null, id];
 
         await query(sql, params);
@@ -1640,12 +1791,13 @@ app.put('/api/users/:id/profile', async (req, res) => {
         if (hasPassword && password.length < 8) {
             return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
         }
+        const passwordHash = hasPassword ? await hashPassword(password) : '';
 
         const sql = hasPassword
             ? 'UPDATE `user` SET username = ?, password = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?'
             : 'UPDATE `user` SET username = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?';
         const params = hasPassword
-            ? [username, password, full_name || username, email || null, phone || null, id]
+            ? [username, passwordHash, full_name || username, email || null, phone || null, id]
             : [username, full_name || username, email || null, phone || null, id];
 
         await query(sql, params);
@@ -1686,23 +1838,14 @@ app.get('/api/users/:id/addresses', async (req, res) => {
 app.post('/api/users/:id/addresses', async (req, res) => {
     try {
         const { id } = req.params;
-        const {
-            receiver_name,
-            phone,
-            address_detail,
-            subdistrict,
-            district,
-            province,
-            postal_code,
-            address_type,
-            is_default,
-        } = req.body;
+        const addressPayload = normalizeAddressPayload(req.body);
+        const validationMessage = getFirstAddressValidationMessage(addressPayload);
 
-        if (!receiver_name || !address_detail) {
-            return res.status(400).json({ error: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
+        if (validationMessage) {
+            return res.status(400).json({ error: validationMessage });
         }
 
-        if (is_default) {
+        if (addressPayload.is_default) {
             await query('UPDATE address SET is_default = 0 WHERE user_id = ?', [id]);
         }
 
@@ -1714,15 +1857,15 @@ app.post('/api/users/:id/addresses', async (req, res) => {
             `,
             [
                 id,
-                receiver_name,
-                phone || null,
-                address_detail,
-                subdistrict || null,
-                district || null,
-                province || null,
-                postal_code || null,
-                address_type || 'บ้าน',
-                is_default ? 1 : 0,
+                addressPayload.receiver_name,
+                addressPayload.phone,
+                addressPayload.address_detail,
+                addressPayload.subdistrict,
+                addressPayload.district,
+                addressPayload.province,
+                addressPayload.postal_code,
+                addressPayload.address_type,
+                addressPayload.is_default ? 1 : 0,
             ],
         );
         await writeSystemLog(id, 'เพิ่มที่อยู่', `เพิ่มที่อยู่ #${result.insertId}`);
@@ -1735,23 +1878,14 @@ app.post('/api/users/:id/addresses', async (req, res) => {
 app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
     try {
         const { id, addressId } = req.params;
-        const {
-            receiver_name,
-            phone,
-            address_detail,
-            subdistrict,
-            district,
-            province,
-            postal_code,
-            address_type,
-            is_default,
-        } = req.body;
+        const addressPayload = normalizeAddressPayload(req.body);
+        const validationMessage = getFirstAddressValidationMessage(addressPayload);
 
-        if (!receiver_name || !address_detail) {
-            return res.status(400).json({ error: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
+        if (validationMessage) {
+            return res.status(400).json({ error: validationMessage });
         }
 
-        if (is_default) {
+        if (addressPayload.is_default) {
             await query('UPDATE address SET is_default = 0 WHERE user_id = ?', [id]);
         }
 
@@ -1770,15 +1904,15 @@ app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
                 WHERE address_id = ? AND user_id = ?
             `,
             [
-                receiver_name,
-                phone || null,
-                address_detail,
-                subdistrict || null,
-                district || null,
-                province || null,
-                postal_code || null,
-                address_type || 'บ้าน',
-                is_default ? 1 : 0,
+                addressPayload.receiver_name,
+                addressPayload.phone,
+                addressPayload.address_detail,
+                addressPayload.subdistrict,
+                addressPayload.district,
+                addressPayload.province,
+                addressPayload.postal_code,
+                addressPayload.address_type,
+                addressPayload.is_default ? 1 : 0,
                 addressId,
                 id,
             ],
@@ -2244,6 +2378,7 @@ app.post('/api/orders/checkout', async (req, res) => {
             total_price,
             shipping_fee,
             discount: requested_discount,
+            receiver_name,
             address,
             address_id,
             phone,
@@ -2272,6 +2407,24 @@ app.post('/api/orders/checkout', async (req, res) => {
         const receiptUrl = receiptPath ? `${req.protocol}://${req.get('host')}${receiptPath}` : null;
         const initialOrderStatus = receiptUrl ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
         const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : 'รอชำระ';
+        const shippingAddressPayload = normalizeAddressPayload({
+            receiver_name: receiver_name || username || 'ลูกค้า',
+            phone,
+            address_detail: shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
+            subdistrict,
+            district,
+            province,
+            postal_code,
+            address_type: shipping_method || 'ส่งสินค้า',
+            is_default: true,
+        });
+
+        if (shipping_method === 'ส่งสินค้า') {
+            const validationMessage = getFirstAddressValidationMessage(shippingAddressPayload);
+            if (validationMessage) return res.status(400).json({ error: validationMessage });
+        } else if (!shippingAddressPayload.phone || !PHONE_REGEX.test(shippingAddressPayload.phone)) {
+            return res.status(400).json({ error: shippingAddressPayload.phone ? 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' : 'กรุณากรอกเบอร์โทรผู้รับ' });
+        }
 
         if (address_id) {
             await query(
@@ -2289,14 +2442,14 @@ app.post('/api/orders/checkout', async (req, res) => {
                     WHERE address_id = ? AND user_id = ?
                 `,
                 [
-                    username || 'ลูกค้า',
-                    phone || null,
-                    shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
-                    subdistrict || null,
-                    district || null,
-                    province || null,
-                    postal_code || null,
-                    shipping_method,
+                    shippingAddressPayload.receiver_name,
+                    shippingAddressPayload.phone,
+                    shippingAddressPayload.address_detail,
+                    shippingAddressPayload.subdistrict || null,
+                    shippingAddressPayload.district || null,
+                    shippingAddressPayload.province || null,
+                    shippingAddressPayload.postal_code || null,
+                    shippingAddressPayload.address_type,
                     address_id,
                     user_id,
                 ],
@@ -2308,14 +2461,14 @@ app.post('/api/orders/checkout', async (req, res) => {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
                 [
                     user_id,
-                    username || 'ลูกค้า',
-                    phone || null,
-                    shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
-                    subdistrict || null,
-                    district || null,
-                    province || null,
-                    postal_code || null,
-                    shipping_method,
+                    shippingAddressPayload.receiver_name,
+                    shippingAddressPayload.phone,
+                    shippingAddressPayload.address_detail,
+                    shippingAddressPayload.subdistrict || null,
+                    shippingAddressPayload.district || null,
+                    shippingAddressPayload.province || null,
+                    shippingAddressPayload.postal_code || null,
+                    shippingAddressPayload.address_type,
                 ],
             );
         }

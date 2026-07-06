@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { notify } from './AppNotification';
 
 const emptyThaiAddressData = {
     provinces: [],
@@ -9,6 +10,8 @@ const emptyThaiAddressData = {
 const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
 const getName = (item) => item?.name_th || '';
 const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
+const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
+const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
 
 function ProfileModal({
     user,
@@ -123,6 +126,38 @@ function ProfileModal({
             subdistrict: subDistrictName,
             postal_code: getZipCode(selectedSubDistrict),
         });
+    };
+
+    const getAddressValidationMessage = () => {
+        if (!addressForm.receiver_name.trim()) return 'กรุณากรอกชื่อผู้รับ';
+        if (!addressForm.phone.trim()) return 'กรุณากรอกเบอร์โทรผู้รับ';
+        if (!PHONE_REGEX.test(cleanPhone(addressForm.phone))) return 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง';
+        if (!addressForm.address_detail.trim()) return 'กรุณากรอกที่อยู่';
+        if (!addressForm.province.trim()) return 'กรุณาเลือกจังหวัด';
+        if (!addressForm.district.trim()) return 'กรุณาเลือกอำเภอ/เขต';
+        if (!addressForm.subdistrict.trim()) return 'กรุณาเลือกตำบล/แขวง';
+        if (!String(addressForm.postal_code || '').trim()) return 'กรุณาเลือกรหัสไปรษณีย์';
+        if (!addressForm.address_type.trim()) return 'กรุณากรอกประเภทที่อยู่';
+        if (hasThaiAddressData && !selectedProvince) return 'จังหวัดไม่ถูกต้อง';
+        if (selectedProvince && !selectedDistrict) return 'อำเภอ/เขตไม่ตรงกับจังหวัด';
+        if (selectedDistrict && !subDistrictChoices.some((subDistrict) => getName(subDistrict) === addressForm.subdistrict)) {
+            return 'ตำบล/แขวงไม่ตรงกับอำเภอ/เขต';
+        }
+        if (postalCodeChoices.length > 0 && !postalCodeChoices.includes(String(addressForm.postal_code))) {
+            return 'รหัสไปรษณีย์ไม่ตรงกับตำบล/แขวง';
+        }
+        return '';
+    };
+
+    const handleAddressSubmit = (event) => {
+        const validationMessage = getAddressValidationMessage();
+        if (validationMessage) {
+            event.preventDefault();
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: validationMessage });
+            return;
+        }
+
+        onSaveAddress(event);
     };
 
     const handleNewAddress = () => {
@@ -356,7 +391,7 @@ function ProfileModal({
                                 </div>
                                 <div className="col-md-7">
                                     {showAddressForm ? (
-                                        <form onSubmit={onSaveAddress} className="row g-3 text-start">
+                                        <form onSubmit={handleAddressSubmit} className="row g-3 text-start">
                                             <div className="col-md-6">
                                                 <label className="form-label fw-bold text-secondary small">ชื่อผู้รับ</label>
                                                 <input className="form-control" value={addressForm.receiver_name} onChange={(e) => setAddressForm({ ...addressForm, receiver_name: e.target.value })} required />

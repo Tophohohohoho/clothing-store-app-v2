@@ -22,6 +22,8 @@ import StorePage from './pages/StorePage';
 import { getCartItemKey, getCartTotal } from './utils/cart';
 
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 
 const getStoredUser = () => {
     const savedUser = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
@@ -66,6 +68,34 @@ const MEMBER_ROLES = ['member', 'customer', 'user'];
 
 const isAdminUser = (currentUser) => currentUser?.role === 'admin';
 const isMemberUser = (currentUser) => MEMBER_ROLES.includes(currentUser?.role);
+const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
+
+const getRegisterValidationMessage = (form) => {
+    if (!form.username.trim()) return 'กรุณากรอกชื่อผู้ใช้';
+    if (!form.full_name.trim()) return 'กรุณากรอกชื่อ-นามสกุล';
+    if (!form.email.trim()) return 'กรุณากรอกอีเมล';
+    if (!EMAIL_REGEX.test(form.email.trim())) return 'รูปแบบอีเมลไม่ถูกต้อง';
+    if (!form.phone.trim()) return 'กรุณากรอกเบอร์โทร';
+    if (!PHONE_REGEX.test(cleanPhone(form.phone))) return 'รูปแบบเบอร์โทรไม่ถูกต้อง';
+    if (!form.password) return 'กรุณากรอกรหัสผ่าน';
+    if (form.password.length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+    if (!form.confirmPassword) return 'กรุณากรอกยืนยันรหัสผ่าน';
+    if (form.password !== form.confirmPassword) return 'รหัสผ่านไม่ตรงกัน';
+    return '';
+};
+
+const getAddressValidationMessage = (address) => {
+    if (!address.receiver_name.trim()) return 'กรุณากรอกชื่อผู้รับ';
+    if (!address.phone.trim()) return 'กรุณากรอกเบอร์โทรผู้รับ';
+    if (!PHONE_REGEX.test(cleanPhone(address.phone))) return 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง';
+    if (!address.address_detail.trim()) return 'กรุณากรอกที่อยู่';
+    if (!address.province.trim()) return 'กรุณาเลือกจังหวัด';
+    if (!address.district.trim()) return 'กรุณาเลือกอำเภอ/เขต';
+    if (!address.subdistrict.trim()) return 'กรุณาเลือกตำบล/แขวง';
+    if (!String(address.postal_code || '').trim()) return 'กรุณาเลือกรหัสไปรษณีย์';
+    if (!address.address_type.trim()) return 'กรุณากรอกประเภทที่อยู่';
+    return '';
+};
 
 const canAccessPage = (page, currentUser) => {
     if (PUBLIC_PAGES.includes(page)) return true;
@@ -368,6 +398,8 @@ function App() {
         full_name: '',
         email: '',
         phone: '',
+        privacyNoticeAcknowledged: false,
+        consentAnalytics: false,
     });
     const [loginError, setLoginError] = useState('');
     const [isLoginLoading, setIsLoginLoading] = useState(false);
@@ -648,8 +680,14 @@ function App() {
     const handleRegister = async (event) => {
         event.preventDefault();
 
-        if (registerForm.password !== registerForm.confirmPassword) {
-            setRegisterMsg({ type: 'error', text: 'รหัสผ่านไม่ตรงกัน' });
+        const validationMessage = getRegisterValidationMessage(registerForm);
+        if (validationMessage) {
+            setRegisterMsg({ type: 'error', text: validationMessage });
+            return;
+        }
+
+        if (!registerForm.privacyNoticeAcknowledged) {
+            setRegisterMsg({ type: 'error', text: 'กรุณาอ่าน Privacy Notice ก่อน' });
             return;
         }
 
@@ -657,9 +695,12 @@ function App() {
             const res = await authApi.register({
                 username: registerForm.username,
                 password: registerForm.password,
+                confirm_password: registerForm.confirmPassword,
                 full_name: registerForm.full_name,
                 email: registerForm.email,
                 phone: registerForm.phone,
+                privacy_notice_acknowledged: registerForm.privacyNoticeAcknowledged,
+                consent_analytics: registerForm.consentAnalytics,
             });
 
             if (res.data.success) {
@@ -668,7 +709,16 @@ function App() {
                     setIsRegisterView(false);
                     setAuthView('login');
                     setRegisterMsg({ type: '', text: '' });
-                    setRegisterForm({ username: '', password: '', confirmPassword: '', full_name: '', email: '', phone: '' });
+                    setRegisterForm({
+                        username: '',
+                        password: '',
+                        confirmPassword: '',
+                        full_name: '',
+                        email: '',
+                        phone: '',
+                        privacyNoticeAcknowledged: false,
+                        consentAnalytics: false,
+                    });
                 }, 1200);
             }
         } catch (err) {
@@ -1064,6 +1114,10 @@ function App() {
             notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
             return;
         }
+        if (!PHONE_REGEX.test(cleanPhone(shippingInfo.phone))) {
+            notify({ type: 'warning', title: 'ข้อมูลจัดส่งไม่ถูกต้อง', message: 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' });
+            return;
+        }
 
         try {
             const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : DELIVERY_FEE;
@@ -1073,6 +1127,7 @@ function App() {
                 total_price: total,
                 shipping_fee: shippingFee,
                 discount: 0,
+                receiver_name: shippingInfo.receiver_name || user?.full_name || user?.username || 'ลูกค้า',
                 address_id: shippingInfo.address_id,
                 address: shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
                 phone: shippingInfo.phone,
@@ -1378,8 +1433,9 @@ function App() {
     const handleSaveAddress = async (event) => {
         event.preventDefault();
 
-        if (!addressForm.receiver_name.trim() || !addressForm.address_detail.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
+        const validationMessage = getAddressValidationMessage(addressForm);
+        if (validationMessage) {
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: validationMessage });
             return;
         }
 

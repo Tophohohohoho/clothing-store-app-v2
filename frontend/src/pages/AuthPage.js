@@ -8,6 +8,28 @@ const EMPTY_FORGOT_FORM = {
     confirmPassword: '',
 };
 const EMPTY_RESET_CODE_DIGITS = ['', '', '', '', '', ''];
+const PRIVACY_NOTICE_SECTIONS = [
+    {
+        title: 'ผู้ควบคุมข้อมูลส่วนบุคคล',
+        text: 'มหาวิทยาลัยราชภัฏเลย เลขที่ 234 ถนนเลย-เชียงคาน ตำบลเมือง อำเภอเมืองเลย จังหวัดเลย 42000 โทรศัพท์ 042-835224-8 เว็บไซต์ www.lru.ac.th',
+    },
+    {
+        title: 'ข้อมูลที่จำเป็นต่อการสมัครและสั่งซื้อ',
+        text: 'ระบบเก็บเฉพาะข้อมูลส่วนบุคคลที่จำเป็น เช่น ชื่อผู้ใช้ ชื่อ-นามสกุล อีเมล เบอร์โทรศัพท์ ที่อยู่จัดส่ง รายการสั่งซื้อ และรหัสผ่านที่จัดเก็บเป็นแฮชอย่างปลอดภัย',
+    },
+    {
+        title: 'วัตถุประสงค์การใช้ข้อมูล',
+        text: 'ใช้ข้อมูลเพื่อสมัครบัญชี ยืนยันตัวตน เข้าสู่ระบบ ติดต่อผู้ใช้ จัดส่งสินค้า และให้บริการช่วยเหลือลูกค้าเท่านั้น',
+    },
+    {
+        title: 'ความปลอดภัยและการเปิดเผยข้อมูล',
+        text: 'ระบบควรใช้งานผ่าน HTTPS จำกัดสิทธิ์การเข้าถึงข้อมูล และไม่เปิดเผยข้อมูลส่วนบุคคล ยกเว้นผู้ให้บริการขนส่ง หน้าที่ตามกฎหมาย หรือได้รับความยินยอมจากผู้ใช้',
+    },
+    {
+        title: 'สิทธิของเจ้าของข้อมูล',
+        text: 'เจ้าของข้อมูลมีสิทธิเข้าถึง ขอสำเนา แก้ไข ลบหรือทำลาย ระงับการใช้ คัดค้านการประมวลผล และขอโอนย้ายข้อมูลส่วนบุคคลตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562',
+    },
+];
 
 function AuthPage({
     isRegisterView,
@@ -31,6 +53,9 @@ function AuthPage({
     const [forgotCodeDigits, setForgotCodeDigits] = useState(EMPTY_RESET_CODE_DIGITS);
     const [forgotMsg, setForgotMsg] = useState({ type: '', text: '' });
     const [isForgotLoading, setIsForgotLoading] = useState(false);
+    const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
+    const [hasScrolledPrivacyNotice, setHasScrolledPrivacyNotice] = useState(false);
+    const [consentNotice, setConsentNotice] = useState('');
     const resetCodeInputRefs = useRef([]);
     const forgotCode = forgotCodeDigits.join('');
 
@@ -57,6 +82,43 @@ function AuthPage({
         setForgotStep('request');
         setForgotMsg({ type: '', text: '' });
         setShowForgotPassword(true);
+    };
+
+    const openPrivacyNotice = () => {
+        setShowPrivacyNotice(true);
+        setHasScrolledPrivacyNotice(false);
+    };
+
+    const acknowledgePrivacyNotice = () => {
+        setRegisterForm({
+            ...registerForm,
+            privacyNoticeAcknowledged: true,
+        });
+        setConsentNotice('');
+        setShowPrivacyNotice(false);
+    };
+
+    const handlePrivacyScroll = (event) => {
+        const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+        if (scrollTop + clientHeight >= scrollHeight - 4) {
+            setHasScrolledPrivacyNotice(true);
+        }
+    };
+
+    const requestPrivacyBeforeConsent = () => {
+        if (!registerForm.privacyNoticeAcknowledged) {
+            setConsentNotice('กรุณาอ่าน Privacy Notice ก่อน');
+        }
+    };
+
+    const handleConsentChange = (event) => {
+        if (!registerForm.privacyNoticeAcknowledged) {
+            setConsentNotice('กรุณาอ่าน Privacy Notice ก่อน');
+            return;
+        }
+
+        setConsentNotice('');
+        setRegisterForm({ ...registerForm, consentAnalytics: event.target.checked });
     };
 
     const getForgotError = (err, fallback) => err?.response?.data?.message || err?.response?.data?.error || fallback;
@@ -292,6 +354,7 @@ function AuthPage({
                                     placeholder="กรอกชื่อสำหรับติดต่อ"
                                     value={registerForm.full_name}
                                     onChange={(e) => setRegisterForm({ ...registerForm, full_name: e.target.value })}
+                                    required
                                 />
                             </label>
 
@@ -302,6 +365,7 @@ function AuthPage({
                                     placeholder="เช่น name@example.com"
                                     value={registerForm.email}
                                     onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                                    required
                                 />
                             </label>
 
@@ -312,6 +376,7 @@ function AuthPage({
                                     placeholder="เบอร์โทรสำหรับติดต่อ"
                                     value={registerForm.phone}
                                     onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                                    required
                                 />
                             </label>
 
@@ -322,6 +387,7 @@ function AuthPage({
                                     placeholder="ตั้งรหัสผ่าน"
                                     value={registerForm.password}
                                     onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                                    minLength="8"
                                     required
                                 />
                             </label>
@@ -333,9 +399,36 @@ function AuthPage({
                                     placeholder="กรอกรหัสผ่านอีกครั้ง"
                                     value={registerForm.confirmPassword}
                                     onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                                    minLength="8"
                                     required
                                 />
                             </label>
+
+                            <button
+                                type="button"
+                                className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
+                                onClick={openPrivacyNotice}
+                            >
+                                {registerForm.privacyNoticeAcknowledged ? 'อ่าน Privacy Notice แล้ว' : 'อ่าน Privacy Notice'}
+                            </button>
+
+                            <section className="auth-consent-box" aria-labelledby="consent-analytics-title">
+                                <label
+                                    className={`auth-consent-row ${!registerForm.privacyNoticeAcknowledged ? 'disabled' : ''}`}
+                                    onClick={requestPrivacyBeforeConsent}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={registerForm.consentAnalytics}
+                                        disabled={!registerForm.privacyNoticeAcknowledged}
+                                        onChange={handleConsentChange}
+                                    />
+                                    <span>
+                                        <strong id="consent-analytics-title">ยินยอมการประมวลผลข้อมูลส่วนบุคคล</strong>
+                                    </span>
+                                </label>
+                                {consentNotice && <small className="auth-consent-warning">{consentNotice}</small>}
+                            </section>
 
                             <button type="submit" className="auth-submit">สร้างบัญชี</button>
                         </form>
@@ -406,6 +499,44 @@ function AuthPage({
                     )}
                 </div>
             </section>
+
+            {showPrivacyNotice && (
+                <div className="auth-privacy-modal-backdrop" role="presentation">
+                    <section
+                        className="auth-privacy-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="privacy-notice-modal-title"
+                    >
+                        <header>
+                            <div>
+                                <span>Privacy Notice</span>
+                                <h3 id="privacy-notice-modal-title">ประกาศนโยบายความเป็นส่วนตัว</h3>
+                                <p>กรุณาเลื่อนอ่านเนื้อหาจนสุดก่อนกดรับทราบ</p>
+                            </div>
+                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิด Privacy Notice">
+                                ×
+                            </button>
+                        </header>
+                        <div className="auth-privacy-modal-scroll" tabIndex="0" onScroll={handlePrivacyScroll}>
+                            {PRIVACY_NOTICE_SECTIONS.map((section) => (
+                                <article key={section.title}>
+                                    <h4>{section.title}</h4>
+                                    <p>{section.text}</p>
+                                </article>
+                            ))}
+                        </div>
+                        <footer>
+                            {!hasScrolledPrivacyNotice && (
+                                <small>เลื่อนอ่าน Privacy Notice ให้ถึงท้ายเอกสารก่อน</small>
+                            )}
+                            <button type="button" onClick={acknowledgePrivacyNotice} disabled={!hasScrolledPrivacyNotice}>
+                                รับทราบ
+                            </button>
+                        </footer>
+                    </section>
+                </div>
+            )}
 
             {showForgotPassword && (
                 <div className="auth-forgot-backdrop" role="presentation" onMouseDown={(event) => {

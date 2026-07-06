@@ -27,6 +27,8 @@ const emptyNewAddress = {
 const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
 const getName = (item) => item?.name_th || '';
 const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
+const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
+const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
 const formatAddressLine = (address) => [
     address?.address_detail,
     address?.subdistrict ? `ต.${address.subdistrict}` : '',
@@ -164,6 +166,27 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         return [...new Set(postalCodes)];
     }, [subDistrictChoices]);
 
+    const getNewAddressValidationMessage = () => {
+        if (!newAddress.receiver_name.trim()) return 'กรุณากรอกชื่อผู้รับ';
+        if (!newAddress.phone.trim()) return 'กรุณากรอกเบอร์โทรผู้รับ';
+        if (!PHONE_REGEX.test(cleanPhone(newAddress.phone))) return 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง';
+        if (!newAddress.address_detail.trim()) return 'กรุณากรอกที่อยู่';
+        if (!newAddress.province) return 'กรุณาเลือกจังหวัด';
+        if (!newAddress.district) return 'กรุณาเลือกอำเภอ/เขต';
+        if (!newAddress.subdistrict) return 'กรุณาเลือกตำบล/แขวง';
+        if (!newAddress.postal_code) return 'กรุณาเลือกรหัสไปรษณีย์';
+        if (!newAddress.address_type.trim()) return 'กรุณากรอกประเภทที่อยู่';
+        if (thaiAddressData.provinces.length > 0 && !selectedProvince) return 'จังหวัดไม่ถูกต้อง';
+        if (selectedProvince && !selectedDistrict) return 'อำเภอ/เขตไม่ตรงกับจังหวัด';
+        if (selectedDistrict && !subDistrictChoices.some((subDistrict) => getName(subDistrict) === newAddress.subdistrict)) {
+            return 'ตำบล/แขวงไม่ตรงกับอำเภอ/เขต';
+        }
+        if (postalCodeChoices.length > 0 && !postalCodeChoices.includes(String(newAddress.postal_code))) {
+            return 'รหัสไปรษณีย์ไม่ตรงกับตำบล/แขวง';
+        }
+        return '';
+    };
+
     const handleNewProvinceChange = (provinceName) => {
         setNewAddress({
             ...newAddress,
@@ -218,18 +241,9 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
     };
 
     const handleSaveNewAddress = async () => {
-        if (!newAddress.receiver_name.trim() || !newAddress.address_detail.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับและที่อยู่' });
-            return;
-        }
-
-        if (!newAddress.phone.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
-            return;
-        }
-
-        if (!newAddress.province || !newAddress.district || !newAddress.subdistrict || !newAddress.postal_code) {
-            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: 'กรุณาเลือกจังหวัด อำเภอ ตำบล และรหัสไปรษณีย์' });
+        const validationMessage = getNewAddressValidationMessage();
+        if (validationMessage) {
+            notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: validationMessage });
             return;
         }
 
@@ -308,7 +322,6 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
     const handleConfirm = async () => {
         setValidationError('');
 
-        const cleanPhone = String(shippingInfo.phone || '').replace(/\D/g, '');
         if (!shippingInfo.shipping_method) {
             setValidationError('กรุณาเลือกรูปแบบการรับสินค้า');
             return;
@@ -317,7 +330,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             setValidationError('กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน');
             return;
         }
-        if (cleanPhone.length < 9 || cleanPhone.length > 10) {
+        if (!PHONE_REGEX.test(cleanPhone(shippingInfo.phone))) {
             setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
             return;
         }
