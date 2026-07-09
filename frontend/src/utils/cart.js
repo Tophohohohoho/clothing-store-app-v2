@@ -9,7 +9,7 @@ export const getItemQuantity = (item) => {
 };
 
 export const getCartItemKey = (item) => {
-    return `${item.id}-${item.selected_size || ''}-${item.selected_color || ''}`;
+    return String(item.id);
 };
 
 export const getCartTotal = (cart) => {

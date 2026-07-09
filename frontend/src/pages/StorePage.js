@@ -8,14 +8,10 @@ const formatPrice = (price) => {
     });
 };
 
-const productSizes = ['S', 'M', 'L', 'XL', '2XL'];
-
 function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, showStockCounts = false }) {
     const [searchText, setSearchText] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedProduct, setSelectedProduct] = useState(null);
-    const [selectedSize, setSelectedSize] = useState('M');
-    const [selectedColor, setSelectedColor] = useState('ดำ');
     const [selectedQuantity, setSelectedQuantity] = useState(1);
     const totalStock = showStockCounts ? products.reduce((sum, product) => sum + (Number(product.stock) || 0), 0) : 0;
     const activeProducts = useMemo(
@@ -46,10 +42,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
     };
 
     const openProductDetail = useCallback((product) => {
-        const firstColor = Array.isArray(product.colors) ? product.colors[0]?.name : '';
         setSelectedProduct(product);
-        setSelectedSize('M');
-        setSelectedColor(firstColor || '');
         setSelectedQuantity(1);
     }, []);
 
@@ -64,12 +57,8 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
     }, [previewProductId, products, onPreviewShown, openProductDetail]);
 
     const handleAddFromModal = (product) => {
-        const hasSize = Number(product.has_size ?? 1) === 1;
-        const hasColor = Number(product.has_color ?? 0) === 1;
         onAddToCart({
             ...product,
-            selected_size: hasSize ? selectedSize : '',
-            selected_color: hasColor ? selectedColor : '',
             selected_quantity: selectedQuantity,
         });
         setSelectedProduct(null);
@@ -81,7 +70,7 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
                 <div>
                     <span className="store-eyebrow">Clothing Collection</span>
                     <h1>หน้าร้านสินค้า</h1>
-                    <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูรายละเอียดสินค้า ราคา และตัวเลือกที่ต้องการ</p>
+                    <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูรายละเอียดสินค้า ราคา และจำนวนที่ต้องการ</p>
                     <div className="store-hero-benefits" aria-label="จุดเด่นของร้านค้า">
                         <span><b aria-hidden="true">✓</b> สินค้าคัดสรรคุณภาพ</span>
                         <span><b aria-hidden="true">✓</b> สั่งซื้อง่ายและปลอดภัย</span>
@@ -223,9 +212,6 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
             {selectedProduct && (() => {
                 const stock = Number(selectedProduct.stock) || 0;
                 const isOutOfStock = stock <= 0;
-                const hasSize = Number(selectedProduct.has_size ?? 1) === 1;
-                const hasColor = Number(selectedProduct.has_color ?? 0) === 1;
-                const productColors = Array.isArray(selectedProduct.colors) ? selectedProduct.colors : [];
 
                 return (
                     <div className="product-detail-modal" onClick={() => setSelectedProduct(null)}>
@@ -260,45 +246,6 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
                                         </div>
                                     )}
                                 </div>
-                                {(hasSize || hasColor) && (
-                                    <div className="product-option-stack">
-                                        {hasSize && (
-                                            <div className="product-size-picker">
-                                                <small>เลือกไซซ์สินค้า</small>
-                                                <div>
-                                                    {productSizes.map((size) => (
-                                                        <button
-                                                            key={size}
-                                                            type="button"
-                                                            className={selectedSize === size ? 'active' : ''}
-                                                            onClick={() => setSelectedSize(size)}
-                                                        >
-                                                            {size}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {hasColor && (
-                                            <div className="product-size-picker">
-                                                <small>เลือกสีสินค้า</small>
-                                                <div>
-                                                    {productColors.map((color) => (
-                                                        <button
-                                                            key={color.name}
-                                                            type="button"
-                                                            className={selectedColor === color.name ? 'active' : ''}
-                                                            onClick={() => setSelectedColor(color.name)}
-                                                        >
-                                                            <span className="store-color-swatch" style={{ backgroundColor: color.hex }} />
-                                                            {color.name}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
                                 {!isOutOfStock && (
                                     <div className="product-quantity-picker">
                                         <div>

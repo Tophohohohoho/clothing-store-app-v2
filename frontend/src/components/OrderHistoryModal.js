@@ -119,8 +119,6 @@ function OrderHistoryModal({
                 product_name: order.product_name || order.name,
                 quantity: order.qty || order.quantity || 1,
                 price: order.price || 0,
-                selected_size: order.selected_size,
-                selected_color: order.selected_color,
             }];
         }
         return [];
@@ -435,17 +433,12 @@ function OrderHistoryModal({
                                         {orderItems.map((orderItem, itemIndex) => {
                                             const qty = Number(orderItem.qty || orderItem.quantity || 1);
                                             const unitPrice = Number(orderItem.price || 0);
-                                            const optionText = [
-                                                orderItem.selected_size ? `ไซซ์ ${orderItem.selected_size}` : '',
-                                                orderItem.selected_color ? `สี ${orderItem.selected_color}` : '',
-                                            ].filter(Boolean).join(' / ');
 
                                             if (isSalesMode) {
                                                 return (
                                                     <div className="order-history-sale-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
                                                         <div>
                                                             <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
-                                                            {optionText && <span>{optionText}</span>}
                                                         </div>
                                                         <span>x{qty}</span>
                                                         <span>฿{formatMoney(unitPrice)}</span>
@@ -458,7 +451,6 @@ function OrderHistoryModal({
                                                 <div className="order-history-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
                                                     <div>
                                                         <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
-                                                        <span>{optionText || 'ไม่มีตัวเลือกเพิ่มเติม'}</span>
                                                     </div>
                                                     <div className="order-history-item-qty">
                                                         <span>จำนวน</span>

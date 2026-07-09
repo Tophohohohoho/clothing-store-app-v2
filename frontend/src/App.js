@@ -42,9 +42,6 @@ const emptyProduct = {
     stock_remark: 'สต็อกเริ่มต้น',
     category_id: '',
     category_name: 'ทั่วไป',
-    has_size: 1,
-    has_color: 0,
-    colors: [],
 };
 
 const emptyAddress = {
@@ -420,7 +417,15 @@ function App() {
 
     const [newProduct, setNewProduct] = useState(emptyProduct);
     const [editProduct, setEditProduct] = useState({ id: null, name: '', price: 0, description: '' });
-    const [stockEdit, setStockEdit] = useState({ id: null, amount: 0, remark: '', name: '' });
+    const [stockEdit, setStockEdit] = useState({
+        id: null,
+        amount: '',
+        reason: '',
+        changeType: 'รับสินค้าเข้า',
+        adjustmentMode: 'increase',
+        currentStock: 0,
+        name: '',
+    });
     const [userEdit, setUserEdit] = useState({ id: null, username: '', password: '', full_name: '', email: '', phone: '' });
 
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -807,31 +812,22 @@ function App() {
     };
 
     const addToCart = (product) => {
-        const selectedSize = product.selected_size || product.size || '';
-        const selectedColor = product.selected_color || product.color || '';
         const requestedQuantity = Math.max(1, Number.parseInt(product.selected_quantity, 10) || 1);
         const availableStock = Math.max(0, Number(product.stock) || 0);
         if (availableStock <= 0) return;
 
-        const nextProduct = { ...product, selected_size: selectedSize, selected_color: selectedColor };
-        const existing = cart.find((item) => (
-            item.id === product.id
-            && (item.selected_size || '') === selectedSize
-            && (item.selected_color || '') === selectedColor
-        ));
+        const existing = cart.find((item) => item.id === product.id);
 
         if (existing) {
             setCart(cart.map((item) => (
                 item.id === product.id
-                    && (item.selected_size || '') === selectedSize
-                    && (item.selected_color || '') === selectedColor
                     ? { ...item, qty: Math.min(availableStock, item.qty + requestedQuantity) }
                     : item
             )));
             return;
         }
 
-        setCart([...cart, { ...nextProduct, qty: Math.min(availableStock, requestedQuantity) }]);
+        setCart([...cart, { ...product, qty: Math.min(availableStock, requestedQuantity) }]);
     };
 
     const handleAddProduct = async (event) => {
@@ -841,18 +837,13 @@ function App() {
             const stockAmount = Number(newProduct.stock);
             if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
                 notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
-                return;
+                return false;
             }
             const selectedCategory = findActiveCategory(newProduct.category_id, newProduct.category_name);
             if (!selectedCategory) {
                 notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
-                return;
+                return false;
             }
-            if (Number(newProduct.has_color) === 1 && (!Array.isArray(newProduct.colors) || newProduct.colors.length === 0)) {
-                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
-                return;
-            }
-
             let imageUrl = newProduct.image_url;
 
             if (newProduct.image_data) {
@@ -866,24 +857,24 @@ function App() {
             const productData = { ...newProduct };
             productData.category_id = selectedCategory.category_id;
             productData.category_name = selectedCategory.category_name;
+            productData.stock_remark = 'สต็อกเริ่มต้น';
             delete productData.image_data;
             delete productData.image_preview;
             delete productData.image_name;
 
-            const res = await productsApi.createProduct({
+            await productsApi.createProduct({
                 ...productData,
                 image_url: imageUrl,
                 user_id: user?.id,
             });
-            const productId = res.data.insertId || res.data.id;
 
             notify({ type: 'success', title: 'เพิ่มสินค้าสำเร็จ', message: 'ระบบบันทึกสินค้าใหม่เรียบร้อยแล้ว' });
             setNewProduct(emptyProduct);
             await fetchProducts(false);
-            setPreviewProductId(productId);
-            setIsAdminView(false);
+            return true;
         } catch (err) {
             notify({ type: 'error', title: 'เพิ่มสินค้าล้มเหลว', message: 'กรุณาลองใหม่อีกครั้ง' });
+            return false;
         }
     };
 
@@ -894,24 +885,33 @@ function App() {
                 notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกจำนวนสต็อกเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
                 return;
             }
-            if (!stockEdit.remark.trim()) {
-                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณากรอกหมายเหตุทุกครั้งเมื่อรับสต็อก' });
-                return;
-            }
-
             await productsApi.updateStock({
                 product_id: stockEdit.id,
                 amount: stockAmount,
-                remark: stockEdit.remark.trim(),
+                reason: stockEdit.reason.trim(),
+                change_type: stockEdit.changeType,
+                operation: stockEdit.adjustmentMode,
                 user_id: user?.id,
             });
 
             notify({ type: 'success', title: 'ปรับปรุงสต็อกสำเร็จ', message: 'ข้อมูลสต็อกและประวัติได้รับการอัปเดตแล้ว' });
-            setStockEdit({ id: null, amount: 0, remark: '', name: '' });
+            setStockEdit({
+                id: null,
+                amount: '',
+                reason: '',
+                changeType: 'รับสินค้าเข้า',
+                adjustmentMode: 'increase',
+                currentStock: 0,
+                name: '',
+            });
             await fetchProducts(true);
             await fetchStockLogs();
         } catch (err) {
-            notify({ type: 'error', title: 'ปรับสต็อกไม่สำเร็จ', message: 'เกิดข้อผิดพลาดในการปรับสต็อก' });
+            notify({
+                type: 'error',
+                title: 'ปรับสต็อกไม่สำเร็จ',
+                message: err.response?.data?.error || 'เกิดข้อผิดพลาดในการปรับสต็อก',
+            });
         }
     };
 
@@ -922,11 +922,6 @@ function App() {
                 notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
                 return;
             }
-            if (Number(editProduct.has_color) === 1 && (!Array.isArray(editProduct.colors) || editProduct.colors.length === 0)) {
-                notify({ type: 'warning', title: 'ข้อมูลยังไม่ครบ', message: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
-                return;
-            }
-
             let imageUrl = editProduct.image_url;
 
             if (editProduct.image_data) {
@@ -1658,7 +1653,15 @@ function App() {
                         onDeleteOrder={handleDeleteOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}
                         onReviewOrderPayment={handleReviewOrderPayment}
-                        onOpenStockEdit={(product) => setStockEdit({ id: product.id, amount: 0, remark: '', name: product.name })}
+                        onOpenStockEdit={(product) => setStockEdit({
+                            id: product.id,
+                            amount: '',
+                            reason: '',
+                            changeType: 'รับสินค้าเข้า',
+                            adjustmentMode: 'increase',
+                            currentStock: Number(product.stock) || 0,
+                            name: product.name,
+                        })}
                         onUpdateUser={handleUpdateUser}
                         onDeleteUser={handleDeleteUser}
                         onReactivateUser={handleReactivateUser}

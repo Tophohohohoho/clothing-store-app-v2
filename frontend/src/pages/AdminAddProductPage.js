@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { notify } from '../components/AppNotification';
 
 const AdminIcon = ({ name, size = 16 }) => {
@@ -51,136 +51,12 @@ const formatMoney = (value) => {
     });
 };
 
-const thaiColorOptions = [
-    { name: 'ดำ', hex: '#000000', aliases: ['สีดำ'] },
-    { name: 'ขาว', hex: '#ffffff', aliases: ['สีขาว'] },
-    { name: 'เทา', hex: '#808080', aliases: ['สีเทา'] },
-    { name: 'เทาอ่อน', hex: '#d3d3d3', aliases: [] },
-    { name: 'เทาเข้ม', hex: '#4a4a4a', aliases: [] },
-    { name: 'แดง', hex: '#ff0000', aliases: ['สีแดง'] },
-    { name: 'แดงเข้ม', hex: '#8b0000', aliases: ['เลือดหมู'] },
-    { name: 'ชมพู', hex: '#ff69b4', aliases: ['สีชมพู'] },
-    { name: 'ชมพูอ่อน', hex: '#ffb6c1', aliases: [] },
-    { name: 'ส้ม', hex: '#ff8c00', aliases: ['สีส้ม'] },
-    { name: 'เหลือง', hex: '#ffd700', aliases: ['สีเหลือง'] },
-    { name: 'ครีม', hex: '#fffdd0', aliases: ['สีครีม'] },
-    { name: 'เบจ', hex: '#f5f5dc', aliases: ['สีเบจ'] },
-    { name: 'น้ำตาล', hex: '#8b4513', aliases: ['สีน้ำตาล'] },
-    { name: 'น้ำตาลอ่อน', hex: '#c4a484', aliases: [] },
-    { name: 'เขียว', hex: '#008000', aliases: ['สีเขียว'] },
-    { name: 'เขียวอ่อน', hex: '#90ee90', aliases: [] },
-    { name: 'เขียวเข้ม', hex: '#006400', aliases: [] },
-    { name: 'เขียวมิ้นท์', hex: '#98ff98', aliases: ['มิ้นท์', 'มินต์'] },
-    { name: 'ฟ้า', hex: '#00bfff', aliases: ['สีฟ้า'] },
-    { name: 'ฟ้าอ่อน', hex: '#87ceeb', aliases: [] },
-    { name: 'น้ำเงิน', hex: '#0000ff', aliases: ['สีน้ำเงิน'] },
-    { name: 'กรมท่า', hex: '#000080', aliases: ['น้ำเงินเข้ม', 'สีกรม'] },
-    { name: 'ม่วง', hex: '#800080', aliases: ['สีม่วง'] },
-    { name: 'ม่วงอ่อน', hex: '#dda0dd', aliases: ['ลาเวนเดอร์'] },
-    { name: 'ทอง', hex: '#d4af37', aliases: ['สีทอง'] },
-    { name: 'เงิน', hex: '#c0c0c0', aliases: ['สีเงิน'] },
-];
-
-const normalizeColorSearch = (value) => String(value || '').trim().toLocaleLowerCase('th-TH').replace(/\s+/g, '');
-
-const findThaiColor = (value) => {
-    const keyword = normalizeColorSearch(value);
-    if (!keyword) return null;
-
-    return thaiColorOptions.find((color) => (
-        [color.name, ...color.aliases].some((name) => normalizeColorSearch(name) === keyword)
-    )) || null;
+const PRODUCT_SORT_LABELS = {
+    name: 'สินค้า',
+    stock: 'คลัง',
+    price: 'ราคา',
+    updated_at: 'แก้ไขล่าสุด',
 };
-
-function ProductColorEditor({ colors = [], onChange }) {
-    const colorListId = useId();
-    const [colorName, setColorName] = useState('');
-    const [colorHex, setColorHex] = useState('#000000');
-    const matchedColor = findThaiColor(colorName);
-
-    const handleColorNameChange = (event) => {
-        const nextName = event.target.value;
-        const match = findThaiColor(nextName);
-        setColorName(nextName);
-        if (match) setColorHex(match.hex);
-    };
-
-    const addColor = () => {
-        const name = colorName.trim();
-        if (!name) {
-            notify({ type: 'warning', title: 'ข้อมูลสียังไม่ครบ', message: 'กรุณากรอกชื่อสี' });
-            return;
-        }
-        if (colors.some((color) => color.name.trim().toLocaleLowerCase('th-TH') === name.toLocaleLowerCase('th-TH'))) {
-            notify({ type: 'warning', title: 'สีซ้ำ', message: 'มีสีชื่อนี้อยู่แล้ว' });
-            return;
-        }
-
-        onChange([...colors, { name, hex: colorHex }]);
-        setColorName('');
-    };
-
-    return (
-        <div className="product-color-editor">
-            <label className="small fw-bold">สีสินค้า</label>
-            <div className="product-color-add-row">
-                <input
-                    type="color"
-                    className="form-control form-control-color"
-                    value={colorHex}
-                    onChange={(event) => setColorHex(event.target.value)}
-                    aria-label="เลือกสี"
-                />
-                <input
-                    type="text"
-                    className="form-control"
-                    list={colorListId}
-                    placeholder="ค้นหาสีภาษาไทย เช่น กรมท่า, ครีม, ฟ้าอ่อน"
-                    value={colorName}
-                    onChange={handleColorNameChange}
-                    onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                            event.preventDefault();
-                            addColor();
-                        }
-                    }}
-                />
-                <datalist id={colorListId}>
-                    {thaiColorOptions.map((color) => (
-                        <option key={color.name} value={color.name}>{color.hex}</option>
-                    ))}
-                </datalist>
-                <button type="button" className="btn btn-outline-primary" onClick={addColor}>เพิ่มสี</button>
-            </div>
-            {colorName.trim() && (
-                <small className={matchedColor ? 'product-color-match' : 'text-muted'}>
-                    {matchedColor
-                        ? `พบสี “${matchedColor.name}” ระบบเลือกเฉดให้อัตโนมัติ`
-                        : 'ไม่พบชื่อสีในรายการ สามารถกดช่องสีด้านซ้ายเพื่อเลือกเฉดเองได้'}
-                </small>
-            )}
-            {colors.length > 0 ? (
-                <div className="product-color-list">
-                    {colors.map((color, index) => (
-                        <div className="product-color-chip" key={`${color.name}-${index}`}>
-                            <span className="product-color-swatch" style={{ backgroundColor: color.hex }} />
-                            <span>{color.name}</span>
-                            <button
-                                type="button"
-                                onClick={() => onChange(colors.filter((_, colorIndex) => colorIndex !== index))}
-                                aria-label={`ลบสี ${color.name}`}
-                            >
-                                &times;
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <small className="text-muted">ยังไม่มีสี พิมพ์ชื่อสีภาษาไทย แล้วกด “เพิ่มสี” ได้เลย</small>
-            )}
-        </div>
-    );
-}
 
 function AdminAddProductPage({
     newProduct,
@@ -209,7 +85,7 @@ function AdminAddProductPage({
     const [statusFilter, setStatusFilter] = useState('all');
     const [stockFilter, setStockFilter] = useState('all');
     const [productSearch, setProductSearch] = useState('');
-    const [productSort, setProductSort] = useState({ key: 'updated_at', direction: 'desc' });
+    const [productSort, setProductSort] = useState({ key: 'name', direction: 'asc' });
     const [productPage, setProductPage] = useState(1);
     const [productPageSize, setProductPageSize] = useState(10);
     const [productToDelete, setProductToDelete] = useState(null);
@@ -291,7 +167,9 @@ function AdminAddProductPage({
             return matchesCategory && matchesStatus && matchesStock && matchesSearch;
         }).sort((a, b) => {
             let result = 0;
-            if (productSort.key === 'price') {
+            if (productSort.key === 'name') {
+                result = String(a.name || '').localeCompare(String(b.name || ''), 'th');
+            } else if (productSort.key === 'price') {
                 result = Number(a.price) - Number(b.price);
             } else if (productSort.key === 'stock') {
                 result = Number(a.stock) - Number(b.stock);
@@ -475,6 +353,17 @@ function AdminAddProductPage({
         setProductPage(1);
     };
 
+    const productSortHeader = (key) => (
+        <button
+            type="button"
+            className={`category-sort-button ${productSort.key === key ? 'active' : ''}`}
+            onClick={() => requestProductSort(key)}
+            aria-label={`เรียงตาม${PRODUCT_SORT_LABELS[key]} ${productSort.key === key && productSort.direction === 'asc' ? 'จากมากไปน้อย' : 'จากน้อยไปมาก'}`}
+        >
+            {PRODUCT_SORT_LABELS[key]} <span aria-hidden="true">{productSort.key === key ? (productSort.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+        </button>
+    );
+
     const openProductEditor = (product) => {
         setOpenProductMenuId(null);
         setEditProduct({
@@ -489,9 +378,6 @@ function AdminAddProductPage({
             image_data: '',
             image_preview: product.image_url || '',
             image_name: '',
-            has_size: Number(product.has_size ?? 1),
-            has_color: Number(product.has_color ?? 0),
-            colors: Array.isArray(product.colors) ? product.colors : [],
         });
     };
 
@@ -551,7 +437,13 @@ function AdminAddProductPage({
                 </div>
 
                 {productAdminView === 'products' && showAddForm && (
-                    <form onSubmit={onSubmit} className="row g-4 mt-1">
+                    <form
+                        onSubmit={async (event) => {
+                            const isSaved = await onSubmit(event);
+                            if (isSaved) setShowAddForm(false);
+                        }}
+                        className="row g-4 mt-1"
+                    >
                         <div className="col-md-8">
                             <label className="small fw-bold">ชื่อสินค้า</label>
                             <input type="text" className="form-control" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required />
@@ -589,46 +481,6 @@ function AdminAddProductPage({
                                     </option>
                                 ))}
                             </select>
-                        </div>
-                        <div className="col-md-6">
-                            <div className="form-check form-switch fw-bold">
-                                <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    role="switch"
-                                    id="product-has-size"
-                                    checked={Number(newProduct.has_size) === 1}
-                                    onChange={(e) => setNewProduct({ ...newProduct, has_size: e.target.checked ? 1 : 0 })}
-                                />
-                                <label className="form-check-label" htmlFor="product-has-size">สินค้านี้มีไซซ์</label>
-                            </div>
-                            <small className="text-muted">ปิดถ้าสินค้านี้ไม่ต้องเลือก S/M/L</small>
-                        </div>
-                        <div className="col-md-6">
-                            <div className="form-check form-switch fw-bold">
-                                <input
-                                    className="form-check-input"
-                                    type="checkbox"
-                                    role="switch"
-                                    id="product-has-color"
-                                    checked={Number(newProduct.has_color) === 1}
-                                    onChange={(e) => setNewProduct({ ...newProduct, has_color: e.target.checked ? 1 : 0 })}
-                                />
-                                <label className="form-check-label" htmlFor="product-has-color">สินค้านี้มีสี</label>
-                            </div>
-                            <small className="text-muted">เปิดถ้าต้องให้ลูกค้าเลือกสี</small>
-                        </div>
-                        {Number(newProduct.has_color) === 1 && (
-                            <div className="col-md-12">
-                                <ProductColorEditor
-                                    colors={newProduct.colors || []}
-                                    onChange={(colors) => setNewProduct({ ...newProduct, colors })}
-                                />
-                            </div>
-                        )}
-                        <div className="col-md-12">
-                            <label className="small fw-bold text-primary">หมายเหตุสต็อกเริ่มต้น</label>
-                            <input type="text" className="form-control border-primary" value={newProduct.stock_remark} onChange={(e) => setNewProduct({ ...newProduct, stock_remark: e.target.value })} />
                         </div>
                         <div className="col-md-12">
                             <label className="small fw-bold">รูปภาพสินค้า</label>
@@ -735,24 +587,12 @@ function AdminAddProductPage({
                                 </colgroup>
                                 <thead>
                                     <tr>
-                                        <th>สินค้า</th>
+                                        <th>{productSortHeader('name')}</th>
                                         <th>SKU</th>
-                                        <th>
-                                            <button type="button" className="category-sort-button" onClick={() => requestProductSort('stock')}>
-                                                คลัง <AdminIcon name="sort" />
-                                            </button>
-                                        </th>
-                                        <th>
-                                            <button type="button" className="category-sort-button" onClick={() => requestProductSort('price')}>
-                                                ราคา <AdminIcon name="sort" />
-                                            </button>
-                                        </th>
+                                        <th>{productSortHeader('stock')}</th>
+                                        <th>{productSortHeader('price')}</th>
                                         <th>สถานะ</th>
-                                        <th>
-                                            <button type="button" className="category-sort-button" onClick={() => requestProductSort('updated_at')}>
-                                                แก้ไขล่าสุด <AdminIcon name="sort" />
-                                            </button>
-                                        </th>
+                                        <th>{productSortHeader('updated_at')}</th>
                                         <th>จัดการ</th>
                                     </tr>
                                 </thead>
@@ -1198,40 +1038,6 @@ function AdminAddProductPage({
                                             ))}
                                         </select>
                                     </div>
-                                    <div className="col-md-3">
-                                        <div className="form-check form-switch fw-bold pt-4">
-                                            <input
-                                                className="form-check-input"
-                                                type="checkbox"
-                                                role="switch"
-                                                id="edit-product-has-size"
-                                                checked={Number(editProduct.has_size ?? 1) === 1}
-                                                onChange={(e) => setEditProduct({ ...editProduct, has_size: e.target.checked ? 1 : 0 })}
-                                            />
-                                            <label className="form-check-label" htmlFor="edit-product-has-size">มีไซซ์</label>
-                                        </div>
-                                    </div>
-                                    <div className="col-md-3">
-                                        <div className="form-check form-switch fw-bold pt-4">
-                                            <input
-                                                className="form-check-input"
-                                                type="checkbox"
-                                                role="switch"
-                                                id="edit-product-has-color"
-                                                checked={Number(editProduct.has_color ?? 0) === 1}
-                                                onChange={(e) => setEditProduct({ ...editProduct, has_color: e.target.checked ? 1 : 0 })}
-                                            />
-                                            <label className="form-check-label" htmlFor="edit-product-has-color">มีสี</label>
-                                        </div>
-                                    </div>
-                                    {Number(editProduct.has_color ?? 0) === 1 && (
-                                        <div className="col-12">
-                                            <ProductColorEditor
-                                                colors={editProduct.colors || []}
-                                                onChange={(colors) => setEditProduct({ ...editProduct, colors })}
-                                            />
-                                        </div>
-                                    )}
                                     <div className="col-12">
                                         <label className="small fw-bold">รูปภาพสินค้า</label>
                                         <div className="product-upload">

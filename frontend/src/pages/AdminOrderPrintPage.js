@@ -158,7 +158,6 @@ function AdminOrderPrintPage({ orderIds }) {
                             <thead>
                                 <tr>
                                     <th>สินค้า</th>
-                                    <th>ตัวเลือก</th>
                                     <th className="number">จำนวน</th>
                                     <th className="number">ราคาต่อชิ้น</th>
                                     <th className="number">ราคารวม</th>
@@ -171,14 +170,13 @@ function AdminOrderPrintPage({ orderIds }) {
                                     return (
                                         <tr key={item.order_detail_id || `${item.product_id}-${item.product_name}`}>
                                             <td>{item.product_name || '-'}</td>
-                                            <td>{[item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' / ') || '-'}</td>
                                             <td className="number">{qty.toLocaleString('th-TH')}</td>
                                             <td className="number">฿{formatMoney(price)}</td>
                                             <td className="number">฿{formatMoney(qty * price)}</td>
                                         </tr>
                                     );
                                 }) : (
-                                    <tr><td colSpan="5">ไม่มีรายการสินค้า</td></tr>
+                                    <tr><td colSpan="4">ไม่มีรายการสินค้า</td></tr>
                                 )}
                             </tbody>
                         </table>

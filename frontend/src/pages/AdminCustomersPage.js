@@ -138,7 +138,6 @@ function AdminCustomersPage({
                     <h4>จัดการผู้ใช้งาน</h4>
                     <p>ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
                 </div>
-                <div className="member-sync"><i /> อัปเดตจากข้อมูลจริง</div>
             </header>
 
             <div className="member-summary-grid">

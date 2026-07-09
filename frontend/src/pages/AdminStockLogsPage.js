@@ -22,8 +22,8 @@ const DEFAULT_FILTERS = {
 
 const getActivityType = (log, view) => {
     if (view === 'stock') {
-        const text = `${log.change_type || ''} ${log.remark || ''}`.toLowerCase();
-        return text.includes('ขายออก') ? 'stock-out' : 'stock-in';
+        const quantity = Number(log.change_quantity ?? log.amount ?? log.quantity ?? 0);
+        return quantity < 0 ? 'stock-out' : 'stock-in';
     }
     const text = `${log.action || ''}`.toLowerCase();
     if (text.includes('logout') || text.includes('ออกจากระบบ')) return 'logout';
@@ -65,10 +65,10 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             ...log,
             auditType: getActivityType(log, activityView),
             auditDate: log.created_at || log.log_date,
-            auditUser: log.admin_name || log.full_name || log.username || 'ระบบ',
+            auditUser: log.actor_name || log.admin_name || log.full_name || log.username || 'ระบบ',
             auditProduct: log.product_name || '-',
-            auditNote: log.remark || '-',
-            auditAmount: Number(log.amount ?? log.quantity ?? 0),
+            auditNote: log.reason || log.remark || '-',
+            auditAmount: Number(log.change_quantity ?? log.amount ?? log.quantity ?? 0),
         }))
     ), [activityView, stockLogs, systemLogs]);
 
@@ -175,7 +175,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
 
     const exportRows = (format) => {
         const headers = activityView === 'stock'
-            ? ['วันที่/เวลา', 'ผู้ใช้งาน', 'สินค้า', 'ประเภทกิจกรรม', 'จำนวน', 'หมายเหตุ']
+            ? ['วันที่/เวลา', 'ผู้ใช้งาน', 'สินค้า', 'ประเภทกิจกรรม', 'จำนวนที่เปลี่ยน', 'เหตุผล']
             : ['วันที่/เวลา', 'ผู้ใช้งาน', 'บัญชี', 'สิทธิ์', 'ประเภทกิจกรรม', 'การทำงาน', 'หมายเหตุ'];
         const data = filteredRows.map((row) => (activityView === 'stock'
             ? [formatDate(row.auditDate), row.auditUser, row.auditProduct, ACTIVITY_LABELS[row.auditType], row.auditAmount, row.auditNote]
@@ -234,7 +234,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 <div>
                     <span className="audit-eyebrow">AUDIT & COMPLIANCE</span>
                     <h4>ประวัติการเคลื่อนไหว</h4>
-                    <p>ตรวจสอบ ค้นหา และวิเคราะห์กิจกรรมย้อนหลังจากศูนย์กลางเดียว</p>
+                    <p>ตรวจสอบประวัติ stock logs แบบย้อนกลับไม่ได้ พร้อมข้อมูลผู้ดำเนินการ เหตุผล และยอดก่อน-หลังแก้ไข</p>
                 </div>
                 <div className="audit-export">
                     <button type="button" onClick={() => exportRows('csv')}>CSV</button>
@@ -379,10 +379,27 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                             <div><span>Device</span><strong>{selectedLog.device || 'ไม่มีข้อมูล'}</strong></div>
                             <div><span>Browser</span><strong>{selectedLog.browser || 'ไม่มีข้อมูล'}</strong></div>
                         </div>
-                        {activityView === 'stock' && <div className="audit-modal-highlight"><span>สินค้า</span><strong>{selectedLog.auditProduct}</strong><b className={selectedLog.auditType === 'stock-out' ? 'out' : 'in'}>{selectedLog.auditType === 'stock-out' ? '-' : '+'}{Math.abs(selectedLog.auditAmount).toLocaleString('th-TH')}</b></div>}
+                        {activityView === 'stock' && (
+                            <>
+                                <div className="audit-modal-highlight">
+                                    <span>สินค้า</span>
+                                    <strong>{selectedLog.auditProduct}</strong>
+                                    <b className={selectedLog.auditType === 'stock-out' ? 'out' : 'in'}>
+                                        {selectedLog.auditAmount < 0 ? '-' : '+'}
+                                        {Math.abs(selectedLog.auditAmount).toLocaleString('th-TH')}
+                                    </b>
+                                </div>
+                                <div className="audit-modal-grid">
+                                    <div><span>ประเภท</span><strong>{selectedLog.change_type || '-'}</strong></div>
+                                    <div><span>จำนวนก่อนแก้ไข</span><strong>{selectedLog.before_quantity ?? '-'}</strong></div>
+                                    <div><span>จำนวนที่เปลี่ยน</span><strong>{selectedLog.change_quantity ?? selectedLog.auditAmount}</strong></div>
+                                    <div><span>จำนวนหลังแก้ไข</span><strong>{selectedLog.after_quantity ?? '-'}</strong></div>
+                                </div>
+                            </>
+                        )}
                         <div className="audit-change-grid">
-                            <section><span>ข้อมูลก่อนแก้ไข</span><pre>{selectedLog.before_data || selectedLog.old_data || 'ไม่มีข้อมูลก่อนแก้ไข'}</pre></section>
-                            <section><span>ข้อมูลหลังแก้ไข</span><pre>{selectedLog.after_data || selectedLog.new_data || 'ไม่มีข้อมูลหลังแก้ไข'}</pre></section>
+                            <section><span>ข้อมูลก่อนแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.before_quantity ?? 'ไม่มีข้อมูลก่อนแก้ไข') : (selectedLog.before_data || selectedLog.old_data || 'ไม่มีข้อมูลก่อนแก้ไข')}</pre></section>
+                            <section><span>ข้อมูลหลังแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.after_quantity ?? 'ไม่มีข้อมูลหลังแก้ไข') : (selectedLog.after_data || selectedLog.new_data || 'ไม่มีข้อมูลหลังแก้ไข')}</pre></section>
                         </div>
                         <div className="audit-modal-note"><span>หมายเหตุ</span><p>{selectedLog.auditNote}</p></div>
                         <footer><button type="button" onClick={() => setSelectedLog(null)}>ปิดหน้าต่าง</button></footer>

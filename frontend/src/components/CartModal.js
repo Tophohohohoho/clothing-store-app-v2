@@ -42,8 +42,6 @@ function CartModal({
 
     const isSameCartItem = (cartItem, item) => (
         cartItem.id === item.id
-        && (cartItem.selected_size || '') === (item.selected_size || '')
-        && (cartItem.selected_color || '') === (item.selected_color || '')
     );
 
     const decreaseQty = async (item) => {
@@ -180,12 +178,6 @@ function CartModal({
                                             <div className="cart-item-heading">
                                                 <div>
                                                     <h3>{item.name}</h3>
-                                                    {(item.selected_size || item.selected_color) && (
-                                                        <div className="cart-item-options">
-                                                            {item.selected_size && <span>ไซซ์ {item.selected_size}</span>}
-                                                            {item.selected_color && <span>สี {item.selected_color}</span>}
-                                                        </div>
-                                                    )}
                                                 </div>
                                                 <button
                                                     type="button"

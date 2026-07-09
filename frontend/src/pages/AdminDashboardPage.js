@@ -160,13 +160,12 @@ const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
         <section class="items">
             <h2>รายการสินค้าในออเดอร์</h2>
             <table>
-                <thead><tr><th>สินค้า</th><th>ตัวเลือก</th><th class="number">จำนวน</th><th class="number">ราคาต่อชิ้น</th><th class="number">ราคารวม</th></tr></thead>
+                <thead><tr><th>สินค้า</th><th class="number">จำนวน</th><th class="number">ราคาต่อชิ้น</th><th class="number">ราคารวม</th></tr></thead>
                 <tbody>${items.length ? items.map((item) => {
                     const qty = Number(item.quantity || 0);
                     const price = Number(item.price || 0);
-                    const options = [item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' / ') || '-';
-                    return `<tr><td>${escapeHtml(item.product_name || '-')}</td><td>${escapeHtml(options)}</td><td class="number">${qty.toLocaleString('th-TH')}</td><td class="number">฿${formatMoney(price)}</td><td class="number">฿${formatMoney(qty * price)}</td></tr>`;
-                }).join('') : '<tr><td colspan="5">ไม่มีรายการสินค้า</td></tr>'}</tbody>
+                    return `<tr><td>${escapeHtml(item.product_name || '-')}</td><td class="number">${qty.toLocaleString('th-TH')}</td><td class="number">฿${formatMoney(price)}</td><td class="number">฿${formatMoney(qty * price)}</td></tr>`;
+                }).join('') : '<tr><td colspan="4">ไม่มีรายการสินค้า</td></tr>'}</tbody>
             </table>
         </section>
         <section class="total">
@@ -1112,7 +1111,7 @@ function AdminDashboardPage({
                                             {detailItems.length ? detailItems.map((item) => (
                                                 <article key={item.order_detail_id}>
                                                     {item.product_image ? <img src={item.product_image} alt={item.product_name || 'สินค้า'} /> : <b>◇</b>}
-                                                    <div><strong>{item.product_name || `สินค้า #${item.product_id}`}</strong><small>{[item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' · ') || 'ตัวเลือกมาตรฐาน'}</small></div>
+                                                    <div><strong>{item.product_name || `สินค้า #${item.product_id}`}</strong></div>
                                                     <span>{item.quantity} × ฿{formatMoney(item.price)}</span>
                                                 </article>
                                             )) : <div className="order-empty-inline">ไม่พบรายการสินค้าในออเดอร์นี้</div>}

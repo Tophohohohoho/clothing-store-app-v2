@@ -103,7 +103,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                         </div>
                         <div className="pos-receipt-items">
                             {receipt.items.map((item) => (
-                                <div key={`${item.product_id}-${item.selected_size || ''}-${item.selected_color || ''}`}>
+                                <div key={item.product_id}>
                                     <span>
                                         <strong>{item.name}</strong>
                                         <small>{item.quantity} × ฿{formatMoney(item.price)}</small>
@@ -148,12 +148,9 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                                 const quantity = getItemQuantity(item);
                                 const price = getItemPrice(item);
                                 return (
-                                    <div key={`${item.id}-${item.selected_size || ''}-${item.selected_color || ''}`}>
+                                    <div key={item.id}>
                                         <span>
                                             <strong>{item.name}</strong>
-                                            <small>
-                                                {[item.selected_size && `ไซซ์ ${item.selected_size}`, item.selected_color && `สี ${item.selected_color}`].filter(Boolean).join(' • ')}
-                                            </small>
                                             <small>฿{formatMoney(price)} × {quantity}</small>
                                         </span>
                                         <b>฿{formatMoney(price * quantity)}</b>

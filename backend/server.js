@@ -230,39 +230,7 @@ const normalizeProduct = (product) => ({
     name: product.product_name,
     image_url: product.product_image,
     stock: product.quantity,
-    colors: product.colors || [],
 });
-
-const normalizeColors = (colors) => {
-    if (!Array.isArray(colors)) return [];
-
-    const seen = new Set();
-    return colors.reduce((result, color) => {
-        const name = String(color?.name || color?.color_name || '').trim();
-        const hex = String(color?.hex || color?.color_hex || '#000000').trim();
-        const key = name.toLocaleLowerCase('th-TH');
-
-        if (!name || seen.has(key)) return result;
-        seen.add(key);
-        result.push({
-            name: name.slice(0, 50),
-            hex: /^#[0-9a-fA-F]{6}$/.test(hex) ? hex.toLowerCase() : '#000000',
-        });
-        return result;
-    }, []);
-};
-
-const replaceProductColors = async (productId, colors) => {
-    const cleanColors = normalizeColors(colors);
-    await query('DELETE FROM product_color WHERE product_id = ?', [productId]);
-
-    if (cleanColors.length > 0) {
-        await query(
-            'INSERT INTO product_color (product_id, color_name, color_hex) VALUES ?',
-            [cleanColors.map((color) => [productId, color.name, color.hex])],
-        );
-    }
-};
 
 const normalizeOrder = (order) => ({
     ...order,
@@ -348,6 +316,94 @@ const writeOrderStatusHistory = async (orderId, status, userId = null, note = ''
         'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
         [orderId, status, userId || null, note || null],
     );
+};
+
+const MANUAL_STOCK_CHANGE_TYPES = new Set(['รับสินค้าเข้า', 'คืนสินค้า', 'สินค้าชำรุด', 'ปรับยอด']);
+
+const getUserSnapshot = async (userId, executor = dbp) => {
+    if (!userId) {
+        return {
+            actorName: 'ระบบ',
+            actorRole: 'system',
+        };
+    }
+
+    const [users] = await executor.query(
+        'SELECT full_name, username, role FROM `user` WHERE user_id = ? LIMIT 1',
+        [userId],
+    );
+    const user = users[0];
+    return {
+        actorName: cleanText(user?.full_name) || cleanText(user?.username) || `ผู้ใช้ #${userId}`,
+        actorRole: user?.role || 'user',
+    };
+};
+
+const applyStockChange = async ({
+    productId,
+    changeType,
+    changeQuantity,
+    reason = '',
+    userId = null,
+    orderDetailId = null,
+    executor = dbp,
+}) => {
+    const normalizedType = cleanText(changeType);
+    const normalizedReason = cleanText(reason);
+    const quantityDelta = Number(changeQuantity);
+
+    if (!productId) throw new Error('ไม่พบรหัสสินค้า');
+    if (!normalizedType) throw new Error('กรุณาระบุประเภทการเปลี่ยนแปลงสต๊อก');
+    if (!Number.isInteger(quantityDelta) || quantityDelta === 0) {
+        throw new Error('จำนวนที่เปลี่ยนต้องเป็นจำนวนเต็มและห้ามเป็นศูนย์');
+    }
+
+    const [products] = await executor.query(
+        'SELECT product_id, product_name, quantity FROM product WHERE product_id = ? LIMIT 1',
+        [productId],
+    );
+    if (products.length === 0) {
+        throw new Error('ไม่พบสินค้าในระบบ');
+    }
+
+    const beforeQuantity = Number(products[0].quantity) || 0;
+    const afterQuantity = beforeQuantity + quantityDelta;
+    if (afterQuantity < 0) {
+        throw new Error(`สต็อกสินค้า ${products[0].product_name} ไม่เพียงพอ`);
+    }
+
+    const actor = await getUserSnapshot(userId, executor);
+
+    await executor.query(
+        'UPDATE product SET quantity = ?, updated_stock = NOW() WHERE product_id = ?',
+        [afterQuantity, productId],
+    );
+    await executor.query(
+        `INSERT INTO stock_logs
+            (product_id, change_type, quantity, before_quantity, change_quantity, after_quantity, reason, order_detail_id, user_id, actor_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            productId,
+            normalizedType,
+            Math.abs(quantityDelta),
+            beforeQuantity,
+            quantityDelta,
+            afterQuantity,
+            normalizedReason || null,
+            orderDetailId || null,
+            userId || null,
+            actor.actorName,
+        ],
+    );
+
+    return {
+        productName: products[0].product_name,
+        beforeQuantity,
+        afterQuantity,
+        changeQuantity: quantityDelta,
+        actorName: actor.actorName,
+        actorRole: actor.actorRole,
+    };
 };
 
 const PAID_PAYMENT_STATUS = 'ชำระเงินแล้ว';
@@ -475,61 +531,46 @@ const seedUniversityProducts = async () => {
     }
 
     const products = [
-        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาชาย', 'เสื้อเชิ้ตแขนสั้นนักศึกษาชาย', 350.00, 1, 0],
-        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาหญิง', 'เสื้อเชิ้ตนักศึกษาหญิง', 350.00, 1, 0],
-        ['เครื่องแบบนักศึกษา', 'กางเกงนักศึกษาชาย', 'กางเกงขายาวสีดำ', 450.00, 1, 0],
-        ['เครื่องแบบนักศึกษา', 'กระโปรงนักศึกษาหญิง', 'กระโปรงทรงเอสีดำ', 450.00, 1, 0],
-        ['ชุดกีฬา', 'เสื้อกีฬามหาวิทยาลัย', 'เสื้อกีฬาประจำมหาวิทยาลัย', 300.00, 1, 1],
-        ['ชุดกีฬา', 'กางเกงกีฬา', 'กางเกงกีฬาขาสั้น', 250.00, 1, 1],
-        ['ชุดพิธีการ', 'ครุยวิทยฐานะ', 'ครุยสำหรับพิธีรับปริญญา', 1500.00, 1, 0],
-        ['เครื่องหมายและเครื่องประดับ', 'เข็มมหาวิทยาลัย', 'เข็มติดเสื้อนักศึกษา', 80.00, 0, 0],
-        ['เครื่องหมายและเครื่องประดับ', 'เนกไทนักศึกษา', 'เนกไทสำหรับนักศึกษาชาย', 180.00, 0, 0],
-        ['เครื่องหมายและเครื่องประดับ', 'เข็มขัดนักศึกษา', 'เข็มขัดพร้อมหัวเข็มขัด', 250.00, 0, 0],
-        ['รองเท้าและถุงเท้า', 'รองเท้าหนังนักศึกษา', 'รองเท้าหนังสีดำ', 890.00, 1, 0],
-        ['รองเท้าและถุงเท้า', 'ถุงเท้านักศึกษา', 'ถุงเท้าสีขาว', 60.00, 0, 0],
-        ['กระเป๋า', 'กระเป๋าสะพายมหาวิทยาลัย', 'กระเป๋าสะพายโลโก้มหาวิทยาลัย', 590.00, 0, 1],
-        ['กระเป๋า', 'เป้มหาวิทยาลัย', 'กระเป๋าเป้สำหรับนักศึกษา', 790.00, 0, 1],
-        ['อุปกรณ์การเรียน', 'สมุดมหาวิทยาลัย', 'สมุดปกโลโก้มหาวิทยาลัย', 40.00, 0, 0],
-        ['อุปกรณ์การเรียน', 'แฟ้มเอกสาร', 'แฟ้มใส่เอกสาร A4', 50.00, 0, 1],
-        ['ของที่ระลึกมหาวิทยาลัย', 'แก้วน้ำมหาวิทยาลัย', 'แก้วน้ำสแตนเลส', 199.00, 0, 1],
-        ['ของที่ระลึกมหาวิทยาลัย', 'พวงกุญแจมหาวิทยาลัย', 'พวงกุญแจโลโก้มหาวิทยาลัย', 79.00, 0, 1],
+        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาชาย', 'เสื้อเชิ้ตแขนสั้นนักศึกษาชาย', 350.00],
+        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาหญิง', 'เสื้อเชิ้ตนักศึกษาหญิง', 350.00],
+        ['เครื่องแบบนักศึกษา', 'กางเกงนักศึกษาชาย', 'กางเกงขายาวสีดำ', 450.00],
+        ['เครื่องแบบนักศึกษา', 'กระโปรงนักศึกษาหญิง', 'กระโปรงทรงเอสีดำ', 450.00],
+        ['ชุดกีฬา', 'เสื้อกีฬามหาวิทยาลัย', 'เสื้อกีฬาประจำมหาวิทยาลัย', 300.00],
+        ['ชุดกีฬา', 'กางเกงกีฬา', 'กางเกงกีฬาขาสั้น', 250.00],
+        ['ชุดพิธีการ', 'ครุยวิทยฐานะ', 'ครุยสำหรับพิธีรับปริญญา', 1500.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มมหาวิทยาลัย', 'เข็มติดเสื้อนักศึกษา', 80.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เนกไทนักศึกษา', 'เนกไทสำหรับนักศึกษาชาย', 180.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มขัดนักศึกษา', 'เข็มขัดพร้อมหัวเข็มขัด', 250.00],
+        ['รองเท้าและถุงเท้า', 'รองเท้าหนังนักศึกษา', 'รองเท้าหนังสีดำ', 890.00],
+        ['รองเท้าและถุงเท้า', 'ถุงเท้านักศึกษา', 'ถุงเท้าสีขาว', 60.00],
+        ['กระเป๋า', 'กระเป๋าสะพายมหาวิทยาลัย', 'กระเป๋าสะพายโลโก้มหาวิทยาลัย', 590.00],
+        ['กระเป๋า', 'เป้มหาวิทยาลัย', 'กระเป๋าเป้สำหรับนักศึกษา', 790.00],
+        ['อุปกรณ์การเรียน', 'สมุดมหาวิทยาลัย', 'สมุดปกโลโก้มหาวิทยาลัย', 40.00],
+        ['อุปกรณ์การเรียน', 'แฟ้มเอกสาร', 'แฟ้มใส่เอกสาร A4', 50.00],
+        ['ของที่ระลึกมหาวิทยาลัย', 'แก้วน้ำมหาวิทยาลัย', 'แก้วน้ำสแตนเลส', 199.00],
+        ['ของที่ระลึกมหาวิทยาลัย', 'พวงกุญแจมหาวิทยาลัย', 'พวงกุญแจโลโก้มหาวิทยาลัย', 79.00],
     ];
 
-    const defaultColors = [
-        { name: 'ดำ', hex: '#111827' },
-        { name: 'ขาว', hex: '#f8fafc' },
-        { name: 'กรมท่า', hex: '#1e3a8a' },
-    ];
-
-    for (const [categoryName, productName, description, price, hasSize, hasColor] of products) {
+    for (const [categoryName, productName, description, price] of products) {
         const [existing] = await query(
             'SELECT product_id FROM product WHERE product_name = ? LIMIT 1',
             [productName],
         );
 
-        if (existing.length > 0) {
-            if (hasColor) {
-                const [colors] = await query(
-                    'SELECT product_color_id FROM product_color WHERE product_id = ? LIMIT 1',
-                    [existing[0].product_id],
-                );
-                if (colors.length === 0) await replaceProductColors(existing[0].product_id, defaultColors);
-            }
-            continue;
-        }
+        if (existing.length > 0) continue;
 
         const [result] = await query(
             `INSERT INTO product
-                (category_id, product_name, description, price, product_image, product_status, has_size, has_color, quantity, updated_stock)
-             VALUES (?, ?, ?, ?, NULL, 1, ?, ?, 20, NOW())`,
-            [categoryIds[categoryName], productName, description, price, hasSize, hasColor],
+                (category_id, product_name, description, price, product_image, product_status, quantity, updated_stock)
+             VALUES (?, ?, ?, ?, NULL, 1, 0, NOW())`,
+            [categoryIds[categoryName], productName, description, price],
         );
-
-        await query(
-            'INSERT INTO stock_logs (product_id, change_type, quantity) VALUES (?, ?, ?)',
-            [result.insertId, 'รับเข้า', 20],
-        );
-        if (hasColor) await replaceProductColors(result.insertId, defaultColors);
+        await applyStockChange({
+            productId: result.insertId,
+            changeType: 'รับสินค้าเข้า',
+            changeQuantity: 20,
+            reason: 'ตั้งต้นข้อมูลสินค้า',
+        });
     }
 };
 
@@ -583,24 +624,12 @@ const initializeDatabase = async () => {
             price decimal(10,2) NOT NULL,
             product_image varchar(255) DEFAULT NULL,
             product_status tinyint DEFAULT '1',
-            has_size tinyint DEFAULT '1',
-            has_color tinyint DEFAULT '0',
             quantity int DEFAULT '0',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             updated_stock datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (product_id),
             KEY fk_product_category (category_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
-        `CREATE TABLE IF NOT EXISTS product_color (
-            product_color_id int NOT NULL AUTO_INCREMENT,
-            product_id int NOT NULL,
-            color_name varchar(50) NOT NULL,
-            color_hex varchar(7) DEFAULT '#000000',
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (product_color_id),
-            UNIQUE KEY uq_product_color_name (product_id, color_name),
-            KEY fk_product_color_product (product_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
         `CREATE TABLE IF NOT EXISTS orders (
             order_id int NOT NULL AUTO_INCREMENT,
@@ -624,8 +653,6 @@ const initializeDatabase = async () => {
             order_id int NOT NULL,
             quantity int NOT NULL,
             price decimal(10,2) NOT NULL,
-            selected_size varchar(20) DEFAULT NULL,
-            selected_color varchar(50) DEFAULT NULL,
             PRIMARY KEY (order_detail_id),
             KEY fk_orderdetail_product (product_id),
             KEY fk_orderdetail_order (order_id)
@@ -651,8 +678,13 @@ const initializeDatabase = async () => {
             product_id int NOT NULL,
             change_type varchar(50) NOT NULL,
             quantity int NOT NULL,
+            before_quantity int DEFAULT NULL,
+            change_quantity int DEFAULT NULL,
+            after_quantity int DEFAULT NULL,
+            reason text,
             order_detail_id int DEFAULT NULL,
             user_id int DEFAULT NULL,
+            actor_name varchar(255) DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (stock_log_id),
             KEY fk_stock_product (product_id),
@@ -712,21 +744,54 @@ const initializeDatabase = async () => {
         await query(schema);
     }
 
-    if (!(await columnExists('order_detail', 'selected_size'))) {
-        await query('ALTER TABLE order_detail ADD COLUMN selected_size varchar(20) DEFAULT NULL AFTER price');
+    if (await tableExists('product_color')) {
+        await query('DROP TABLE product_color');
     }
-    if (!(await columnExists('order_detail', 'selected_color'))) {
-        await query('ALTER TABLE order_detail ADD COLUMN selected_color varchar(50) DEFAULT NULL AFTER selected_size');
+    if (await columnExists('order_detail', 'selected_color')) {
+        await query('ALTER TABLE order_detail DROP COLUMN selected_color');
     }
-    if (!(await columnExists('product', 'has_size'))) {
-        await query('ALTER TABLE product ADD COLUMN has_size tinyint DEFAULT 1 AFTER product_status');
+    if (await columnExists('order_detail', 'selected_size')) {
+        await query('ALTER TABLE order_detail DROP COLUMN selected_size');
     }
-    if (!(await columnExists('product', 'has_color'))) {
-        await query('ALTER TABLE product ADD COLUMN has_color tinyint DEFAULT 0 AFTER has_size');
+    if (await columnExists('product', 'has_color')) {
+        await query('ALTER TABLE product DROP COLUMN has_color');
+    }
+    if (await columnExists('product', 'has_size')) {
+        await query('ALTER TABLE product DROP COLUMN has_size');
     }
     if (!(await columnExists('stock_logs', 'user_id'))) {
         await query('ALTER TABLE stock_logs ADD COLUMN user_id int DEFAULT NULL AFTER order_detail_id');
     }
+    if (!(await columnExists('stock_logs', 'before_quantity'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN before_quantity int DEFAULT NULL AFTER quantity');
+    }
+    if (!(await columnExists('stock_logs', 'change_quantity'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN change_quantity int DEFAULT NULL AFTER before_quantity');
+    }
+    if (!(await columnExists('stock_logs', 'after_quantity'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN after_quantity int DEFAULT NULL AFTER change_quantity');
+    }
+    if (!(await columnExists('stock_logs', 'reason'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN reason text DEFAULT NULL AFTER after_quantity');
+    }
+    if (!(await columnExists('stock_logs', 'actor_name'))) {
+        await query('ALTER TABLE stock_logs ADD COLUMN actor_name varchar(255) DEFAULT NULL AFTER user_id');
+    }
+    await query(`
+        UPDATE stock_logs
+        SET
+            change_quantity = CASE
+                WHEN change_quantity IS NOT NULL THEN change_quantity
+                WHEN change_type IN ('ขายออก', 'ขายสินค้า', 'ขายหน้าร้าน', 'สินค้าชำรุด') THEN -quantity
+                ELSE quantity
+            END,
+            reason = CASE
+                WHEN reason IS NOT NULL AND TRIM(reason) <> '' THEN reason
+                WHEN change_type IN ('รับสินค้าเข้า', 'ขายสินค้า', 'คืนสินค้า', 'สินค้าชำรุด', 'ปรับยอด') THEN reason
+                ELSE change_type
+            END
+        WHERE change_quantity IS NULL OR reason IS NULL
+    `);
     if (!(await columnExists('system_log', 'before_data'))) {
         await query('ALTER TABLE system_log ADD COLUMN before_data longtext DEFAULT NULL AFTER remark');
     }
@@ -823,28 +888,7 @@ app.get('/api/products', async (req, res) => {
         `;
         const params = keyword ? [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`] : [];
         const [results] = await query(sql, params);
-        const productIds = results.map((product) => product.product_id);
-        let colorsByProduct = {};
-
-        if (productIds.length > 0) {
-            const [colorRows] = await query(
-                `SELECT product_id, color_name, color_hex
-                 FROM product_color
-                 WHERE product_id IN (?)
-                 ORDER BY product_color_id`,
-                [productIds],
-            );
-            colorsByProduct = colorRows.reduce((groups, color) => {
-                if (!groups[color.product_id]) groups[color.product_id] = [];
-                groups[color.product_id].push({ name: color.color_name, hex: color.color_hex });
-                return groups;
-            }, {});
-        }
-
-        res.json(results.map((product) => normalizeProduct({
-            ...product,
-            colors: colorsByProduct[product.product_id] || [],
-        })));
+        res.json(results.map(normalizeProduct));
     } catch (err) {
         respondError(res, err, 'โหลดสินค้าไม่สำเร็จ');
     }
@@ -967,13 +1011,9 @@ app.post('/api/products/upload-image', (req, res) => {
 
 app.post('/api/products', async (req, res) => {
     try {
-        const { name, description, price, image_url, stock, category_id, category_name, user_id, has_size, has_color, colors } = req.body;
+        const { name, description, price, image_url, stock, category_id, category_name, user_id } = req.body;
         const categoryId = await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name });
         if (!categoryId) return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
-        const cleanColors = normalizeColors(colors);
-        if (Number(has_color) === 1 && cleanColors.length === 0) {
-            return res.status(400).json({ error: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
-        }
 
         const stockAmount = Number(stock);
         if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
@@ -982,16 +1022,18 @@ app.post('/api/products', async (req, res) => {
 
         const [result] = await query(
             `INSERT INTO product
-                (category_id, product_name, description, price, product_image, product_status, has_size, has_color, quantity, updated_stock)
-             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, NOW())`,
-            [categoryId, name, description || null, price, image_url || null, Number(has_size) ? 1 : 0, Number(has_color) ? 1 : 0, stockAmount],
+                (category_id, product_name, description, price, product_image, product_status, quantity, updated_stock)
+             VALUES (?, ?, ?, ?, ?, 1, 0, NOW())`,
+            [categoryId, name, description || null, price, image_url || null],
         );
 
-        await query(
-            'INSERT INTO stock_logs (product_id, change_type, quantity, user_id) VALUES (?, ?, ?, ?)',
-            [result.insertId, 'รับเข้า', stockAmount, user_id || null],
-        );
-        await replaceProductColors(result.insertId, Number(has_color) === 1 ? cleanColors : []);
+        await applyStockChange({
+            productId: result.insertId,
+            changeType: 'รับสินค้าเข้า',
+            changeQuantity: stockAmount,
+            reason: 'สต็อกเริ่มต้นตอนสร้างสินค้า',
+            userId: user_id || null,
+        });
         await writeSystemLog(user_id, 'เพิ่มสินค้า', `เพิ่มสินค้า ${name}`);
 
         res.json({ success: true, message: 'เพิ่มสินค้าสำเร็จ', insertId: result.insertId, id: result.insertId });
@@ -1473,8 +1515,6 @@ app.get('/api/admin/orders', async (req, res) => {
                     od.product_id,
                     od.quantity,
                     od.price,
-                    od.selected_size,
-                    od.selected_color,
                     p.product_name,
                     p.product_image
                  FROM order_detail od
@@ -1496,8 +1536,6 @@ app.get('/api/admin/orders', async (req, res) => {
                     quantity: item.quantity,
                     qty: item.quantity,
                     price: item.price,
-                    selected_size: item.selected_size,
-                    selected_color: item.selected_color,
                 });
                 return grouped;
             }, {});
@@ -1560,8 +1598,6 @@ app.get('/api/admin/orders/:id/details', async (req, res) => {
                 od.product_id,
                 od.quantity,
                 od.price,
-                od.selected_size,
-                od.selected_color,
                 p.product_name,
                 p.product_image
              FROM order_detail od
@@ -1652,13 +1688,15 @@ app.post('/api/admin/orders/delete', async (req, res) => {
         const [items] = await query('SELECT product_id, quantity FROM order_detail WHERE order_id = ?', [order_id]);
         if (orders[0].order_status !== 'ยกเลิก') {
             for (const item of items) {
-                await query(
-                    'UPDATE product SET quantity = quantity + ?, updated_stock = NOW() WHERE product_id = ?',
-                    [item.quantity, item.product_id],
-                );
+                await applyStockChange({
+                    productId: item.product_id,
+                    changeType: 'คืนสินค้า',
+                    changeQuantity: item.quantity,
+                    reason: `ลบคำสั่งซื้อ #${order_id}`,
+                    userId: user_id || null,
+                });
             }
         }
-        await query('DELETE FROM stock_logs WHERE order_detail_id IN (SELECT order_detail_id FROM order_detail WHERE order_id = ?)', [order_id]);
         await query('DELETE FROM order_status_history WHERE order_id = ?', [order_id]);
         await query('DELETE FROM order_admin_notes WHERE order_id = ?', [order_id]);
         await query('DELETE FROM payment WHERE order_id = ?', [order_id]);
@@ -2079,11 +2117,17 @@ app.get('/api/admin/stock-logs', async (req, res) => {
                 l.change_type,
                 l.quantity AS amount,
                 l.quantity,
+                l.before_quantity,
+                l.change_quantity,
+                l.after_quantity,
+                l.reason,
                 l.order_detail_id,
                 l.user_id,
+                l.actor_name,
                 l.created_at,
                 p.product_name AS product_name,
                 COALESCE(
+                    l.actor_name,
                     CASE WHEN stock_user.role = 'admin' THEN COALESCE(stock_user.full_name, stock_user.username) END,
                     CASE WHEN order_user.role = 'admin' THEN COALESCE(order_user.full_name, order_user.username) END,
                     CASE WHEN inferred_user.role = 'admin' THEN COALESCE(inferred_user.full_name, inferred_user.username) END
@@ -2118,7 +2162,7 @@ app.get('/api/admin/stock-logs', async (req, res) => {
         `);
         res.json(results.map((item) => ({
             ...item,
-            remark: item.change_type,
+            remark: item.reason || item.change_type,
         })));
     } catch (err) {
         respondError(res, err, 'โหลดประวัติสต็อกไม่สำเร็จ');
@@ -2157,25 +2201,58 @@ app.get('/api/admin/system-logs', async (req, res) => {
 
 app.post('/api/products/update-stock', async (req, res) => {
     try {
-        const { product_id, amount, remark, user_id } = req.body;
+        const {
+            product_id,
+            amount,
+            reason,
+            user_id,
+            change_type,
+            operation,
+        } = req.body;
         const stockAmount = Number(amount);
         if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
             return res.status(400).json({ error: 'จำนวนสต็อกต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
         }
-        const stockRemark = String(remark || '').trim();
-        if (!stockRemark) {
-            return res.status(400).json({ error: 'กรุณากรอกหมายเหตุทุกครั้งเมื่อรับสต็อก' });
+        const normalizedType = cleanText(change_type);
+        const normalizedReason = cleanText(reason);
+        if (!MANUAL_STOCK_CHANGE_TYPES.has(normalizedType)) {
+            if (normalizedType === 'ขายสินค้า') {
+                return res.status(400).json({ error: 'ประเภทขายสินค้าจะถูกบันทึกจากออเดอร์หรือ POS เท่านั้น ห้ามปรับยอดขายโดยตรง' });
+            }
+            return res.status(400).json({ error: 'ประเภทการเปลี่ยนแปลงสต๊อกไม่ถูกต้อง' });
+        }
+        let changeQuantity = stockAmount;
+        if (normalizedType === 'สินค้าชำรุด') {
+            changeQuantity = -stockAmount;
+        } else if (normalizedType === 'ปรับยอด') {
+            changeQuantity = cleanText(operation) === 'decrease' ? -stockAmount : stockAmount;
         }
 
-        await query(
-            'INSERT INTO stock_logs (product_id, change_type, quantity, user_id) VALUES (?, ?, ?, ?)',
-            [product_id, stockRemark, stockAmount, user_id || null],
+        const result = await applyStockChange({
+            productId: product_id,
+            changeType: normalizedType,
+            changeQuantity,
+            reason: normalizedReason,
+            userId: user_id || null,
+        });
+        await writeSystemLog(
+            user_id,
+            'ปรับสต๊อก',
+            normalizedReason ? `${normalizedType}: ${normalizedReason}` : normalizedType,
+            {
+            beforeData: {
+                product_id,
+                before_quantity: result.beforeQuantity,
+            },
+            afterData: {
+                product_id,
+                change_type: normalizedType,
+                change_quantity: result.changeQuantity,
+                after_quantity: result.afterQuantity,
+                reason: normalizedReason,
+            },
+            },
         );
-        await query(
-            'UPDATE product SET quantity = quantity + ?, updated_stock = NOW() WHERE product_id = ?',
-            [stockAmount, product_id],
-        );
-        await writeSystemLog(user_id, 'ปรับสต็อก', `${stockRemark}: ${stockAmount}`);
 
         res.json({ success: true, message: 'ปรับปรุงสต็อกสำเร็จ' });
     } catch (err) {
@@ -2184,37 +2261,12 @@ app.post('/api/products/update-stock', async (req, res) => {
 });
 
 app.post('/api/admin/stock-logs/delete', async (req, res) => {
-    try {
-        const { log_id, user_id, remark } = req.body;
-        if (!log_id) return res.status(400).json({ error: 'ไม่พบรหัสรายการประวัติสต็อก' });
-
-        const [results] = await query(
-            'SELECT product_id, change_type, quantity FROM stock_logs WHERE stock_log_id = ?',
-            [log_id],
-        );
-        if (results.length === 0) return res.status(404).json({ error: 'ไม่พบรายการประวัติสต็อก' });
-
-        const { product_id, change_type, quantity } = results[0];
-        const restoreAmount = change_type === 'ขายออก' ? quantity : -quantity;
-        await query('DELETE FROM stock_logs WHERE stock_log_id = ?', [log_id]);
-        await query(
-            'UPDATE product SET quantity = quantity + ?, updated_stock = NOW() WHERE product_id = ?',
-            [restoreAmount, product_id],
-        );
-        await writeSystemLog(user_id, 'ลบประวัติสต็อก', `${remark || 'ไม่ระบุเหตุผล'} (#${log_id})`);
-        res.json({ success: true, message: 'ลบประวัติสต็อกและปรับยอดคืนสำเร็จ' });
-    } catch (err) {
-        respondError(res, err, 'ลบประวัติสต็อกไม่สำเร็จ');
-    }
+    res.status(403).json({ error: 'ไม่อนุญาตให้ลบหรือแก้ไขประวัติ stock_logs' });
 });
 
 app.post('/api/admin/products/edit', async (req, res) => {
     try {
-        const { id, name, price, description, image_url, category_id, category_name, product_status, has_size, has_color, colors } = req.body;
-        const cleanColors = normalizeColors(colors);
-        if (Number(has_color) === 1 && cleanColors.length === 0) {
-            return res.status(400).json({ error: 'กรุณาเพิ่มสีสินค้าอย่างน้อย 1 สี' });
-        }
+        const { id, name, price, description, image_url, category_id, category_name, product_status } = req.body;
         const shouldUpdateCategory = Boolean(category_id || String(category_name || '').trim());
         const categoryId = shouldUpdateCategory
             ? await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name })
@@ -2230,9 +2282,7 @@ app.post('/api/admin/products/edit', async (req, res) => {
                  description = ?,
                  product_image = COALESCE(?, product_image),
                  category_id = COALESCE(?, category_id),
-                 product_status = COALESCE(?, product_status),
-                 has_size = COALESCE(?, has_size),
-                 has_color = COALESCE(?, has_color)
+                 product_status = COALESCE(?, product_status)
              WHERE product_id = ?`,
             [
                 name,
@@ -2241,12 +2291,9 @@ app.post('/api/admin/products/edit', async (req, res) => {
                 image_url || null,
                 categoryId || null,
                 product_status ?? null,
-                has_size ?? null,
-                has_color ?? null,
                 id,
             ],
         );
-        await replaceProductColors(id, Number(has_color) === 1 ? cleanColors : []);
         res.json({ success: true, message: 'แก้ไขสินค้าสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'แก้ไขสินค้าไม่สำเร็จ');
@@ -2288,17 +2335,17 @@ app.delete('/api/admin/products/:id', async (req, res) => {
             });
         }
 
-        await dbp.beginTransaction();
-        try {
-            await query('DELETE FROM stock_logs WHERE product_id = ?', [id]);
-            await query('DELETE FROM product_color WHERE product_id = ?', [id]);
-            await query('DELETE FROM product WHERE product_id = ?', [id]);
-            await dbp.commit();
-        } catch (transactionError) {
-            await dbp.rollback();
-            throw transactionError;
+        const [stockLogUsage] = await query(
+            'SELECT COUNT(*) AS usage_count FROM stock_logs WHERE product_id = ?',
+            [id],
+        );
+        if (Number(stockLogUsage[0]?.usage_count) > 0) {
+            return res.status(409).json({
+                error: 'ไม่สามารถลบสินค้าที่มีประวัติ stock log ได้ กรุณาปิดใช้งานสินค้าแทน',
+            });
         }
 
+        await query('DELETE FROM product WHERE product_id = ?', [id]);
         res.json({ success: true, message: 'ลบสินค้าออกจากระบบแล้ว' });
     } catch (err) {
         respondError(res, err, 'ลบสินค้าไม่สำเร็จ');
@@ -2367,8 +2414,6 @@ app.post('/api/admin/pos/checkout', async (req, res) => {
         for (const item of cart_items) {
             const productId = item.id || item.product_id || item.p_id;
             const quantity = Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10);
-            const selectedSize = String(item.selected_size || item.size || '').trim() || null;
-            const selectedColor = String(item.selected_color || item.color || '').trim() || null;
 
             if (!productId || !Number.isInteger(quantity) || quantity <= 0) {
                 throw new Error('ข้อมูลสินค้าในรายการขายไม่ถูกต้อง');
@@ -2393,8 +2438,6 @@ app.post('/api/admin/pos/checkout', async (req, res) => {
                 name: product.product_name,
                 price,
                 quantity,
-                selected_size: selectedSize,
-                selected_color: selectedColor,
             });
         }
 
@@ -2413,17 +2456,18 @@ app.post('/api/admin/pos/checkout', async (req, res) => {
 
         for (const item of receiptItems) {
             const [detailResult] = await dbp.query(
-                'INSERT INTO order_detail (product_id, order_id, quantity, price, selected_size, selected_color) VALUES (?, ?, ?, ?, ?, ?)',
-                [item.product_id, orderId, item.quantity, item.price, item.selected_size, item.selected_color],
+                'INSERT INTO order_detail (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)',
+                [item.product_id, orderId, item.quantity, item.price],
             );
-            await dbp.query(
-                'UPDATE product SET quantity = quantity - ?, updated_stock = NOW() WHERE product_id = ?',
-                [item.quantity, item.product_id],
-            );
-            await dbp.query(
-                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
-                [item.product_id, 'ขายหน้าร้าน', item.quantity, detailResult.insertId, user_id],
-            );
+            await applyStockChange({
+                productId: item.product_id,
+                changeType: 'ขายสินค้า',
+                changeQuantity: -item.quantity,
+                reason: `ขายหน้าร้าน #${orderId}`,
+                userId: user_id,
+                orderDetailId: detailResult.insertId,
+                executor: dbp,
+            });
         }
 
         await dbp.query(
@@ -2599,8 +2643,6 @@ app.post('/api/orders/checkout', async (req, res) => {
             const productId = item.id || item.product_id || item.p_id;
             const quantity = Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10);
             const itemPrice = parseFloat(String(item.price || 0).replace(/[^\d.]/g, '')) || 0;
-            const selectedSize = String(item.selected_size || item.size || '').trim() || null;
-            const selectedColor = String(item.selected_color || item.color || '').trim() || null;
 
             if (!productId) continue;
             if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -2619,17 +2661,17 @@ app.post('/api/orders/checkout', async (req, res) => {
             }
 
             const [detailResult] = await query(
-                'INSERT INTO order_detail (product_id, order_id, quantity, price, selected_size, selected_color) VALUES (?, ?, ?, ?, ?, ?)',
-                [productId, orderId, quantity, itemPrice, selectedSize, selectedColor],
+                'INSERT INTO order_detail (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)',
+                [productId, orderId, quantity, itemPrice],
             );
-            await query(
-                'UPDATE product SET quantity = quantity - ?, updated_stock = NOW() WHERE product_id = ?',
-                [quantity, productId],
-            );
-            await query(
-                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
-                [productId, 'ขายออก', quantity, detailResult.insertId, user_id],
-            );
+            await applyStockChange({
+                productId,
+                changeType: 'ขายสินค้า',
+                changeQuantity: -quantity,
+                reason: `คำสั่งซื้อ #${orderId}`,
+                userId,
+                orderDetailId: detailResult.insertId,
+            });
         }
 
         await query(
@@ -2951,14 +2993,14 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
         );
 
         for (const item of items) {
-            await query(
-                'UPDATE product SET quantity = quantity + ?, updated_stock = NOW() WHERE product_id = ?',
-                [item.quantity, item.product_id],
-            );
-            await query(
-                'INSERT INTO stock_logs (product_id, change_type, quantity, order_detail_id, user_id) VALUES (?, ?, ?, ?, ?)',
-                [item.product_id, 'คืนสต็อกจากการยกเลิกคำสั่งซื้อ', item.quantity, item.order_detail_id, order.user_id],
-            );
+            await applyStockChange({
+                productId: item.product_id,
+                changeType: 'คืนสินค้า',
+                changeQuantity: item.quantity,
+                reason: `ยกเลิกคำสั่งซื้อ #${id}`,
+                userId: order.user_id,
+                orderDetailId: item.order_detail_id,
+            });
         }
 
         await query(
@@ -3088,8 +3130,6 @@ app.get('/api/orders/history/:username', async (req, res) => {
                 od.product_id,
                 od.quantity,
                 od.price,
-                od.selected_size,
-                od.selected_color,
                 p.product_name AS product_name
             FROM orders o
             JOIN \`user\` u ON o.user_id = u.user_id
@@ -3134,8 +3174,6 @@ app.get('/api/orders/history/:username', async (req, res) => {
                     product_id: row.product_id,
                     quantity: row.quantity,
                     price: row.price,
-                    selected_size: row.selected_size,
-                    selected_color: row.selected_color,
                     product_name: row.product_name,
                 });
             }
@@ -3148,8 +3186,6 @@ app.get('/api/orders/history/:username', async (req, res) => {
                 product_id: firstItem.product_id || null,
                 quantity: firstItem.quantity || 0,
                 price: firstItem.price || 0,
-                selected_size: firstItem.selected_size || null,
-                selected_color: firstItem.selected_color || null,
                 product_name: firstItem.product_name || null,
             };
         });
