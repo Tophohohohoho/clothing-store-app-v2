@@ -240,6 +240,57 @@ const normalizeOrder = (order) => ({
     created_at: order.order_date,
 });
 
+const snapshotProduct = (product = {}) => ({
+    product_id: product.product_id ?? product.id ?? null,
+    product_name: product.product_name ?? product.name ?? '',
+    category_id: product.category_id ?? null,
+    category_name: product.category_name ?? '',
+    price: Number(product.price) || 0,
+    quantity: Number(product.quantity ?? product.stock) || 0,
+    product_status: Number(product.product_status ?? 0),
+});
+
+const snapshotUser = (user = {}) => ({
+    user_id: user.user_id ?? user.id ?? null,
+    username: user.username ?? '',
+    full_name: user.full_name ?? '',
+    email: user.email ?? '',
+    phone: user.phone ?? '',
+    role: user.role ?? '',
+    status_user: Number(user.status_user ?? 0),
+});
+
+const snapshotAddress = (address = {}) => ({
+    address_id: address.address_id ?? null,
+    user_id: address.user_id ?? null,
+    receiver_name: address.receiver_name ?? '',
+    phone: address.phone ?? '',
+    address_detail: address.address_detail ?? '',
+    subdistrict: address.subdistrict ?? '',
+    district: address.district ?? '',
+    province: address.province ?? '',
+    postal_code: address.postal_code ?? '',
+    address_type: address.address_type ?? '',
+    is_default: Number(address.is_default ?? 0),
+});
+
+const snapshotOrder = (order = {}) => ({
+    order_id: order.order_id ?? order.id ?? null,
+    user_id: order.user_id ?? null,
+    order_status: order.order_status ?? order.status ?? '',
+    payment_status: order.payment_status ?? '',
+    delivery_type: order.delivery_type ?? order.shipping_method ?? '',
+    tracking_no: order.tracking_no ?? '',
+    final_price: Number(order.final_price ?? order.total_price) || 0,
+});
+
+const snapshotOrderItems = (items = []) => items.map((item) => ({
+    product_id: item.product_id ?? null,
+    quantity: Number(item.quantity) || 0,
+    price: Number(item.price) || 0,
+    order_detail_id: item.order_detail_id ?? null,
+}));
+
 const getDefaultCategoryId = async () => {
     const [existing] = await query('SELECT category_id FROM category ORDER BY category_id LIMIT 1');
     if (existing.length > 0) return existing[0].category_id;
@@ -1034,7 +1085,17 @@ app.post('/api/products', async (req, res) => {
             reason: 'สต็อกเริ่มต้นตอนสร้างสินค้า',
             userId: user_id || null,
         });
-        await writeSystemLog(user_id, 'เพิ่มสินค้า', `เพิ่มสินค้า ${name}`);
+        const [createdProducts] = await query(
+            `SELECT p.*, c.category_name
+             FROM product p
+             LEFT JOIN category c ON p.category_id = c.category_id
+             WHERE p.product_id = ?
+             LIMIT 1`,
+            [result.insertId],
+        );
+        await writeSystemLog(user_id, 'เพิ่มสินค้า', `เพิ่มสินค้า ${name}`, {
+            afterData: snapshotProduct(createdProducts[0]),
+        });
 
         res.json({ success: true, message: 'เพิ่มสินค้าสำเร็จ', insertId: result.insertId, id: result.insertId });
     } catch (err) {
@@ -1664,7 +1725,13 @@ app.post('/api/admin/orders/:id/notes', async (req, res) => {
             'INSERT INTO order_admin_notes (order_id, user_id, note) VALUES (?, ?, ?)',
             [id, user_id || null, cleanNote],
         );
-        await writeSystemLog(user_id, 'เพิ่มหมายเหตุออเดอร์', `เพิ่มหมายเหตุคำสั่งซื้อ #${id}`);
+        await writeSystemLog(user_id, 'เพิ่มหมายเหตุออเดอร์', `เพิ่มหมายเหตุคำสั่งซื้อ #${id}`, {
+            afterData: {
+                order_id: Number(id),
+                note_id: result.insertId,
+                note: cleanNote,
+            },
+        });
         res.json({ success: true, note_id: result.insertId });
     } catch (err) {
         respondError(res, err, 'เพิ่มหมายเหตุไม่สำเร็จ');
@@ -1676,7 +1743,10 @@ app.post('/api/admin/orders/delete', async (req, res) => {
         const { order_id, user_id } = req.body;
         if (!order_id) return res.status(400).json({ error: 'กรุณาระบุรหัสคำสั่งซื้อที่ต้องการลบ' });
 
-        const [orders] = await query('SELECT order_status, payment_status FROM orders WHERE order_id = ?', [order_id]);
+        const [orders] = await query(
+            'SELECT order_id, user_id, order_status, payment_status, delivery_type, tracking_no, final_price FROM orders WHERE order_id = ?',
+            [order_id],
+        );
         if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
         if (orders[0].order_status === 'ยกเลิก' || orders[0].payment_status === 'ยกเลิก') {
             return res.status(403).json({ error: 'ไม่สามารถลบออเดอร์ที่ยกเลิกแล้วได้' });
@@ -1685,7 +1755,9 @@ app.post('/api/admin/orders/delete', async (req, res) => {
             return res.status(403).json({ error: 'ไม่สามารถลบออเดอร์ที่ชำระเงินแล้วได้' });
         }
 
-        const [items] = await query('SELECT product_id, quantity FROM order_detail WHERE order_id = ?', [order_id]);
+        const [items] = await query('SELECT order_detail_id, product_id, quantity, price FROM order_detail WHERE order_id = ?', [order_id]);
+        const beforeOrderSnapshot = snapshotOrder(orders[0]);
+        const beforeItemSnapshots = snapshotOrderItems(items);
         if (orders[0].order_status !== 'ยกเลิก') {
             for (const item of items) {
                 await applyStockChange({
@@ -1702,7 +1774,17 @@ app.post('/api/admin/orders/delete', async (req, res) => {
         await query('DELETE FROM payment WHERE order_id = ?', [order_id]);
         await query('DELETE FROM order_detail WHERE order_id = ?', [order_id]);
         await query('DELETE FROM orders WHERE order_id = ?', [order_id]);
-        await writeSystemLog(user_id, 'ลบคำสั่งซื้อ', `ลบคำสั่งซื้อ #${order_id}`);
+        await writeSystemLog(user_id, 'ลบคำสั่งซื้อ', `ลบคำสั่งซื้อ #${order_id}`, {
+            beforeData: {
+                ...beforeOrderSnapshot,
+                items: beforeItemSnapshots,
+            },
+            afterData: {
+                order_id: Number(order_id),
+                deleted: true,
+                restocked_items: beforeItemSnapshots,
+            },
+        });
         res.json({ success: true, message: 'ลบคำสั่งซื้อสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ลบคำสั่งซื้อไม่สำเร็จ');
@@ -1832,7 +1914,10 @@ app.post('/api/admin/change-role', async (req, res) => {
     try {
         const { user_id, new_role, actor_id } = req.body;
         const nextRole = normalizeRole(new_role);
-        const [users] = await query('SELECT user_id, username, role FROM `user` WHERE user_id = ? LIMIT 1', [user_id]);
+        const [users] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [user_id],
+        );
         if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
 
         const [mainAdmins] = await query(
@@ -1842,8 +1927,16 @@ app.post('/api/admin/change-role', async (req, res) => {
             return res.status(403).json({ error: 'ไม่สามารถเปลี่ยนสิทธิ์ของ Admin หลักได้' });
         }
 
+        const beforeUserSnapshot = snapshotUser(users[0]);
         await query('UPDATE `user` SET role = ? WHERE user_id = ?', [nextRole, user_id]);
-        await writeSystemLog(actor_id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์ ${users[0].username} เป็น ${nextRole}`);
+        const [updatedUsers] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [user_id],
+        );
+        await writeSystemLog(actor_id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์ ${users[0].username} เป็น ${nextRole}`, {
+            beforeData: beforeUserSnapshot,
+            afterData: snapshotUser(updatedUsers[0]),
+        });
         res.json({ success: true, message: 'เปลี่ยนสิทธิ์ผู้ใช้สำเร็จ' });
     } catch (err) {
         respondError(res, err, 'เปลี่ยนสิทธิ์ไม่สำเร็จ');
@@ -1854,7 +1947,10 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const actorId = req.query.actor_id || null;
-        const [users] = await query('SELECT user_id, username FROM `user` WHERE user_id = ? LIMIT 1', [id]);
+        const [users] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
         if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
 
         const [mainAdmins] = await query(
@@ -1864,8 +1960,16 @@ app.delete('/api/admin/users/:id', async (req, res) => {
             return res.status(403).json({ error: 'ไม่สามารถลบหรือระงับ Admin หลักได้' });
         }
 
+        const beforeUserSnapshot = snapshotUser(users[0]);
         await query('UPDATE `user` SET status_user = 0 WHERE user_id = ?', [id]);
-        await writeSystemLog(actorId, 'ปิดใช้งานสมาชิก', `ปิดใช้งานสมาชิก ${users[0].username}`);
+        const [updatedUsers] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        await writeSystemLog(actorId, 'ปิดใช้งานสมาชิก', `ปิดใช้งานสมาชิก ${users[0].username}`, {
+            beforeData: beforeUserSnapshot,
+            afterData: snapshotUser(updatedUsers[0]),
+        });
         res.json({ success: true, message: 'ปิดใช้งานสมาชิกสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ลบสมาชิกไม่สำเร็จ');
@@ -1877,7 +1981,7 @@ app.put('/api/admin/users/:id/reactivate', async (req, res) => {
         const { id } = req.params;
         const actorId = req.body.actor_id || null;
         const [users] = await query(
-            'SELECT user_id, username, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
             [id],
         );
         if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
@@ -1885,8 +1989,16 @@ app.put('/api/admin/users/:id/reactivate', async (req, res) => {
             return res.json({ success: true, message: 'บัญชีนี้เปิดใช้งานอยู่แล้ว' });
         }
 
+        const beforeUserSnapshot = snapshotUser(users[0]);
         await query('UPDATE `user` SET status_user = 1 WHERE user_id = ?', [id]);
-        await writeSystemLog(actorId, 'ยกเลิกการระงับสมาชิก', `เปิดใช้งานสมาชิก ${users[0].username} อีกครั้ง`);
+        const [updatedUsers] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        await writeSystemLog(actorId, 'ยกเลิกการระงับสมาชิก', `เปิดใช้งานสมาชิก ${users[0].username} อีกครั้ง`, {
+            beforeData: beforeUserSnapshot,
+            afterData: snapshotUser(updatedUsers[0]),
+        });
         res.json({ success: true, message: 'ยกเลิกการระงับสมาชิกสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ยกเลิกการระงับสมาชิกไม่สำเร็จ');
@@ -1897,6 +2009,11 @@ app.put('/api/admin/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, full_name, email, phone } = req.body;
+        const [users] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        if (users.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกนี้' });
         const hasPassword = password && password.trim() !== '';
         if (hasPassword && password.length < 8) {
             return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
@@ -1909,8 +2026,16 @@ app.put('/api/admin/users/:id', async (req, res) => {
             ? [username, passwordHash, full_name || username, email || null, phone || null, id]
             : [username, full_name || username, email || null, phone || null, id];
 
+        const beforeUserSnapshot = snapshotUser(users[0]);
         await query(sql, params);
-        await writeSystemLog(id, 'แก้ไขสมาชิก', `แก้ไขข้อมูล ${username}`);
+        const [updatedUsers] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        await writeSystemLog(id, 'แก้ไขสมาชิก', `แก้ไขข้อมูล ${username}`, {
+            beforeData: beforeUserSnapshot,
+            afterData: snapshotUser(updatedUsers[0]),
+        });
         res.json({ success: true, message: 'แก้ไขข้อมูลสมาชิกสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'แก้ไขสมาชิกไม่สำเร็จ');
@@ -1921,6 +2046,11 @@ app.put('/api/users/:id/profile', async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, full_name, email, phone } = req.body;
+        const [users] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [id],
+        );
+        if (users.length === 0) return res.status(404).json({ error: 'ไม่พบผู้ใช้งานนี้' });
 
         if (!username || !username.trim()) {
             return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้' });
@@ -1939,8 +2069,18 @@ app.put('/api/users/:id/profile', async (req, res) => {
             ? [username, passwordHash, full_name || username, email || null, phone || null, id]
             : [username, full_name || username, email || null, phone || null, id];
 
+        const beforeUserSnapshot = snapshotUser(users[0]);
         await query(sql, params);
-        await writeSystemLog(id, 'แก้ไขโปรไฟล์', 'ผู้ใช้แก้ไขข้อมูลส่วนตัว');
+        await writeSystemLog(id, 'แก้ไขโปรไฟล์', 'ผู้ใช้แก้ไขข้อมูลส่วนตัว', {
+            beforeData: beforeUserSnapshot,
+            afterData: {
+                ...beforeUserSnapshot,
+                username,
+                full_name: full_name || username,
+                email: email || '',
+                phone: phone || '',
+            },
+        });
 
         const [results] = await query(
             'SELECT user_id AS id, username, full_name, email, phone, role, status_user, created_at FROM `user` WHERE user_id = ?',
@@ -2007,7 +2147,10 @@ app.post('/api/users/:id/addresses', async (req, res) => {
                 addressPayload.is_default ? 1 : 0,
             ],
         );
-        await writeSystemLog(id, 'เพิ่มที่อยู่', `เพิ่มที่อยู่ #${result.insertId}`);
+        const [createdAddresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [result.insertId, id]);
+        await writeSystemLog(id, 'เพิ่มที่อยู่', `เพิ่มที่อยู่ #${result.insertId}`, {
+            afterData: snapshotAddress(createdAddresses[0]),
+        });
         res.json({ success: true, message: 'บันทึกที่อยู่สำเร็จ', address_id: result.insertId });
     } catch (err) {
         respondError(res, err, 'บันทึกที่อยู่ไม่สำเร็จ');
@@ -2028,6 +2171,12 @@ app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
             await query('UPDATE address SET is_default = 0 WHERE user_id = ?', [id]);
         }
 
+        const [addresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [addressId, id]);
+        if (addresses.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบที่อยู่นี้' });
+        }
+
+        const beforeAddressSnapshot = snapshotAddress(addresses[0]);
         await query(
             `
                 UPDATE address
@@ -2056,7 +2205,11 @@ app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
                 id,
             ],
         );
-        await writeSystemLog(id, 'แก้ไขที่อยู่', `แก้ไขที่อยู่ #${addressId}`);
+        const [updatedAddresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [addressId, id]);
+        await writeSystemLog(id, 'แก้ไขที่อยู่', `แก้ไขที่อยู่ #${addressId}`, {
+            beforeData: beforeAddressSnapshot,
+            afterData: snapshotAddress(updatedAddresses[0]),
+        });
         res.json({ success: true, message: 'อัปเดตที่อยู่สำเร็จ' });
     } catch (err) {
         respondError(res, err, 'อัปเดตที่อยู่ไม่สำเร็จ');
@@ -2076,6 +2229,7 @@ app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
         }
 
         const deletedAddress = addresses[0];
+        const beforeAddressSnapshot = snapshotAddress(deletedAddress);
         await query('DELETE FROM address WHERE address_id = ? AND user_id = ?', [addressId, id]);
 
         if (Number(deletedAddress.is_default) === 1) {
@@ -2089,7 +2243,13 @@ app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
             }
         }
 
-        await writeSystemLog(id, 'ลบที่อยู่', `ลบที่อยู่ #${addressId}`);
+        await writeSystemLog(id, 'ลบที่อยู่', `ลบที่อยู่ #${addressId}`, {
+            beforeData: beforeAddressSnapshot,
+            afterData: {
+                address_id: Number(addressId),
+                deleted: true,
+            },
+        });
         res.json({ success: true, message: 'ลบที่อยู่สำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ลบที่อยู่ไม่สำเร็จ');
@@ -2099,9 +2259,26 @@ app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
 app.post('/api/users/:id/addresses/:addressId/default', async (req, res) => {
     try {
         const { id, addressId } = req.params;
+        const [targetAddresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [addressId, id]);
+        if (targetAddresses.length === 0) {
+            return res.status(404).json({ error: 'ไม่พบที่อยู่นี้' });
+        }
+        const [currentDefaults] = await query('SELECT * FROM address WHERE user_id = ? AND is_default = 1 LIMIT 1', [id]);
         await query('UPDATE address SET is_default = 0 WHERE user_id = ?', [id]);
         await query('UPDATE address SET is_default = 1 WHERE address_id = ? AND user_id = ?', [addressId, id]);
-        await writeSystemLog(id, 'ตั้งที่อยู่หลัก', `ตั้งที่อยู่ #${addressId} เป็นที่อยู่หลัก`);
+        const [updatedAddresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [addressId, id]);
+        await writeSystemLog(id, 'ตั้งที่อยู่หลัก', `ตั้งที่อยู่ #${addressId} เป็นที่อยู่หลัก`, {
+            beforeData: currentDefaults[0]
+                ? {
+                    previous_default: snapshotAddress(currentDefaults[0]),
+                }
+                : {
+                    previous_default: null,
+                },
+            afterData: {
+                current_default: snapshotAddress(updatedAddresses[0]),
+            },
+        });
         res.json({ success: true, message: 'ตั้งที่อยู่หลักสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'ตั้งที่อยู่หลักไม่สำเร็จ');
@@ -2669,7 +2846,7 @@ app.post('/api/orders/checkout', async (req, res) => {
                 changeType: 'ขายสินค้า',
                 changeQuantity: -quantity,
                 reason: `คำสั่งซื้อ #${orderId}`,
-                userId,
+                userId: user_id,
                 orderDetailId: detailResult.insertId,
             });
         }
@@ -2678,7 +2855,20 @@ app.post('/api/orders/checkout', async (req, res) => {
             'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image, receipt_file_name) VALUES (?, ?, ?, ?, ?)',
             [orderId, payment_method || 'โอนเงินผ่านธนาคาร', finalPrice, receiptUrl, receipt_file_name || null],
         );
-        await writeSystemLog(user_id, 'สั่งซื้อสินค้า', `คำสั่งซื้อ #${orderId}`);
+        await writeSystemLog(user_id, 'สั่งซื้อสินค้า', `คำสั่งซื้อ #${orderId}`, {
+            afterData: {
+                order_id: orderId,
+                user_id,
+                final_price: finalPrice,
+                payment_method: payment_method || 'โอนเงินผ่านธนาคาร',
+                payment_status: initialPaymentStatus,
+                items: cart_items.map((item) => ({
+                    product_id: item.id || item.product_id || item.p_id || null,
+                    quantity: Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10) || 0,
+                    price: parseFloat(String(item.price || 0).replace(/[^\d.]/g, '')) || 0,
+                })),
+            },
+        });
         if (receiptUrl) {
             await writeSystemLog(user_id, 'ส่งหลักฐานการชำระเงิน', `คำสั่งซื้อ #${orderId}: มีหลักฐานการชำระเงินใหม่รอตรวจสอบ`, {
                 afterData: {
@@ -3008,7 +3198,14 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
             ['ยกเลิก', 'ยกเลิก', id],
         );
         await writeOrderStatusHistory(id, 'ยกเลิก', order.user_id, 'ลูกค้ายกเลิกคำสั่งซื้อ');
-        await writeSystemLog(order.user_id, 'ยกเลิกคำสั่งซื้อ', `ลูกค้ายกเลิกคำสั่งซื้อ #${id}`);
+        await writeSystemLog(order.user_id, 'ยกเลิกคำสั่งซื้อ', `ลูกค้ายกเลิกคำสั่งซื้อ #${id}`, {
+            beforeData: snapshotOrder(order),
+            afterData: {
+                ...snapshotOrder(order),
+                order_status: 'ยกเลิก',
+                payment_status: 'ยกเลิก',
+            },
+        });
 
         res.json({ success: true, message: 'ยกเลิกคำสั่งซื้อและคืนสต็อกเรียบร้อยแล้ว' });
     } catch (err) {
@@ -3098,6 +3295,14 @@ app.put('/api/orders/:id/status', async (req, res) => {
             user_id,
             'อัปเดตสถานะคำสั่งซื้อ',
             `คำสั่งซื้อ #${id} เป็น ${requestedStatus}${trackingNo ? ` / เลขพัสดุ ${trackingNo}` : ''}`,
+            {
+                beforeData: snapshotOrder(order),
+                afterData: {
+                    ...snapshotOrder(order),
+                    order_status: requestedStatus,
+                    tracking_no: trackingNo || order.tracking_no || '',
+                },
+            },
         );
         res.json({ success: true, message: 'อัปเดตสถานะเรียบร้อยแล้ว' });
     } catch (err) {

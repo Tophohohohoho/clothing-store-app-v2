@@ -52,6 +52,49 @@ const formatDate = (value) => (value ? new Date(value).toLocaleString('th-TH', {
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
+const AUDIT_FIELD_LABELS = {
+    product_id: 'รหัสสินค้า',
+    before_quantity: 'จำนวนก่อนแก้ไข',
+    change_type: 'ประเภทการเคลื่อนไหว',
+    change_quantity: 'จำนวนที่เปลี่ยน',
+    after_quantity: 'จำนวนหลังแก้ไข',
+    reason: 'เหตุผล',
+    order_id: 'รหัสคำสั่งซื้อ',
+    order_detail_id: 'รหัสรายการสั่งซื้อ',
+    user_id: 'รหัสผู้ใช้งาน',
+    status: 'สถานะ',
+    payment_status: 'สถานะการชำระเงิน',
+    tracking_no: 'เลขพัสดุ',
+    note: 'หมายเหตุ',
+};
+
+const formatAuditFieldValue = (key, value) => {
+    if (value === null || value === undefined || String(value).trim() === '') return 'ไม่มีข้อมูล';
+    if (typeof value === 'number') return value.toLocaleString('th-TH');
+    if (key.includes('date') || key.includes('time')) {
+        const date = new Date(value);
+        if (!Number.isNaN(date.getTime())) return formatDate(date);
+    }
+    return String(value);
+};
+
+const formatAuditJson = (value, fallback) => {
+    if (!value) return fallback;
+
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return String(value);
+
+        const lines = Object.entries(parsed)
+            .filter(([key, item]) => !(key === 'reason' && String(item ?? '').trim() === ''))
+            .map(([key, item]) => `${AUDIT_FIELD_LABELS[key] || key}: ${formatAuditFieldValue(key, item)}`);
+
+        return lines.length > 0 ? lines.join('\n') : fallback;
+    } catch {
+        return String(value);
+    }
+};
+
 function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoading = false }) {
     const [activityView, setActivityView] = useState('stock');
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
@@ -234,7 +277,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 <div>
                     <span className="audit-eyebrow">AUDIT & COMPLIANCE</span>
                     <h4>ประวัติการเคลื่อนไหว</h4>
-                    <p>ตรวจสอบประวัติ stock logs แบบย้อนกลับไม่ได้ พร้อมข้อมูลผู้ดำเนินการ เหตุผล และยอดก่อน-หลังแก้ไข</p>
+                    <p>ตรวจสอบประวัติการเปลี่ยนแปลงสต๊อกแบบถาวร พร้อมข้อมูลผู้ดำเนินการ ประเภทการเคลื่อนไหว เหตุผล วันที่เวลา และยอดก่อน-หลังการแก้ไข</p>
                 </div>
                 <div className="audit-export">
                     <button type="button" onClick={() => exportRows('csv')}>CSV</button>
@@ -398,8 +441,8 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                             </>
                         )}
                         <div className="audit-change-grid">
-                            <section><span>ข้อมูลก่อนแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.before_quantity ?? 'ไม่มีข้อมูลก่อนแก้ไข') : (selectedLog.before_data || selectedLog.old_data || 'ไม่มีข้อมูลก่อนแก้ไข')}</pre></section>
-                            <section><span>ข้อมูลหลังแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.after_quantity ?? 'ไม่มีข้อมูลหลังแก้ไข') : (selectedLog.after_data || selectedLog.new_data || 'ไม่มีข้อมูลหลังแก้ไข')}</pre></section>
+                            <section><span>ข้อมูลก่อนแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.before_quantity ?? 'ไม่มีข้อมูลก่อนแก้ไข') : formatAuditJson(selectedLog.before_data || selectedLog.old_data, 'ไม่มีข้อมูลก่อนแก้ไข')}</pre></section>
+                            <section><span>ข้อมูลหลังแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.after_quantity ?? 'ไม่มีข้อมูลหลังแก้ไข') : formatAuditJson(selectedLog.after_data || selectedLog.new_data, 'ไม่มีข้อมูลหลังแก้ไข')}</pre></section>
                         </div>
                         <div className="audit-modal-note"><span>หมายเหตุ</span><p>{selectedLog.auditNote}</p></div>
                         <footer><button type="button" onClick={() => setSelectedLog(null)}>ปิดหน้าต่าง</button></footer>
