@@ -112,6 +112,8 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
         [finalTotal]
     );
     const qrCodeUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=M&text=${encodeURIComponent(promptPayPayload)}`;
+    const pickupReceiverName = shippingInfo.receiver_name || '';
+    const pickupPhone = shippingInfo.phone || '';
 
     useEffect(() => {
         let isMounted = true;
@@ -330,6 +332,14 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             setValidationError('กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน');
             return;
         }
+        if (!shippingInfo.receiver_name.trim()) {
+            setValidationError('กรุณากรอกชื่อผู้รับสินค้า');
+            return;
+        }
+        if (!shippingInfo.phone.trim()) {
+            setValidationError('กรุณากรอกเบอร์โทรศัพท์');
+            return;
+        }
         if (!PHONE_REGEX.test(cleanPhone(shippingInfo.phone))) {
             setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
             return;
@@ -389,13 +399,50 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                 <button
                                     type="button"
                                     className={`checkout-shipping-option ${shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'is-active' : ''}`}
-                                    onClick={() => setShippingInfo({ ...shippingInfo, shipping_method: 'รับหน้าร้าน', shipping_fee: 0, discount: 0 })}
+                                    onClick={() => setShippingInfo((current) => ({
+                                        ...current,
+                                        shipping_method: 'รับหน้าร้าน',
+                                        shipping_fee: 0,
+                                        discount: 0,
+                                        address_id: null,
+                                        address: '',
+                                        subdistrict: '',
+                                        district: '',
+                                        province: '',
+                                        postal_code: '',
+                                    }))}
                                 >
                                     <span className="checkout-option-check" aria-hidden="true">✓</span>
                                     <span><strong>รับเองที่หน้าร้าน</strong><small>ไม่มีค่าจัดส่ง</small></span>
                                 </button>
                             </div>
                         </div>
+                        {shippingInfo.shipping_method === 'รับหน้าร้าน' && (
+                            <div className="bg-white border rounded-3 p-3 mb-3 shadow-sm">
+                                <label className="form-label small fw-bold text-secondary">ข้อมูลผู้รับสินค้า</label>
+                                <div className="row g-2">
+                                    <div className="col-md-6">
+                                        <label className="form-label small text-secondary">ชื่อผู้รับ</label>
+                                        <input
+                                            className="form-control rounded-3 border-light-subtle py-2"
+                                            value={pickupReceiverName}
+                                            onChange={(e) => setShippingInfo((current) => ({ ...current, receiver_name: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="form-label small text-secondary">เบอร์โทรศัพท์</label>
+                                        <input
+                                            className="form-control rounded-3 border-light-subtle py-2"
+                                            value={pickupPhone}
+                                            onChange={(e) => setShippingInfo((current) => ({ ...current, phone: e.target.value }))}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="text-secondary small mt-2">
+                                    ใช้สำหรับติดต่อเมื่อลูกค้ามารับสินค้า ไม่ต้องบันทึกที่อยู่จัดส่ง
+                                </div>
+                            </div>
+                        )}
                         {shippingInfo.shipping_method === 'ส่งสินค้า' && <div className="mb-3">
                             <label className="form-label small fw-bold text-secondary">ที่อยู่จัดส่งสินค้า</label>
                             <div className="position-relative mb-3">

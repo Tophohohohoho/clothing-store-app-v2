@@ -54,6 +54,7 @@ function AuthPage({
     const [forgotMsg, setForgotMsg] = useState({ type: '', text: '' });
     const [isForgotLoading, setIsForgotLoading] = useState(false);
     const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
+    const [showPrivacySummary, setShowPrivacySummary] = useState(false);
     const [hasScrolledPrivacyNotice, setHasScrolledPrivacyNotice] = useState(false);
     const [consentNotice, setConsentNotice] = useState('');
     const resetCodeInputRefs = useRef([]);
@@ -263,11 +264,11 @@ function AuthPage({
             <section className="auth-shell">
                 <div className="auth-visual">
                     <div className="auth-visual-top">
-                        <div className="auth-brand-mark" aria-hidden="true">CS</div>
-                        <span>Clothing Store</span>
+                        <div className="auth-brand-mark" aria-hidden="true">LRU</div>
+                        <span>LRU SHOP</span>
                     </div>
                     <div className="auth-hero-copy">
-                        <p className="auth-kicker">Clothing Store</p>
+                        <p className="auth-kicker">LRU SHOP</p>
                         <h1>แฟชั่นที่เลือกง่าย จัดการร้านได้ครบ</h1>
                         <p className="auth-hero-description">
                             เลือกช้อปเสื้อผ้าดีไซน์ทันสมัย พร้อมระบบสั่งซื้อที่รวดเร็วและติดตามสถานะได้ในที่เดียว
@@ -404,13 +405,40 @@ function AuthPage({
                                 />
                             </label>
 
-                            <button
-                                type="button"
-                                className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
-                                onClick={openPrivacyNotice}
-                            >
-                                {registerForm.privacyNoticeAcknowledged ? 'อ่าน Privacy Notice แล้ว' : 'อ่าน Privacy Notice'}
-                            </button>
+                            <section className="auth-privacy-summary" aria-labelledby="auth-privacy-summary-title">
+                                <div className="auth-privacy-summary-header">
+                                    <span>Privacy Policy</span>
+                                    <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัวสำหรับการสมัครสมาชิก</h3>
+                                    <p>ข้อมูลที่คุณกรอกจะถูกใช้เท่าที่จำเป็นต่อการสมัครบัญชี การสั่งซื้อ และการให้บริการของร้านค้า</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    className="auth-privacy-toggle"
+                                    onClick={() => setShowPrivacySummary((visible) => !visible)}
+                                    aria-expanded={showPrivacySummary}
+                                >
+                                    {showPrivacySummary ? 'ซ่อน Privacy Policy' : 'อ่าน Privacy Policy'}
+                                </button>
+                                {showPrivacySummary && (
+                                    <>
+                                        <div className="auth-privacy-summary-list">
+                                            {PRIVACY_NOTICE_SECTIONS.map((section) => (
+                                                <article key={section.title}>
+                                                    <h4>{section.title}</h4>
+                                                    <p>{section.text}</p>
+                                                </article>
+                                            ))}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
+                                            onClick={openPrivacyNotice}
+                                        >
+                                            {registerForm.privacyNoticeAcknowledged ? 'อ่านและรับทราบนโยบายความเป็นส่วนตัวแล้ว' : 'อ่านและรับทราบนโยบายความเป็นส่วนตัว'}
+                                        </button>
+                                    </>
+                                )}
+                            </section>
 
                             <section className="auth-consent-box" aria-labelledby="consent-analytics-title">
                                 <label
@@ -425,6 +453,7 @@ function AuthPage({
                                     />
                                     <span>
                                         <strong id="consent-analytics-title">ยินยอมการประมวลผลข้อมูลส่วนบุคคล</strong>
+                                        <small>กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัวด้านบนก่อนเลือกความยินยอม</small>
                                     </span>
                                 </label>
                                 {consentNotice && <small className="auth-consent-warning">{consentNotice}</small>}

@@ -2055,19 +2055,29 @@ app.put('/api/users/:id/profile', async (req, res) => {
         if (!username || !username.trim()) {
             return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้' });
         }
+        if (email && !EMAIL_REGEX.test(cleanText(email))) {
+            return res.status(400).json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' });
+        }
+        if (cleanText(phone) && !PHONE_REGEX.test(cleanPhone(phone))) {
+            return res.status(400).json({ error: 'รูปแบบเบอร์โทรไม่ถูกต้อง' });
+        }
 
         const hasPassword = password && password.trim() !== '';
         if (hasPassword && password.length < 8) {
             return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
         }
         const passwordHash = hasPassword ? await hashPassword(password) : '';
+        const normalizedUsername = cleanText(username);
+        const normalizedFullName = cleanText(full_name) || normalizedUsername;
+        const normalizedEmail = cleanText(email) || null;
+        const normalizedPhone = cleanText(phone) ? cleanPhone(phone) : null;
 
         const sql = hasPassword
             ? 'UPDATE `user` SET username = ?, password = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?'
             : 'UPDATE `user` SET username = ?, full_name = ?, email = ?, phone = ? WHERE user_id = ?';
         const params = hasPassword
-            ? [username, passwordHash, full_name || username, email || null, phone || null, id]
-            : [username, full_name || username, email || null, phone || null, id];
+            ? [normalizedUsername, passwordHash, normalizedFullName, normalizedEmail, normalizedPhone, id]
+            : [normalizedUsername, normalizedFullName, normalizedEmail, normalizedPhone, id];
 
         const beforeUserSnapshot = snapshotUser(users[0]);
         await query(sql, params);
@@ -2075,10 +2085,10 @@ app.put('/api/users/:id/profile', async (req, res) => {
             beforeData: beforeUserSnapshot,
             afterData: {
                 ...beforeUserSnapshot,
-                username,
-                full_name: full_name || username,
-                email: email || '',
-                phone: phone || '',
+                username: normalizedUsername,
+                full_name: normalizedFullName,
+                email: normalizedEmail || '',
+                phone: normalizedPhone || '',
             },
         });
 
@@ -2748,51 +2758,53 @@ app.post('/api/orders/checkout', async (req, res) => {
             return res.status(400).json({ error: shippingAddressPayload.phone ? 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' : 'กรุณากรอกเบอร์โทรผู้รับ' });
         }
 
-        if (address_id) {
-            await query(
-                `
-                    UPDATE address
-                    SET receiver_name = ?,
-                        phone = ?,
-                        address_detail = ?,
-                        subdistrict = ?,
-                        district = ?,
-                        province = ?,
-                        postal_code = ?,
-                        address_type = ?,
-                        is_default = 1
-                    WHERE address_id = ? AND user_id = ?
-                `,
-                [
-                    shippingAddressPayload.receiver_name,
-                    shippingAddressPayload.phone,
-                    shippingAddressPayload.address_detail,
-                    shippingAddressPayload.subdistrict || null,
-                    shippingAddressPayload.district || null,
-                    shippingAddressPayload.province || null,
-                    shippingAddressPayload.postal_code || null,
-                    shippingAddressPayload.address_type,
-                    address_id,
-                    user_id,
-                ],
-            );
-        } else {
-            await query(
-                `INSERT INTO address
-                    (user_id, receiver_name, phone, address_detail, subdistrict, district, province, postal_code, address_type, is_default)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-                [
-                    user_id,
-                    shippingAddressPayload.receiver_name,
-                    shippingAddressPayload.phone,
-                    shippingAddressPayload.address_detail,
-                    shippingAddressPayload.subdistrict || null,
-                    shippingAddressPayload.district || null,
-                    shippingAddressPayload.province || null,
-                    shippingAddressPayload.postal_code || null,
-                    shippingAddressPayload.address_type,
-                ],
-            );
+        if (shipping_method === 'ส่งสินค้า') {
+            if (address_id) {
+                await query(
+                    `
+                        UPDATE address
+                        SET receiver_name = ?,
+                            phone = ?,
+                            address_detail = ?,
+                            subdistrict = ?,
+                            district = ?,
+                            province = ?,
+                            postal_code = ?,
+                            address_type = ?,
+                            is_default = 1
+                        WHERE address_id = ? AND user_id = ?
+                    `,
+                    [
+                        shippingAddressPayload.receiver_name,
+                        shippingAddressPayload.phone,
+                        shippingAddressPayload.address_detail,
+                        shippingAddressPayload.subdistrict || null,
+                        shippingAddressPayload.district || null,
+                        shippingAddressPayload.province || null,
+                        shippingAddressPayload.postal_code || null,
+                        shippingAddressPayload.address_type,
+                        address_id,
+                        user_id,
+                    ],
+                );
+            } else {
+                await query(
+                    `INSERT INTO address
+                        (user_id, receiver_name, phone, address_detail, subdistrict, district, province, postal_code, address_type, is_default)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                    [
+                        user_id,
+                        shippingAddressPayload.receiver_name,
+                        shippingAddressPayload.phone,
+                        shippingAddressPayload.address_detail,
+                        shippingAddressPayload.subdistrict || null,
+                        shippingAddressPayload.district || null,
+                        shippingAddressPayload.province || null,
+                        shippingAddressPayload.postal_code || null,
+                        shippingAddressPayload.address_type,
+                    ],
+                );
+            }
         }
 
         const [orderResult] = await query(

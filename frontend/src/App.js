@@ -66,6 +66,10 @@ const MEMBER_ROLES = ['member', 'customer', 'user'];
 const isAdminUser = (currentUser) => currentUser?.role === 'admin';
 const isMemberUser = (currentUser) => MEMBER_ROLES.includes(currentUser?.role);
 const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
+const getCheckoutContactFallback = (currentUser) => ({
+    receiver_name: currentUser?.full_name || currentUser?.username || '',
+    phone: currentUser?.phone || '',
+});
 
 const getRegisterValidationMessage = (form) => {
     if (!form.username.trim()) return 'กรุณากรอกชื่อผู้ใช้';
@@ -149,7 +153,7 @@ function SiteFooter({ contact, onOpenStore }) {
                 </div>
 
                 <div className="site-footer-bottom">
-                    © 2026 CLOTHING SHOP All rights reserved.
+                    © 2026 LRU SHOP All rights reserved.
                 </div>
             </div>
         </footer>
@@ -804,7 +808,22 @@ function App() {
 
         const list = await fetchAddresses(targetUser);
         const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
-        applyAddressToCheckout(defaultAddress);
+        if (defaultAddress) {
+            applyAddressToCheckout(defaultAddress);
+        } else {
+            const fallbackContact = getCheckoutContactFallback(targetUser);
+            setShippingInfo((prev) => ({
+                ...prev,
+                address_id: null,
+                receiver_name: fallbackContact.receiver_name,
+                phone: fallbackContact.phone,
+                address: '',
+                subdistrict: '',
+                district: '',
+                province: '',
+                postal_code: '',
+            }));
+        }
         setShippingInfo((current) => ({ ...current, shipping_method: 'ส่งสินค้า', shipping_fee: DELIVERY_FEE }));
         setAuthView(null);
         setIsCartOpen(false);
@@ -1105,6 +1124,10 @@ function App() {
             }
         }
 
+        if (!shippingInfo.receiver_name.trim()) {
+            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับสินค้า' });
+            return;
+        }
         if (!shippingInfo.phone.trim()) {
             notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
             return;
@@ -1116,6 +1139,7 @@ function App() {
 
         try {
             const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : DELIVERY_FEE;
+            const isPickup = shippingInfo.shipping_method === 'รับหน้าร้าน';
             const orderData = {
                 user_id: user?.id || null,
                 username: user?.username || 'ลูกค้าทั่วไป',
@@ -1123,13 +1147,13 @@ function App() {
                 shipping_fee: shippingFee,
                 discount: 0,
                 receiver_name: shippingInfo.receiver_name || user?.full_name || user?.username || 'ลูกค้า',
-                address_id: shippingInfo.address_id,
-                address: shippingInfo.shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
+                address_id: isPickup ? null : shippingInfo.address_id,
+                address: isPickup ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
                 phone: shippingInfo.phone,
-                subdistrict: shippingInfo.subdistrict,
-                district: shippingInfo.district,
-                province: shippingInfo.province,
-                postal_code: shippingInfo.postal_code,
+                subdistrict: isPickup ? '' : shippingInfo.subdistrict,
+                district: isPickup ? '' : shippingInfo.district,
+                province: isPickup ? '' : shippingInfo.province,
+                postal_code: isPickup ? '' : shippingInfo.postal_code,
                 payment_method: shippingInfo.payment_method,
                 shipping_method: shippingInfo.shipping_method,
                 receipt_image_data: shippingInfo.receipt_image_data,
