@@ -883,7 +883,7 @@ function AdminDashboardPage({
                     <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="blue">＋</b><span>เพิ่มสินค้า<small>สร้างสินค้าใหม่</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('add-product', 'categories')}><b className="purple">▦</b><span>เพิ่มหมวดหมู่<small>จัดระเบียบสินค้า</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('store')}><b className="green">▣</b><span>สร้างออเดอร์<small>ไปยังหน้าร้าน</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('customers')}><b className="amber">♙</b><span>จัดการสมาชิก<small>ดูข้อมูลลูกค้า</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('customers')}><b className="amber">♙</b><span>จัดการผู้ใช้งาน<small>ดูข้อมูลผู้ใช้งาน</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="red">▤</b><span>จัดการสต๊อก<small>ตรวจจำนวนคงเหลือ</small></span></button>
                 </div>
             </section>

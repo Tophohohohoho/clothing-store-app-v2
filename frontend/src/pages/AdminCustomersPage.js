@@ -12,6 +12,11 @@ const shortDate = (value) => value ? new Intl.DateTimeFormat('th-TH', {
 }).format(new Date(value)) : '-';
 const initials = (customer) => String(customer.full_name || customer.username || 'U')
     .trim().split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
+const SORT_LABELS = {
+    id: 'ID',
+    name: 'ชื่อ',
+    created_at: 'วันที่สมัคร',
+};
 
 function AdminCustomersPage({
     customers,
@@ -35,6 +40,7 @@ function AdminCustomersPage({
     const [confirmAction, setConfirmAction] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
+    const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
     const loadRef = useRef(onLoadCustomers);
 
     useEffect(() => { loadRef.current = onLoadCustomers; }, [onLoadCustomers]);
@@ -45,10 +51,12 @@ function AdminCustomersPage({
             search: searchText.trim() || undefined,
             role: roleFilter === 'all' ? undefined : roleFilter,
             status: statusFilter === 'all' ? undefined : statusFilter,
+            sort: sortConfig.key || undefined,
+            order: sortConfig.key ? sortConfig.direction : undefined,
         }), 250);
         return () => clearTimeout(timer);
-    }, [page, pageSize, roleFilter, searchText, statusFilter]);
-    useEffect(() => { setPage(1); }, [searchText, roleFilter, statusFilter, pageSize]);
+    }, [page, pageSize, roleFilter, searchText, sortConfig.direction, sortConfig.key, statusFilter]);
+    useEffect(() => { setPage(1); }, [searchText, roleFilter, statusFilter, pageSize, sortConfig.direction, sortConfig.key]);
 
     const pagination = customersMeta?.pagination || {};
     const summary = customersMeta?.summary || {};
@@ -59,7 +67,25 @@ function AdminCustomersPage({
         page, limit: pageSize, search: searchText.trim() || undefined,
         role: roleFilter === 'all' ? undefined : roleFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        sort: sortConfig.key || undefined,
+        order: sortConfig.key ? sortConfig.direction : undefined,
     };
+    const toggleSort = (key) => {
+        setSortConfig((current) => ({
+            key,
+            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc',
+        }));
+    };
+    const sortHeader = (key) => (
+        <button
+            type="button"
+            className={`member-sort-button ${sortConfig.key === key ? 'active' : ''}`}
+            onClick={() => toggleSort(key)}
+            aria-label={`เรียงตาม${SORT_LABELS[key]} ${sortConfig.key === key && sortConfig.direction === 'asc' ? 'จากมากไปน้อย' : 'จากน้อยไปมาก'}`}
+        >
+            {SORT_LABELS[key]} <span aria-hidden="true">{sortConfig.key === key ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}</span>
+        </button>
+    );
 
     const editCustomer = (customer) => {
         setOpenMenuId(null);
@@ -109,8 +135,8 @@ function AdminCustomersPage({
             <header className="member-heading">
                 <div>
                     <span>MEMBER MANAGEMENT</span>
-                    <h4>ระบบจัดการสมาชิก</h4>
-                    <p>ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลลูกค้าทั้งหมดในที่เดียว</p>
+                    <h4>จัดการผู้ใช้งาน</h4>
+                    <p>ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
                 </div>
                 <div className="member-sync"><i /> อัปเดตจากข้อมูลจริง</div>
             </header>
@@ -130,26 +156,27 @@ function AdminCustomersPage({
                             <option value="all">สิทธิ์ทั้งหมด</option><option value="admin">Admin</option><option value="user">User</option>
                         </select>
                         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                            <option value="all">สถานะทั้งหมด</option><option value="1">ใช้งาน</option><option value="0">ระงับการใช้งาน</option><option value="2">รอการยืนยัน</option>
+                            <option value="all">สถานะทั้งหมด</option><option value="1">ใช้งาน</option><option value="0">ระงับการใช้งาน</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="member-table-wrap">
                     <table className="member-table">
-                        <thead><tr><th>สมาชิก</th><th>สิทธิ์</th><th>สถานะบัญชี</th><th>ออเดอร์</th><th>ยอดสะสม</th><th>วันที่สมัคร</th><th>จัดการ</th></tr></thead>
+                        <thead><tr><th>{sortHeader('id')}</th><th>{sortHeader('name')}</th><th>สิทธิ์</th><th>สถานะบัญชี</th><th>ออเดอร์</th><th>ยอดสะสม</th><th>{sortHeader('created_at')}</th><th>จัดการ</th></tr></thead>
                         <tbody>
                             {customersLoading ? Array.from({ length: 5 }, (_, index) => (
-                                <tr className="member-loading-row" key={index}><td colSpan="7"><i /></td></tr>
+                                <tr className="member-loading-row" key={index}><td colSpan="8"><i /></td></tr>
                             )) : customers.length ? customers.map((customer) => {
                                 const status = STATUS[Number(customer.status_user)] || STATUS[2];
                                 const protectedAdmin = Boolean(Number(customer.is_main_admin));
                                 return (
                                     <tr key={customer.id}>
-                                        <td data-label="สมาชิก"><div className="member-person">
+                                        <td data-label="ID"><strong>#{customer.id}</strong></td>
+                                        <td data-label="ชื่อ"><div className="member-person">
                                             <div className={`member-avatar ${customer.role}`}>{initials(customer)}</div>
                                             <div><div className="member-name"><strong>{customer.full_name || customer.username}</strong>{protectedAdmin && <em>Admin หลัก</em>}{Number(currentUser?.id) === Number(customer.id) && <small>คุณ</small>}</div>
-                                                <span>@{customer.username} · ID #{customer.id}</span>
+                                                <span>@{customer.username}</span>
                                                 <small>{customer.email || 'ไม่มีอีเมล'} · {customer.phone || 'ไม่มีเบอร์โทร'}</small>
                                             </div>
                                         </div></td>
@@ -171,7 +198,7 @@ function AdminCustomersPage({
                                         </div></td>
                                     </tr>
                                 );
-                            }) : <tr><td colSpan="7"><div className="member-empty"><b>◎</b><h5>ไม่พบข้อมูลสมาชิก</h5><p>ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p><button onClick={() => { setSearchText(''); setRoleFilter('all'); setStatusFilter('all'); }}>ล้างตัวกรอง</button></div></td></tr>}
+                            }) : <tr><td colSpan="8"><div className="member-empty"><b>◎</b><h5>ไม่พบข้อมูลสมาชิก</h5><p>ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p><button onClick={() => { setSearchText(''); setRoleFilter('all'); setStatusFilter('all'); }}>ล้างตัวกรอง</button></div></td></tr>}
                         </tbody>
                     </table>
                 </div>

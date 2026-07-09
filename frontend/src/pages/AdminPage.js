@@ -7,7 +7,7 @@ const adminTabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'admin-orders', label: 'จัดการออเดอร์สินค้า' },
     { id: 'add-product', label: 'จัดการสินค้า' },
-    { id: 'customers', label: 'จัดการลูกค้า' },
+    { id: 'customers', label: 'จัดการผู้ใช้งาน' },
     { id: 'stock-logs', label: 'ประวัติการเคลื่อนไหว' },
 ];
 

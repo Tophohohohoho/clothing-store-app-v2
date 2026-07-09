@@ -443,6 +443,96 @@ const migrateLegacyTables = async () => {
     }
 };
 
+const seedUniversityProducts = async () => {
+    const categoryNames = [
+        'เครื่องแบบนักศึกษา',
+        'ชุดกีฬา',
+        'ชุดพิธีการ',
+        'เครื่องหมายและเครื่องประดับ',
+        'รองเท้าและถุงเท้า',
+        'กระเป๋า',
+        'อุปกรณ์การเรียน',
+        'ของที่ระลึกมหาวิทยาลัย',
+    ];
+    const categoryIds = {};
+
+    for (const categoryName of categoryNames) {
+        const [existing] = await query(
+            'SELECT category_id FROM category WHERE category_name = ? LIMIT 1',
+            [categoryName],
+        );
+
+        if (existing.length > 0) {
+            categoryIds[categoryName] = existing[0].category_id;
+            await query('UPDATE category SET status_category = 1 WHERE category_id = ?', [existing[0].category_id]);
+        } else {
+            const [result] = await query(
+                'INSERT INTO category (category_name, status_category) VALUES (?, 1)',
+                [categoryName],
+            );
+            categoryIds[categoryName] = result.insertId;
+        }
+    }
+
+    const products = [
+        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาชาย', 'เสื้อเชิ้ตแขนสั้นนักศึกษาชาย', 350.00, 1, 0],
+        ['เครื่องแบบนักศึกษา', 'เสื้อนักศึกษาหญิง', 'เสื้อเชิ้ตนักศึกษาหญิง', 350.00, 1, 0],
+        ['เครื่องแบบนักศึกษา', 'กางเกงนักศึกษาชาย', 'กางเกงขายาวสีดำ', 450.00, 1, 0],
+        ['เครื่องแบบนักศึกษา', 'กระโปรงนักศึกษาหญิง', 'กระโปรงทรงเอสีดำ', 450.00, 1, 0],
+        ['ชุดกีฬา', 'เสื้อกีฬามหาวิทยาลัย', 'เสื้อกีฬาประจำมหาวิทยาลัย', 300.00, 1, 1],
+        ['ชุดกีฬา', 'กางเกงกีฬา', 'กางเกงกีฬาขาสั้น', 250.00, 1, 1],
+        ['ชุดพิธีการ', 'ครุยวิทยฐานะ', 'ครุยสำหรับพิธีรับปริญญา', 1500.00, 1, 0],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มมหาวิทยาลัย', 'เข็มติดเสื้อนักศึกษา', 80.00, 0, 0],
+        ['เครื่องหมายและเครื่องประดับ', 'เนกไทนักศึกษา', 'เนกไทสำหรับนักศึกษาชาย', 180.00, 0, 0],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มขัดนักศึกษา', 'เข็มขัดพร้อมหัวเข็มขัด', 250.00, 0, 0],
+        ['รองเท้าและถุงเท้า', 'รองเท้าหนังนักศึกษา', 'รองเท้าหนังสีดำ', 890.00, 1, 0],
+        ['รองเท้าและถุงเท้า', 'ถุงเท้านักศึกษา', 'ถุงเท้าสีขาว', 60.00, 0, 0],
+        ['กระเป๋า', 'กระเป๋าสะพายมหาวิทยาลัย', 'กระเป๋าสะพายโลโก้มหาวิทยาลัย', 590.00, 0, 1],
+        ['กระเป๋า', 'เป้มหาวิทยาลัย', 'กระเป๋าเป้สำหรับนักศึกษา', 790.00, 0, 1],
+        ['อุปกรณ์การเรียน', 'สมุดมหาวิทยาลัย', 'สมุดปกโลโก้มหาวิทยาลัย', 40.00, 0, 0],
+        ['อุปกรณ์การเรียน', 'แฟ้มเอกสาร', 'แฟ้มใส่เอกสาร A4', 50.00, 0, 1],
+        ['ของที่ระลึกมหาวิทยาลัย', 'แก้วน้ำมหาวิทยาลัย', 'แก้วน้ำสแตนเลส', 199.00, 0, 1],
+        ['ของที่ระลึกมหาวิทยาลัย', 'พวงกุญแจมหาวิทยาลัย', 'พวงกุญแจโลโก้มหาวิทยาลัย', 79.00, 0, 1],
+    ];
+
+    const defaultColors = [
+        { name: 'ดำ', hex: '#111827' },
+        { name: 'ขาว', hex: '#f8fafc' },
+        { name: 'กรมท่า', hex: '#1e3a8a' },
+    ];
+
+    for (const [categoryName, productName, description, price, hasSize, hasColor] of products) {
+        const [existing] = await query(
+            'SELECT product_id FROM product WHERE product_name = ? LIMIT 1',
+            [productName],
+        );
+
+        if (existing.length > 0) {
+            if (hasColor) {
+                const [colors] = await query(
+                    'SELECT product_color_id FROM product_color WHERE product_id = ? LIMIT 1',
+                    [existing[0].product_id],
+                );
+                if (colors.length === 0) await replaceProductColors(existing[0].product_id, defaultColors);
+            }
+            continue;
+        }
+
+        const [result] = await query(
+            `INSERT INTO product
+                (category_id, product_name, description, price, product_image, product_status, has_size, has_color, quantity, updated_stock)
+             VALUES (?, ?, ?, ?, NULL, 1, ?, ?, 20, NOW())`,
+            [categoryIds[categoryName], productName, description, price, hasSize, hasColor],
+        );
+
+        await query(
+            'INSERT INTO stock_logs (product_id, change_type, quantity) VALUES (?, ?, ?)',
+            [result.insertId, 'รับเข้า', 20],
+        );
+        if (hasColor) await replaceProductColors(result.insertId, defaultColors);
+    }
+};
+
 const initializeDatabase = async () => {
     const schemas = [
         `CREATE TABLE IF NOT EXISTS \`user\` (
@@ -695,6 +785,7 @@ const initializeDatabase = async () => {
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
     await getDefaultCategoryId();
     await migrateLegacyTables();
+    await seedUniversityProducts();
 
     const [admins] = await query('SELECT user_id FROM `user` WHERE role = ? LIMIT 1', ['admin']);
     if (admins.length === 0) {
@@ -1588,6 +1679,16 @@ app.get('/api/admin/customers', async (req, res) => {
         const search = String(req.query.search || '').trim();
         const role = ['admin', 'user'].includes(req.query.role) ? req.query.role : '';
         const status = ['0', '1', '2'].includes(String(req.query.status)) ? Number(req.query.status) : null;
+        const sortColumns = {
+            id: 'u.user_id',
+            name: "COALESCE(NULLIF(u.full_name, ''), u.username)",
+            created_at: 'u.created_at',
+        };
+        const sort = Object.prototype.hasOwnProperty.call(sortColumns, req.query.sort) ? req.query.sort : '';
+        const order = String(req.query.order).toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+        const orderSql = sort
+            ? `ORDER BY (u.role = 'admin') DESC, ${sortColumns[sort]} ${order}, u.user_id ${order}`
+            : "ORDER BY is_main_admin DESC, (u.role = 'admin') DESC, total_spent DESC, u.created_at DESC";
         const conditions = [];
         const params = [];
 
@@ -1649,7 +1750,7 @@ app.get('/api/admin/customers', async (req, res) => {
             LEFT JOIN orders o ON u.user_id = o.user_id
             ${whereSql}
             GROUP BY u.user_id
-            ORDER BY is_main_admin DESC, total_spent DESC, u.created_at DESC
+            ${orderSql}
             LIMIT ? OFFSET ?
         `, [mainAdminId, ...params, limit, offset]);
 
