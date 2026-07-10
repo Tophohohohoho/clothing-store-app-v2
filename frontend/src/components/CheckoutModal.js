@@ -36,6 +36,34 @@ const formatAddressLine = (address) => [
     address?.province ? `จ.${address.province}` : '',
     address?.postal_code,
 ].filter(Boolean).join(' ');
+const getMissingShippingFields = (shippingInfo) => {
+    const missingFields = [];
+
+    if (!shippingInfo.receiver_name.trim()) missingFields.push('ชื่อผู้รับสินค้า');
+    if (!shippingInfo.phone.trim()) missingFields.push('เบอร์โทรศัพท์');
+
+    if (shippingInfo.shipping_method === 'ส่งสินค้า') {
+        if (!shippingInfo.address.trim()) missingFields.push('บ้านเลขที่ / ที่อยู่');
+        if (!shippingInfo.subdistrict.trim()) missingFields.push('ตำบล/แขวง');
+        if (!shippingInfo.district.trim()) missingFields.push('อำเภอ/เขต');
+        if (!shippingInfo.province.trim()) missingFields.push('จังหวัด');
+        if (!shippingInfo.postal_code.trim()) missingFields.push('รหัสไปรษณีย์');
+    }
+
+    return missingFields;
+};
+const getFirstMissingShippingFieldKey = (shippingInfo) => {
+    if (!shippingInfo.receiver_name.trim()) return 'receiver_name';
+    if (!shippingInfo.phone.trim()) return 'phone';
+    if (shippingInfo.shipping_method === 'ส่งสินค้า') {
+        if (!shippingInfo.address.trim()) return 'address';
+        if (!shippingInfo.subdistrict.trim()) return 'subdistrict';
+        if (!shippingInfo.district.trim()) return 'district';
+        if (!shippingInfo.province.trim()) return 'province';
+        if (!shippingInfo.postal_code.trim()) return 'postal_code';
+    }
+    return '';
+};
 
 const formatFileSize = (bytes) => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
 
@@ -91,6 +119,15 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAccountCopied, setIsAccountCopied] = useState(false);
     const receiptInputRef = useRef(null);
+    const pickupReceiverInputRef = useRef(null);
+    const pickupPhoneInputRef = useRef(null);
+    const newAddressReceiverInputRef = useRef(null);
+    const newAddressPhoneInputRef = useRef(null);
+    const newAddressDetailInputRef = useRef(null);
+    const newAddressProvinceInputRef = useRef(null);
+    const newAddressDistrictInputRef = useRef(null);
+    const newAddressSubdistrictInputRef = useRef(null);
+    const newAddressPostalCodeInputRef = useRef(null);
     const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : 50;
     const finalTotal = total + shippingFee;
     const formatMoney = (value) => Number(value || 0).toLocaleString(undefined, {
@@ -114,6 +151,45 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
     const qrCodeUrl = `https://quickchart.io/qr?size=220&margin=1&ecLevel=M&text=${encodeURIComponent(promptPayPayload)}`;
     const pickupReceiverName = shippingInfo.receiver_name || '';
     const pickupPhone = shippingInfo.phone || '';
+    const focusFieldByKey = (fieldKey) => {
+        const inputRefMap = {
+            receiver_name: shippingInfo.shipping_method === 'รับหน้าร้าน' ? pickupReceiverInputRef : newAddressReceiverInputRef,
+            phone: shippingInfo.shipping_method === 'รับหน้าร้าน' ? pickupPhoneInputRef : newAddressPhoneInputRef,
+            address: newAddressDetailInputRef,
+            province: newAddressProvinceInputRef,
+            district: newAddressDistrictInputRef,
+            subdistrict: newAddressSubdistrictInputRef,
+            postal_code: newAddressPostalCodeInputRef,
+        };
+        const target = inputRefMap[fieldKey]?.current;
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => target.focus(), 180);
+    };
+    const openShippingAddressFormForFix = () => {
+        setIsAddressDropdownOpen(false);
+        setIsAddingAddress(true);
+        setNewAddress((current) => ({
+            ...current,
+            receiver_name: shippingInfo.receiver_name || selectedAddress?.receiver_name || current.receiver_name || '',
+            phone: shippingInfo.phone || selectedAddress?.phone || current.phone || '',
+            address_detail: shippingInfo.address || selectedAddress?.address_detail || current.address_detail || '',
+            province: shippingInfo.province || selectedAddress?.province || current.province || '',
+            district: shippingInfo.district || selectedAddress?.district || current.district || '',
+            subdistrict: shippingInfo.subdistrict || selectedAddress?.subdistrict || current.subdistrict || '',
+            postal_code: shippingInfo.postal_code || selectedAddress?.postal_code || current.postal_code || '',
+            is_default: current.is_default ?? 0,
+        }));
+    };
+    const focusInvalidShippingField = (fieldKey) => {
+        if (!fieldKey) return;
+        if (shippingInfo.shipping_method === 'ส่งสินค้า') {
+            openShippingAddressFormForFix();
+            window.setTimeout(() => focusFieldByKey(fieldKey), 220);
+            return;
+        }
+        focusFieldByKey(fieldKey);
+    };
 
     useEffect(() => {
         let isMounted = true;
@@ -328,20 +404,18 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
             setValidationError('กรุณาเลือกรูปแบบการรับสินค้า');
             return;
         }
-        if (shippingInfo.shipping_method === 'ส่งสินค้า' && !displayAddress) {
-            setValidationError('กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน');
-            return;
-        }
-        if (!shippingInfo.receiver_name.trim()) {
-            setValidationError('กรุณากรอกชื่อผู้รับสินค้า');
-            return;
-        }
-        if (!shippingInfo.phone.trim()) {
-            setValidationError('กรุณากรอกเบอร์โทรศัพท์');
+        const missingShippingFields = getMissingShippingFields(shippingInfo);
+        if (missingShippingFields.length > 0) {
+            const prefix = shippingInfo.shipping_method === 'ส่งสินค้า'
+                ? 'กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน'
+                : 'กรุณากรอกข้อมูลผู้รับสินค้าให้ครบถ้วน';
+            setValidationError(`${prefix}: ${missingShippingFields.join(', ')}`);
+            focusInvalidShippingField(getFirstMissingShippingFieldKey(shippingInfo));
             return;
         }
         if (!PHONE_REGEX.test(cleanPhone(shippingInfo.phone))) {
             setValidationError('กรุณาตรวจสอบเบอร์โทรศัพท์ให้ถูกต้อง');
+            focusInvalidShippingField('phone');
             return;
         }
         try {
@@ -424,6 +498,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     <div className="col-md-6">
                                         <label className="form-label small text-secondary">ชื่อผู้รับ</label>
                                         <input
+                                            ref={pickupReceiverInputRef}
                                             className="form-control rounded-3 border-light-subtle py-2"
                                             value={pickupReceiverName}
                                             onChange={(e) => setShippingInfo((current) => ({ ...current, receiver_name: e.target.value }))}
@@ -432,6 +507,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     <div className="col-md-6">
                                         <label className="form-label small text-secondary">เบอร์โทรศัพท์</label>
                                         <input
+                                            ref={pickupPhoneInputRef}
                                             className="form-control rounded-3 border-light-subtle py-2"
                                             value={pickupPhone}
                                             onChange={(e) => setShippingInfo((current) => ({ ...current, phone: e.target.value }))}
@@ -514,19 +590,19 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                     <div className="row g-2">
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">ชื่อผู้รับ</label>
-                                            <input className="form-control rounded-3 border-light-subtle py-2" value={newAddress.receiver_name} onChange={(e) => setNewAddress({ ...newAddress, receiver_name: e.target.value })} />
+                                            <input ref={newAddressReceiverInputRef} className="form-control rounded-3 border-light-subtle py-2" value={newAddress.receiver_name} onChange={(e) => setNewAddress({ ...newAddress, receiver_name: e.target.value })} />
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">เบอร์โทร</label>
-                                            <input className="form-control rounded-3 border-light-subtle py-2" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} />
+                                            <input ref={newAddressPhoneInputRef} className="form-control rounded-3 border-light-subtle py-2" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} />
                                         </div>
                                         <div className="col-12">
                                             <label className="form-label small fw-bold text-secondary">รายละเอียดที่อยู่</label>
-                                            <textarea className="form-control rounded-3 border-light-subtle" rows="2" value={newAddress.address_detail} onChange={(e) => setNewAddress({ ...newAddress, address_detail: e.target.value })} />
+                                            <textarea ref={newAddressDetailInputRef} className="form-control rounded-3 border-light-subtle" rows="2" value={newAddress.address_detail} onChange={(e) => setNewAddress({ ...newAddress, address_detail: e.target.value })} />
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">จังหวัด</label>
-                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.province} onChange={(e) => handleNewProvinceChange(e.target.value)} disabled={isThaiAddressLoading || thaiAddressData.provinces.length === 0}>
+                                            <select ref={newAddressProvinceInputRef} className="form-select rounded-3 border-light-subtle py-2" value={newAddress.province} onChange={(e) => handleNewProvinceChange(e.target.value)} disabled={isThaiAddressLoading || thaiAddressData.provinces.length === 0}>
                                                 <option value="">{isThaiAddressLoading ? 'กำลังโหลดจังหวัด' : 'เลือกจังหวัด'}</option>
                                                 {thaiAddressData.provinces.map((province) => (
                                                     <option key={province.id} value={getName(province)}>{getName(province)}</option>
@@ -535,7 +611,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">อำเภอ/เขต</label>
-                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.district} onChange={(e) => handleNewDistrictChange(e.target.value)} disabled={!selectedProvince}>
+                                            <select ref={newAddressDistrictInputRef} className="form-select rounded-3 border-light-subtle py-2" value={newAddress.district} onChange={(e) => handleNewDistrictChange(e.target.value)} disabled={!selectedProvince}>
                                                 <option value="">{selectedProvince ? 'เลือกอำเภอ/เขต' : 'เลือกจังหวัดก่อน'}</option>
                                                 {districtChoices.map((district) => (
                                                     <option key={district.id} value={getName(district)}>{getName(district)}</option>
@@ -544,7 +620,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">ตำบล/แขวง</label>
-                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.subdistrict} onChange={(e) => handleNewSubDistrictChange(e.target.value)} disabled={!selectedDistrict}>
+                                            <select ref={newAddressSubdistrictInputRef} className="form-select rounded-3 border-light-subtle py-2" value={newAddress.subdistrict} onChange={(e) => handleNewSubDistrictChange(e.target.value)} disabled={!selectedDistrict}>
                                                 <option value="">{selectedDistrict ? 'เลือกตำบล/แขวง' : 'เลือกอำเภอ/เขตก่อน'}</option>
                                                 {subDistrictChoices.map((subDistrict) => (
                                                     <option key={subDistrict.id} value={getName(subDistrict)}>{getName(subDistrict)}</option>
@@ -553,7 +629,7 @@ function CheckoutModal({ total, shippingInfo, setShippingInfo, addresses = [], o
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label small fw-bold text-secondary">รหัสไปรษณีย์</label>
-                                            <select className="form-select rounded-3 border-light-subtle py-2" value={newAddress.postal_code} onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })} disabled={!selectedDistrict}>
+                                            <select ref={newAddressPostalCodeInputRef} className="form-select rounded-3 border-light-subtle py-2" value={newAddress.postal_code} onChange={(e) => setNewAddress({ ...newAddress, postal_code: e.target.value })} disabled={!selectedDistrict}>
                                                 <option value="">{selectedDistrict ? 'เลือกรหัสไปรษณีย์' : 'เลือกอำเภอ/เขตก่อน'}</option>
                                                 {postalCodeChoices.map((postalCode) => (
                                                     <option key={postalCode} value={postalCode}>{postalCode}</option>

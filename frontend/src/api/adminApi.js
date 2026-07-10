@@ -4,11 +4,6 @@ export const getAdminOrders = () => apiClient.get('/api/admin/orders');
 
 export const getOrderDetails = (orderId) => apiClient.get(`/api/admin/orders/${orderId}/details`);
 
-export const addOrderNote = (orderId, note, userId) => apiClient.post(`/api/admin/orders/${orderId}/notes`, {
-    note,
-    user_id: userId,
-});
-
 export const getDashboardStats = (params = {}) => apiClient.get('/api/admin/dashboard', { params });
 
 export const deleteAdminOrder = (orderId, userId) => apiClient.post('/api/admin/orders/delete', {
@@ -23,6 +18,7 @@ export const updateOrderStatus = (orderId, status, trackingNo = '', userId = nul
 });
 
 export const reviewOrderPayment = (orderId, payload) => apiClient.put(`/api/admin/orders/${orderId}/payment-review`, payload);
+export const reviewBulkOrderPayments = (payload) => apiClient.put('/api/admin/orders/payment-review/bulk', payload);
 
 export const getCustomers = (params = {}) => apiClient.get('/api/admin/customers', { params });
 

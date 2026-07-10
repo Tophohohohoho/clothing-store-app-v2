@@ -14,7 +14,7 @@ import PosCheckoutModal from './components/PosCheckoutModal';
 import OrderHistoryModal from './components/OrderHistoryModal';
 import ProfileModal from './components/ProfileModal';
 import StockEditModal from './components/StockEditModal';
-import AppNotificationHost, { confirmNotification, notify } from './components/AppNotification';
+import AppNotificationHost, { alertNotification, confirmNotification, notify } from './components/AppNotification';
 import AdminPage from './pages/AdminPage';
 import AdminOrderPrintPage from './pages/AdminOrderPrintPage';
 import AuthPage from './pages/AuthPage';
@@ -70,19 +70,38 @@ const getCheckoutContactFallback = (currentUser) => ({
     receiver_name: currentUser?.full_name || currentUser?.username || '',
     phone: currentUser?.phone || '',
 });
+const getMissingShippingFields = (shippingInfo) => {
+    const missingFields = [];
 
-const getRegisterValidationMessage = (form) => {
-    if (!form.username.trim()) return 'กรุณากรอกชื่อผู้ใช้';
-    if (!form.full_name.trim()) return 'กรุณากรอกชื่อ-นามสกุล';
-    if (!form.email.trim()) return 'กรุณากรอกอีเมล';
-    if (!EMAIL_REGEX.test(form.email.trim())) return 'รูปแบบอีเมลไม่ถูกต้อง';
-    if (!form.phone.trim()) return 'กรุณากรอกเบอร์โทร';
-    if (!PHONE_REGEX.test(cleanPhone(form.phone))) return 'รูปแบบเบอร์โทรไม่ถูกต้อง';
-    if (!form.password) return 'กรุณากรอกรหัสผ่าน';
-    if (form.password.length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
-    if (!form.confirmPassword) return 'กรุณากรอกยืนยันรหัสผ่าน';
-    if (form.password !== form.confirmPassword) return 'รหัสผ่านไม่ตรงกัน';
-    return '';
+    if (!shippingInfo.receiver_name.trim()) missingFields.push('ชื่อผู้รับสินค้า');
+    if (!shippingInfo.phone.trim()) missingFields.push('เบอร์โทรศัพท์');
+
+    if (shippingInfo.shipping_method === 'ส่งสินค้า') {
+        if (!shippingInfo.address.trim()) missingFields.push('บ้านเลขที่ / ที่อยู่');
+        if (!shippingInfo.subdistrict.trim()) missingFields.push('ตำบล/แขวง');
+        if (!shippingInfo.district.trim()) missingFields.push('อำเภอ/เขต');
+        if (!shippingInfo.province.trim()) missingFields.push('จังหวัด');
+        if (!shippingInfo.postal_code.trim()) missingFields.push('รหัสไปรษณีย์');
+    }
+
+    return missingFields;
+};
+
+const getRegisterValidationErrors = (form) => {
+    const errors = {};
+
+    if (!form.username.trim()) errors.username = 'กรุณากรอกชื่อผู้ใช้';
+    else if (!form.full_name.trim()) errors.full_name = 'กรุณากรอกชื่อ-นามสกุล';
+    else if (!form.email.trim()) errors.email = 'กรุณากรอกอีเมล';
+    else if (!EMAIL_REGEX.test(form.email.trim())) errors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
+    else if (!form.phone.trim()) errors.phone = 'กรุณากรอกเบอร์โทร';
+    else if (!PHONE_REGEX.test(cleanPhone(form.phone))) errors.phone = 'รูปแบบเบอร์โทรไม่ถูกต้อง';
+    else if (!form.password) errors.password = 'กรุณากรอกรหัสผ่าน';
+    else if (form.password.length < 8) errors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+    else if (!form.confirmPassword) errors.confirmPassword = 'กรุณากรอกยืนยันรหัสผ่าน';
+    else if (form.password !== form.confirmPassword) errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
+
+    return errors;
 };
 
 const getAddressValidationMessage = (address) => {
@@ -405,6 +424,7 @@ function App() {
     const [loginError, setLoginError] = useState('');
     const [isLoginLoading, setIsLoginLoading] = useState(false);
     const [registerMsg, setRegisterMsg] = useState({ type: '', text: '' });
+    const [registerFieldErrors, setRegisterFieldErrors] = useState({});
 
     const [adminOrders, setAdminOrders] = useState([]);
     const [adminOrdersLoading, setAdminOrdersLoading] = useState(false);
@@ -689,14 +709,31 @@ function App() {
     const handleRegister = async (event) => {
         event.preventDefault();
 
-        const validationMessage = getRegisterValidationMessage(registerForm);
-        if (validationMessage) {
-            setRegisterMsg({ type: 'error', text: validationMessage });
+        const validationErrors = getRegisterValidationErrors(registerForm);
+        if (Object.keys(validationErrors).length > 0) {
+            setRegisterFieldErrors(validationErrors);
+            setRegisterMsg({ type: '', text: '' });
+            const firstErrorMessage = Object.values(validationErrors)[0];
+            alertNotification({
+                type: 'error',
+                title: 'ข้อมูลสมัครสมาชิกไม่ถูกต้อง',
+                message: firstErrorMessage,
+                buttonText: 'กลับไปแก้ไข',
+            });
             return;
         }
 
+        setRegisterFieldErrors({});
+
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterMsg({ type: 'error', text: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setRegisterMsg({ type: '', text: '' });
+            alertNotification({
+                type: 'warning',
+                title: 'ยังไม่ได้อ่าน Privacy Notice',
+                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วจึงทำรายการต่อ',
+                buttonText: 'กลับไปอ่าน',
+            });
             return;
         }
 
@@ -718,6 +755,7 @@ function App() {
                     setIsRegisterView(false);
                     setAuthView('login');
                     setRegisterMsg({ type: '', text: '' });
+                    setRegisterFieldErrors({});
                     setRegisterForm({
                         username: '',
                         password: '',
@@ -731,9 +769,12 @@ function App() {
                 }, 1200);
             }
         } catch (err) {
-            setRegisterMsg({
+            setRegisterMsg({ type: '', text: '' });
+            alertNotification({
                 type: 'error',
-                text: err.response?.data?.message || err.response?.data?.error || 'สมัครสมาชิกไม่สำเร็จ กรุณาตรวจสอบข้อมูลอีกครั้ง',
+                title: 'สมัครสมาชิกไม่สำเร็จ',
+                message: err.response?.data?.message || err.response?.data?.error || 'กรุณาตรวจสอบข้อมูลอีกครั้ง',
+                buttonText: 'รับทราบ',
             });
         }
     };
@@ -1112,24 +1153,16 @@ function App() {
             return;
         }
 
-        if (shippingInfo.shipping_method === 'ส่งสินค้า' && !shippingInfo.address.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกที่อยู่จัดส่ง' });
-            return;
-        }
-
-        if (shippingInfo.shipping_method === 'ส่งสินค้า') {
-            if (!shippingInfo.subdistrict.trim() || !shippingInfo.district.trim() || !shippingInfo.province.trim() || !shippingInfo.postal_code.trim()) {
-                notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกตำบล/แขวง อำเภอ/เขต จังหวัด และรหัสไปรษณีย์' });
-                return;
-            }
-        }
-
-        if (!shippingInfo.receiver_name.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกชื่อผู้รับสินค้า' });
-            return;
-        }
-        if (!shippingInfo.phone.trim()) {
-            notify({ type: 'warning', title: 'ข้อมูลจัดส่งยังไม่ครบ', message: 'กรุณากรอกเบอร์โทรศัพท์' });
+        const missingShippingFields = getMissingShippingFields(shippingInfo);
+        if (missingShippingFields.length > 0) {
+            const prefix = shippingInfo.shipping_method === 'ส่งสินค้า'
+                ? 'กรุณาเลือกหรือเพิ่มที่อยู่จัดส่งให้ครบถ้วน'
+                : 'กรุณากรอกข้อมูลผู้รับสินค้าให้ครบถ้วน';
+            notify({
+                type: 'warning',
+                title: 'ข้อมูลจัดส่งยังไม่ครบ',
+                message: `${prefix}: ${missingShippingFields.join(', ')}`,
+            });
             return;
         }
         if (!PHONE_REGEX.test(cleanPhone(shippingInfo.phone))) {
@@ -1280,6 +1313,13 @@ function App() {
         await adminApi.reviewOrderPayment(orderId, payload);
         await fetchAdminOrders();
         await fetchSystemLogs();
+    };
+
+    const handleBulkReviewOrderPayments = async (payload) => {
+        const response = await adminApi.reviewBulkOrderPayments(payload);
+        await fetchAdminOrders();
+        await fetchSystemLogs();
+        return response;
     };
 
     const handleUploadOrderReceipt = async (orderId, payload) => {
@@ -1614,7 +1654,11 @@ function App() {
                 cart={cart}
                 isAdminView={isAdminView}
                 onOpenStore={openStore}
-                onOpenAdmin={() => redirectUnauthorizedPage('admin-dashboard') && setIsAdminView(true)}
+                onOpenAdmin={() => {
+                    if (!redirectUnauthorizedPage('admin-dashboard')) return;
+                    setAdminPage('dashboard');
+                    setIsAdminView(true);
+                }}
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenOrderHistory={openOrderHistory}
                 onOpenSalesHistory={openSalesHistory}
@@ -1637,6 +1681,8 @@ function App() {
                         setRememberLogin={setRememberLogin}
                         registerForm={registerForm}
                         setRegisterForm={setRegisterForm}
+                        registerFieldErrors={registerFieldErrors}
+                        setRegisterFieldErrors={setRegisterFieldErrors}
                         loginError={loginError}
                         isLoginLoading={isLoginLoading}
                         registerMsg={registerMsg}
@@ -1677,6 +1723,7 @@ function App() {
                         onDeleteOrder={handleDeleteOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}
                         onReviewOrderPayment={handleReviewOrderPayment}
+                        onBulkReviewOrderPayments={handleBulkReviewOrderPayments}
                         onOpenStockEdit={(product) => setStockEdit({
                             id: product.id,
                             amount: '',

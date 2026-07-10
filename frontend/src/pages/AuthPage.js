@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from '../api/authApi';
+import { alertNotification } from '../components/AppNotification';
 
 const EMPTY_FORGOT_FORM = {
     email: '',
@@ -40,6 +41,8 @@ function AuthPage({
     setRememberLogin,
     registerForm,
     setRegisterForm,
+    registerFieldErrors,
+    setRegisterFieldErrors,
     loginError,
     isLoginLoading,
     registerMsg,
@@ -54,10 +57,10 @@ function AuthPage({
     const [forgotMsg, setForgotMsg] = useState({ type: '', text: '' });
     const [isForgotLoading, setIsForgotLoading] = useState(false);
     const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
-    const [showPrivacySummary, setShowPrivacySummary] = useState(false);
     const [hasScrolledPrivacyNotice, setHasScrolledPrivacyNotice] = useState(false);
     const [consentNotice, setConsentNotice] = useState('');
     const resetCodeInputRefs = useRef([]);
+    const registerFieldRefs = useRef({});
     const forgotCode = forgotCodeDigits.join('');
 
     const switchToLogin = () => {
@@ -88,6 +91,13 @@ function AuthPage({
     const openPrivacyNotice = () => {
         setShowPrivacyNotice(true);
         setHasScrolledPrivacyNotice(false);
+        if (registerFieldErrors?.privacyNoticeAcknowledged) {
+            setRegisterFieldErrors((current) => {
+                const nextErrors = { ...current };
+                delete nextErrors.privacyNoticeAcknowledged;
+                return nextErrors;
+            });
+        }
     };
 
     const acknowledgePrivacyNotice = () => {
@@ -96,6 +106,11 @@ function AuthPage({
             privacyNoticeAcknowledged: true,
         });
         setConsentNotice('');
+        setRegisterFieldErrors((current) => {
+            const nextErrors = { ...current };
+            delete nextErrors.privacyNoticeAcknowledged;
+            return nextErrors;
+        });
         setShowPrivacyNotice(false);
     };
 
@@ -108,18 +123,60 @@ function AuthPage({
 
     const requestPrivacyBeforeConsent = () => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setConsentNotice('กรุณาอ่าน Privacy Notice ก่อน');
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setConsentNotice('');
+            alertNotification({
+                type: 'warning',
+                title: 'ยังไม่ได้อ่าน Privacy Notice',
+                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วค่อยเลือกความยินยอม',
+                buttonText: 'กลับไปอ่าน',
+            });
         }
     };
 
     const handleConsentChange = (event) => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setConsentNotice('กรุณาอ่าน Privacy Notice ก่อน');
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setConsentNotice('');
+            alertNotification({
+                type: 'warning',
+                title: 'ยังไม่ได้อ่าน Privacy Notice',
+                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วค่อยเลือกความยินยอม',
+                buttonText: 'กลับไปอ่าน',
+            });
             return;
         }
 
         setConsentNotice('');
         setRegisterForm({ ...registerForm, consentAnalytics: event.target.checked });
+    };
+
+    useEffect(() => {
+        const firstFieldWithError = Object.keys(registerFieldErrors || {})[0];
+        if (!firstFieldWithError) return;
+
+        const targetField = registerFieldRefs.current[firstFieldWithError];
+        if (!targetField) return;
+
+        targetField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => {
+            targetField.focus({ preventScroll: true });
+        }, 160);
+    }, [registerFieldErrors]);
+
+    const handleRegisterFieldChange = (field, value) => {
+        setRegisterForm({ ...registerForm, [field]: value });
+        if (registerFieldErrors?.[field]) {
+            setRegisterFieldErrors((current) => {
+                const nextErrors = { ...current };
+                delete nextErrors[field];
+                return nextErrors;
+            });
+        }
+    };
+
+    const setRegisterFieldRef = (field) => (element) => {
+        registerFieldRefs.current[field] = element;
     };
 
     const getForgotError = (err, fallback) => err?.response?.data?.message || err?.response?.data?.error || fallback;
@@ -337,75 +394,91 @@ function AuthPage({
                                 </div>
                             )}
 
-                            <label>
+                            <label className={registerFieldErrors.username ? 'has-error' : ''}>
                                 ชื่อผู้ใช้
                                 <input
+                                    ref={setRegisterFieldRef('username')}
                                     type="text"
                                     placeholder="ตั้งชื่อผู้ใช้"
                                     value={registerForm.username}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, username: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('username', e.target.value)}
+                                    aria-invalid={Boolean(registerFieldErrors.username)}
                                     required
                                 />
                             </label>
 
-                            <label>
+                            <label className={registerFieldErrors.full_name ? 'has-error' : ''}>
                                 ชื่อ-นามสกุล
                                 <input
+                                    ref={setRegisterFieldRef('full_name')}
                                     type="text"
                                     placeholder="กรอกชื่อสำหรับติดต่อ"
                                     value={registerForm.full_name}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, full_name: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('full_name', e.target.value)}
+                                    aria-invalid={Boolean(registerFieldErrors.full_name)}
                                     required
                                 />
                             </label>
 
-                            <label>
+                            <label className={registerFieldErrors.email ? 'has-error' : ''}>
                                 อีเมล
                                 <input
+                                    ref={setRegisterFieldRef('email')}
                                     type="email"
                                     placeholder="เช่น name@example.com"
                                     value={registerForm.email}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('email', e.target.value)}
+                                    aria-invalid={Boolean(registerFieldErrors.email)}
                                     required
                                 />
                             </label>
 
-                            <label>
+                            <label className={registerFieldErrors.phone ? 'has-error' : ''}>
                                 เบอร์โทร
                                 <input
+                                    ref={setRegisterFieldRef('phone')}
                                     type="tel"
                                     placeholder="เบอร์โทรสำหรับติดต่อ"
                                     value={registerForm.phone}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, phone: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('phone', e.target.value)}
+                                    aria-invalid={Boolean(registerFieldErrors.phone)}
                                     required
                                 />
                             </label>
 
-                            <label>
+                            <label className={registerFieldErrors.password ? 'has-error' : ''}>
                                 รหัสผ่าน
                                 <input
+                                    ref={setRegisterFieldRef('password')}
                                     type="password"
                                     placeholder="ตั้งรหัสผ่าน"
                                     value={registerForm.password}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('password', e.target.value)}
                                     minLength="8"
+                                    aria-invalid={Boolean(registerFieldErrors.password)}
                                     required
                                 />
                             </label>
 
-                            <label>
+                            <label className={registerFieldErrors.confirmPassword ? 'has-error' : ''}>
                                 ยืนยันรหัสผ่าน
                                 <input
+                                    ref={setRegisterFieldRef('confirmPassword')}
                                     type="password"
                                     placeholder="กรอกรหัสผ่านอีกครั้ง"
                                     value={registerForm.confirmPassword}
-                                    onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                                    onChange={(e) => handleRegisterFieldChange('confirmPassword', e.target.value)}
                                     minLength="8"
+                                    aria-invalid={Boolean(registerFieldErrors.confirmPassword)}
                                     required
                                 />
                             </label>
 
-                            <section className="auth-privacy-summary" aria-labelledby="auth-privacy-summary-title">
+                            <section
+                                ref={setRegisterFieldRef('privacyNoticeAcknowledged')}
+                                className={`auth-privacy-summary ${registerFieldErrors.privacyNoticeAcknowledged ? 'has-error' : ''}`}
+                                aria-labelledby="auth-privacy-summary-title"
+                            >
                                 <div className="auth-privacy-summary-header">
                                     <span>Privacy Policy</span>
                                     <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัวสำหรับการสมัครสมาชิก</h3>
@@ -413,31 +486,11 @@ function AuthPage({
                                 </div>
                                 <button
                                     type="button"
-                                    className="auth-privacy-toggle"
-                                    onClick={() => setShowPrivacySummary((visible) => !visible)}
-                                    aria-expanded={showPrivacySummary}
+                                    className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
+                                    onClick={openPrivacyNotice}
                                 >
-                                    {showPrivacySummary ? 'ซ่อน Privacy Policy' : 'อ่าน Privacy Policy'}
+                                    {registerForm.privacyNoticeAcknowledged ? 'อ่านและรับทราบนโยบายความเป็นส่วนตัวแล้ว' : 'อ่านและรับทราบนโยบายความเป็นส่วนตัว'}
                                 </button>
-                                {showPrivacySummary && (
-                                    <>
-                                        <div className="auth-privacy-summary-list">
-                                            {PRIVACY_NOTICE_SECTIONS.map((section) => (
-                                                <article key={section.title}>
-                                                    <h4>{section.title}</h4>
-                                                    <p>{section.text}</p>
-                                                </article>
-                                            ))}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
-                                            onClick={openPrivacyNotice}
-                                        >
-                                            {registerForm.privacyNoticeAcknowledged ? 'อ่านและรับทราบนโยบายความเป็นส่วนตัวแล้ว' : 'อ่านและรับทราบนโยบายความเป็นส่วนตัว'}
-                                        </button>
-                                    </>
-                                )}
                             </section>
 
                             <section className="auth-consent-box" aria-labelledby="consent-analytics-title">

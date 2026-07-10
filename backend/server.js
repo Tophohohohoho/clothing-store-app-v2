@@ -1681,20 +1681,6 @@ app.get('/api/admin/orders/:id/details', async (req, res) => {
              ORDER BY h.created_at DESC, h.history_id DESC`,
             [id],
         );
-        const [notes] = await query(
-            `SELECT
-                n.note_id,
-                n.note,
-                n.created_at,
-                u.username,
-                u.full_name
-             FROM order_admin_notes n
-             LEFT JOIN \`user\` u ON u.user_id = n.user_id
-             WHERE n.order_id = ?
-             ORDER BY n.created_at DESC, n.note_id DESC`,
-            [id],
-        );
-
         res.json({
             order: normalizeOrder(orders[0]),
             items,
@@ -1706,35 +1692,9 @@ app.get('/api/admin/orders/:id/details', async (req, res) => {
                 username: null,
                 full_name: null,
             }],
-            notes,
         });
     } catch (err) {
         respondError(res, err, 'โหลดรายละเอียดคำสั่งซื้อไม่สำเร็จ');
-    }
-});
-
-app.post('/api/admin/orders/:id/notes', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { note, user_id } = req.body;
-        const cleanNote = String(note || '').trim();
-        if (!cleanNote) return res.status(400).json({ error: 'กรุณากรอกหมายเหตุ' });
-        const [orders] = await query('SELECT order_id FROM orders WHERE order_id = ?', [id]);
-        if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
-        const [result] = await query(
-            'INSERT INTO order_admin_notes (order_id, user_id, note) VALUES (?, ?, ?)',
-            [id, user_id || null, cleanNote],
-        );
-        await writeSystemLog(user_id, 'เพิ่มหมายเหตุออเดอร์', `เพิ่มหมายเหตุคำสั่งซื้อ #${id}`, {
-            afterData: {
-                order_id: Number(id),
-                note_id: result.insertId,
-                note: cleanNote,
-            },
-        });
-        res.json({ success: true, note_id: result.insertId });
-    } catch (err) {
-        respondError(res, err, 'เพิ่มหมายเหตุไม่สำเร็จ');
     }
 });
 

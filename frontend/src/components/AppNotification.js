@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const NOTIFY_EVENT = 'app-notify';
 const CONFIRM_EVENT = 'app-confirm';
+const ALERT_EVENT = 'app-alert';
 
 export const notify = ({ type = 'success', title, message = '', duration = 3000 } = {}) => {
     window.dispatchEvent(new CustomEvent(NOTIFY_EVENT, {
@@ -34,9 +35,27 @@ export const confirmNotification = ({
     }));
 });
 
+export const alertNotification = ({
+    title = 'แจ้งเตือน',
+    message = '',
+    buttonText = 'รับทราบ',
+    type = 'warning',
+} = {}) => new Promise((resolve) => {
+    window.dispatchEvent(new CustomEvent(ALERT_EVENT, {
+        detail: {
+            title,
+            message,
+            buttonText,
+            type,
+            resolve,
+        },
+    }));
+});
+
 function AppNotificationHost() {
     const [toasts, setToasts] = useState([]);
     const [confirmState, setConfirmState] = useState(null);
+    const [alertState, setAlertState] = useState(null);
     const timersRef = useRef(new Map());
 
     useEffect(() => {
@@ -55,11 +74,17 @@ function AppNotificationHost() {
             setConfirmState(event.detail);
         };
 
+        const handleAlert = (event) => {
+            setAlertState(event.detail);
+        };
+
         window.addEventListener(NOTIFY_EVENT, handleNotify);
         window.addEventListener(CONFIRM_EVENT, handleConfirm);
+        window.addEventListener(ALERT_EVENT, handleAlert);
         return () => {
             window.removeEventListener(NOTIFY_EVENT, handleNotify);
             window.removeEventListener(CONFIRM_EVENT, handleConfirm);
+            window.removeEventListener(ALERT_EVENT, handleAlert);
             activeTimers.forEach((timer) => window.clearTimeout(timer));
             activeTimers.clear();
         };
@@ -75,6 +100,11 @@ function AppNotificationHost() {
     const closeConfirm = (result) => {
         confirmState?.resolve?.(result);
         setConfirmState(null);
+    };
+
+    const closeAlert = () => {
+        alertState?.resolve?.(true);
+        setAlertState(null);
     };
 
     return (
@@ -117,6 +147,29 @@ function AppNotificationHost() {
                             <button type="button" className="primary" onClick={() => closeConfirm(true)}>
                                 {confirmState.confirmText}
                             </button>
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            {alertState && (
+                <div className="app-confirm-backdrop" role="presentation" onMouseDown={closeAlert}>
+                    <section
+                        className={`app-confirm-dialog app-alert-dialog ${alertState.type || 'warning'}`}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="app-alert-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <button type="button" className="app-alert-close" onClick={closeAlert} aria-label="ปิดการแจ้งเตือน">
+                            ×
+                        </button>
+                        <div className="app-confirm-icon" aria-hidden="true">
+                            {alertState.type === 'error' || alertState.type === 'danger' ? '!' : 'i'}
+                        </div>
+                        <div>
+                            <h2 id="app-alert-title">{alertState.title}</h2>
+                            {alertState.message && <p>{alertState.message}</p>}
                         </div>
                     </section>
                 </div>

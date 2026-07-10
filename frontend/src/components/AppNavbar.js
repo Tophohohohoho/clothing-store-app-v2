@@ -48,7 +48,7 @@ function AppNavbar({
 
                     {isMember && (
                         <button className="nav-pill is-info" onClick={onOpenOrderHistory}>
-                            คำสั่งซื้อของฉัน
+                            คำสั่งซื้อ
                         </button>
                     )}
 
