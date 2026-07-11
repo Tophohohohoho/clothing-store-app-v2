@@ -23,12 +23,58 @@ import StorePage from './pages/StorePage';
 import { getCartItemKey, getCartTotal } from './utils/cart';
 
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
+const AUTH_TOKEN_KEY = 'clothingStoreToken';
+const CART_STORAGE_PREFIX = 'clothingStoreCart';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 
-const getStoredUser = () => {
-    const savedUser = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
-    return savedUser ? JSON.parse(savedUser) : null;
+const readStoredAuth = (storage) => {
+    const savedUser = storage.getItem(AUTH_STORAGE_KEY);
+    const savedToken = storage.getItem(AUTH_TOKEN_KEY);
+    if (!savedUser || !savedToken) {
+        storage.removeItem(AUTH_STORAGE_KEY);
+        storage.removeItem(AUTH_TOKEN_KEY);
+        return null;
+    }
+
+    try {
+        return JSON.parse(savedUser);
+    } catch (err) {
+        storage.removeItem(AUTH_STORAGE_KEY);
+        storage.removeItem(AUTH_TOKEN_KEY);
+        return null;
+    }
+};
+
+const getStoredUser = () => readStoredAuth(localStorage) || readStoredAuth(sessionStorage);
+
+const getAuthStorage = () => (readStoredAuth(localStorage) ? localStorage : sessionStorage);
+const storeAuthToken = (storage, token) => storage.setItem(AUTH_TOKEN_KEY, JSON.stringify(token || ''));
+const getCartStorageKey = (userId) => `${CART_STORAGE_PREFIX}:${userId}`;
+const readStoredCart = (storage, userId) => {
+    if (!storage || !userId) return [];
+
+    try {
+        const rawCart = storage.getItem(getCartStorageKey(userId));
+        const parsedCart = rawCart ? JSON.parse(rawCart) : [];
+        return Array.isArray(parsedCart) ? parsedCart : [];
+    } catch (err) {
+        storage.removeItem(getCartStorageKey(userId));
+        return [];
+    }
+};
+const writeStoredCart = (storage, userId, cart) => {
+    if (!storage || !userId) return;
+    storage.setItem(getCartStorageKey(userId), JSON.stringify(Array.isArray(cart) ? cart : []));
+};
+const clearStoredCart = (userId) => {
+    if (!userId) return;
+    localStorage.removeItem(getCartStorageKey(userId));
+    sessionStorage.removeItem(getCartStorageKey(userId));
+};
+const clearAuthToken = () => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
 };
 
 const emptyProduct = {
@@ -390,7 +436,6 @@ function App() {
     const [products, setProducts] = useState([]);
     const [productsLoading, setProductsLoading] = useState(true);
     const [categories, setCategories] = useState([]);
-    const [cart, setCart] = useState([]);
     const [selectedCartKeys, setSelectedCartKeys] = useState([]);
     const [user, setUser] = useState(() => {
         try {
@@ -398,7 +443,17 @@ function App() {
         } catch (err) {
             localStorage.removeItem(AUTH_STORAGE_KEY);
             sessionStorage.removeItem(AUTH_STORAGE_KEY);
+            clearAuthToken();
             return null;
+        }
+    });
+    const [cart, setCart] = useState(() => {
+        try {
+            const storedUser = getStoredUser();
+            if (!storedUser?.id) return [];
+            return readStoredCart(getAuthStorage(), storedUser.id);
+        } catch (err) {
+            return [];
         }
     });
     const [isRegisterView, setIsRegisterView] = useState(false);
@@ -407,11 +462,12 @@ function App() {
     const [isAdminView, setIsAdminView] = useState(false);
     const [adminPage, setAdminPage] = useState('dashboard');
     const [previewProductId, setPreviewProductId] = useState(null);
+    const [storeSearchText, setStoreSearchText] = useState('');
     const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now());
     const [storeContact, setStoreContact] = useState({ full_name: '', email: '', phone: '' });
 
     const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-    const [rememberLogin, setRememberLogin] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY)));
+    const [rememberLogin, setRememberLogin] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY) && localStorage.getItem(AUTH_TOKEN_KEY)));
     const [registerForm, setRegisterForm] = useState({
         username: '',
         password: '',
@@ -596,17 +652,17 @@ function App() {
         }
     };
 
-    const fetchOrderHistory = async () => {
-        if (!user?.username) return;
+    const fetchOrderHistory = useCallback(async () => {
+        if (!user?.id) return;
 
         try {
-            const res = await ordersApi.getOrderHistory(user.username);
+            const res = await ordersApi.getOrderHistory();
             setOrderHistory(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error(err);
             setOrderHistory([]);
         }
-    };
+    }, [user?.id]);
 
     useEffect(() => {
         fetchProducts();
@@ -621,7 +677,7 @@ function App() {
         }
 
         setIsAdminView(false);
-    }, [user]);
+    }, [fetchOrderHistory, user]);
 
     useEffect(() => {
         authApi.getStoreContact()
@@ -642,6 +698,20 @@ function App() {
     }, [cart]);
 
     useEffect(() => {
+        if (!user?.id) {
+            setCart([]);
+            return;
+        }
+
+        setCart(readStoredCart(getAuthStorage(), user.id));
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+        writeStoredCart(getAuthStorage(), user.id, cart);
+    }, [cart, user?.id]);
+
+    useEffect(() => {
         if (!orderToast.message) return undefined;
         const timer = window.setTimeout(() => {
             setOrderToast({ type: '', message: '' });
@@ -653,6 +723,15 @@ function App() {
         fetchProducts(isAdminView);
         fetchCategories(isAdminView);
     }, [fetchProducts, fetchCategories, isAdminView]);
+
+    useEffect(() => {
+        if (!isMemberUser(user)) {
+            setOrderHistory([]);
+            return;
+        }
+
+        fetchOrderHistory();
+    }, [fetchOrderHistory, user]);
 
     useEffect(() => {
         if (!isAdminView) return;
@@ -686,12 +765,16 @@ function App() {
             const res = await authApi.login(loginForm);
             if (res.data.success) {
                 const loggedInUser = res.data.user;
+                const authToken = res.data.token || '';
                 setUser(loggedInUser);
                 setSessionStartedAt(Date.now());
                 const storage = rememberLogin ? localStorage : sessionStorage;
                 const otherStorage = rememberLogin ? sessionStorage : localStorage;
                 storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(loggedInUser));
+                storeAuthToken(storage, authToken);
                 otherStorage.removeItem(AUTH_STORAGE_KEY);
+                otherStorage.removeItem(AUTH_TOKEN_KEY);
+                otherStorage.removeItem(getCartStorageKey(loggedInUser.id));
                 setLoginError('');
                 setAuthView(null);
 
@@ -1207,14 +1290,14 @@ function App() {
         }
 
         try {
-            const shippingFee = shippingInfo.shipping_method === 'รับหน้าร้าน' ? 0 : DELIVERY_FEE;
             const isPickup = shippingInfo.shipping_method === 'รับหน้าร้าน';
+            const checkoutItems = selectedCartItems.map((item) => ({
+                id: item.id || item.product_id || item.p_id,
+                qty: item.qty ?? item.selected_quantity ?? 1,
+            }));
             const orderData = {
                 user_id: user?.id || null,
                 username: user?.username || 'ลูกค้าทั่วไป',
-                total_price: total,
-                shipping_fee: shippingFee,
-                discount: 0,
                 receiver_name: shippingInfo.receiver_name || user?.full_name || user?.username || 'ลูกค้า',
                 address_id: isPickup ? null : shippingInfo.address_id,
                 address: isPickup ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
@@ -1227,7 +1310,7 @@ function App() {
                 shipping_method: shippingInfo.shipping_method,
                 receipt_image_data: shippingInfo.receipt_image_data,
                 receipt_file_name: shippingInfo.receipt_file_name,
-                cart_items: selectedCartItems,
+                cart_items: checkoutItems,
             };
 
             const res = await ordersApi.checkoutOrder(orderData);
@@ -1517,7 +1600,7 @@ function App() {
             });
             const updatedUser = res.data.user;
             setUser(updatedUser);
-            const storage = localStorage.getItem(AUTH_STORAGE_KEY) ? localStorage : sessionStorage;
+            const storage = getAuthStorage();
             storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedUser));
             return { success: true, message: 'บันทึกข้อมูลสำเร็จ', user: updatedUser };
         } catch (err) {
@@ -1656,8 +1739,10 @@ function App() {
         } catch (err) {
             console.error('บันทึก Logout log ไม่สำเร็จ', err);
         } finally {
+            clearStoredCart(user?.id);
             localStorage.removeItem(AUTH_STORAGE_KEY);
             sessionStorage.removeItem(AUTH_STORAGE_KEY);
+            clearAuthToken();
             setUser(null);
             setIsAdminView(false);
             setAuthView(null);
@@ -1672,6 +1757,7 @@ function App() {
             setIsProfileOpen(false);
             setShowLogoutConfirm(false);
             setIsLoggingOut(false);
+            setStoreSearchText('');
         }
     };
 
@@ -1689,6 +1775,11 @@ function App() {
                 user={user}
                 cart={cart}
                 isAdminView={isAdminView}
+                authView={authView}
+                isCartOpen={isCartOpen}
+                isOrderHistoryOpen={isOrderHistoryOpen}
+                isSalesHistoryOpen={isSalesHistoryOpen}
+                isProfileOpen={isProfileOpen}
                 onOpenStore={openStore}
                 onOpenAdmin={() => {
                     if (!redirectUnauthorizedPage('admin-dashboard')) return;
@@ -1782,6 +1873,8 @@ function App() {
                         previewProductId={previewProductId}
                         onPreviewShown={() => setPreviewProductId(null)}
                         showStockCounts={isAdminUser(user)}
+                        searchText={storeSearchText}
+                        onSearchTextChange={setStoreSearchText}
                     />
                 )}
             </div>

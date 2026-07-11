@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const loadLocalEnv = () => {
     const envPath = path.join(__dirname, '.env');
@@ -44,6 +45,8 @@ const query = (sql, params = []) => dbp.query(sql, params);
 
 const hashResetCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
 const PASSWORD_HASH_ROUNDS = 12;
+const AUTH_TOKEN_SECRET = process.env.JWT_SECRET || process.env.AUTH_TOKEN_SECRET || 'dev-auth-secret-change-me';
+const AUTH_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 
@@ -54,6 +57,108 @@ const hashPassword = (password) => bcrypt.hash(String(password), PASSWORD_HASH_R
 const verifyPassword = async (password, storedPassword) => {
     if (isBcryptHash(storedPassword)) return bcrypt.compare(String(password), storedPassword);
     return String(password) === String(storedPassword || '');
+};
+const normalizeRole = (role) => (role === 'admin' ? 'admin' : 'user');
+const signAuthToken = (user) => jwt.sign(
+    {
+        sub: user.id,
+        role: normalizeRole(user.role),
+        username: user.username,
+    },
+    AUTH_TOKEN_SECRET,
+    { expiresIn: AUTH_TOKEN_EXPIRES_IN },
+);
+const getBearerToken = (req) => {
+    const header = String(req.headers?.authorization || '');
+    if (!header.startsWith('Bearer ')) return '';
+    return header.slice(7).trim();
+};
+const fetchUserById = async (userId) => {
+    const [rows] = await query(
+        `SELECT user_id AS id, username, full_name, email, phone, role, status_user, created_at
+         FROM \`user\`
+         WHERE user_id = ? LIMIT 1`,
+        [userId],
+    );
+    return rows[0] || null;
+};
+const mapAuthUser = (user) => ({
+    id: user.id,
+    username: user.username,
+    full_name: user.full_name,
+    email: user.email,
+    phone: user.phone,
+    role: normalizeRole(user.role),
+    status_user: Number(user.status_user ?? 0),
+    created_at: user.created_at,
+});
+const getCurrentUserFromRequest = async (req) => {
+    const token = getBearerToken(req);
+    if (!token) {
+        return { user: null, token: null };
+    }
+
+    const payload = jwt.verify(token, AUTH_TOKEN_SECRET);
+    const userId = Number(payload.sub);
+    if (!Number.isInteger(userId) || userId <= 0) {
+        throw new Error('invalid token');
+    }
+
+    const user = await fetchUserById(userId);
+    if (!user || Number(user.status_user) !== 1) {
+        throw new Error('inactive user');
+    }
+
+    return { user: mapAuthUser(user), token };
+};
+const requireAuth = async (req, res, next) => {
+    try {
+        const { user, token } = await getCurrentUserFromRequest(req);
+        if (!user) {
+            return res.status(401).json({ success: false, error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน' });
+        }
+
+        req.authUser = user;
+        req.authToken = token;
+        return next();
+    } catch (err) {
+        return res.status(401).json({ success: false, error: 'โทเค็นเข้าสู่ระบบไม่ถูกต้องหรือหมดอายุ' });
+    }
+};
+const requireRole = (...roles) => async (req, res, next) => {
+    await requireAuth(req, res, async () => {
+        if (!roles.includes(req.authUser?.role)) {
+            return res.status(403).json({ success: false, error: 'คุณไม่มีสิทธิ์เข้าถึงส่วนนี้' });
+        }
+        return next();
+    });
+};
+const requireAdmin = requireRole('admin');
+const requireSelfOrAdmin = (paramName = 'id') => async (req, res, next) => {
+    await requireAuth(req, res, async () => {
+        const targetId = Number(req.params?.[paramName] ?? req.body?.[paramName] ?? req.body?.user_id);
+        if (req.authUser?.role !== 'admin' && Number(req.authUser?.id) !== targetId) {
+            return res.status(403).json({ success: false, error: 'คุณไม่มีสิทธิ์เข้าถึงข้อมูลของบัญชีอื่น' });
+        }
+        return next();
+    });
+};
+const requireOrderOwnerOrAdmin = async (req, res, next) => {
+    await requireAuth(req, res, async () => {
+        const orderId = Number(req.params?.id);
+        const [orders] = await query('SELECT order_id, user_id FROM orders WHERE order_id = ? LIMIT 1', [orderId]);
+        if (orders.length === 0) {
+            return res.status(404).json({ success: false, error: 'ไม่พบคำสั่งซื้อ' });
+        }
+
+        const order = orders[0];
+        if (req.authUser?.role !== 'admin' && Number(req.authUser?.id) !== Number(order.user_id)) {
+            return res.status(403).json({ success: false, error: 'คุณไม่มีสิทธิ์เข้าถึงคำสั่งซื้อนี้' });
+        }
+
+        req.orderRecord = order;
+        return next();
+    });
 };
 
 const getFirstRegisterValidationMessage = ({ username, full_name, email, phone, password, confirm_password }) => {
@@ -462,6 +567,8 @@ const PAYMENT_REVIEW_STATUS = 'รอตรวจสอบ';
 const PAYMENT_REJECTED_STATUS = 'ถูกปฏิเสธ';
 const ORDER_PAYMENT_REVIEW_STATUS = 'รอตรวจสอบการชำระเงิน';
 const ORDER_WAITING_PAYMENT_STATUS = 'รอชำระเงิน';
+const ALLOWED_CUSTOMER_PAYMENT_METHODS = new Set(['โอนเงินผ่านธนาคาร']);
+const ALLOWED_SHIPPING_METHODS = new Set(['ส่งสินค้า', 'รับหน้าร้าน']);
 const RECEIPT_UPLOAD_OPTIONS = {
     allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'],
     invalidTypeMessage: 'รองรับเฉพาะไฟล์ JPG, JPEG, PNG และ WEBP เท่านั้น',
@@ -470,7 +577,19 @@ const RECEIPT_UPLOAD_OPTIONS = {
 };
 const BLOCKED_FULFILLMENT_STATUSES = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
 
-const normalizeRole = (role) => (role === 'admin' ? 'admin' : 'user');
+const normalizeCheckoutItem = (item, index) => {
+    const productId = Number(item?.id ?? item?.product_id ?? item?.p_id);
+    const quantity = Number.parseInt(item?.qty ?? item?.selected_quantity ?? 1, 10);
+
+    if (!Number.isInteger(productId) || productId <= 0) {
+        return { error: `รายการสินค้าลำดับที่ ${index + 1} มีรหัสสินค้าไม่ถูกต้อง` };
+    }
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+        return { error: `รายการสินค้าลำดับที่ ${index + 1} มีจำนวนไม่ถูกต้อง` };
+    }
+
+    return { productId, quantity };
+};
 
 const tableExists = async (tableName) => {
     const [rows] = await query(
@@ -768,16 +887,6 @@ const initializeDatabase = async () => {
             KEY idx_order_status_history_order (order_id),
             KEY idx_order_status_history_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
-        `CREATE TABLE IF NOT EXISTS order_admin_notes (
-            note_id int NOT NULL AUTO_INCREMENT,
-            order_id int NOT NULL,
-            user_id int DEFAULT NULL,
-            note text NOT NULL,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (note_id),
-            KEY idx_order_admin_notes_order (order_id),
-            KEY idx_order_admin_notes_user (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
         `CREATE TABLE IF NOT EXISTS password_reset_codes (
             reset_id int NOT NULL AUTO_INCREMENT,
             user_id int NOT NULL,
@@ -978,7 +1087,7 @@ app.get('/api/store/contact', async (req, res) => {
     }
 });
 
-app.post('/api/admin/categories', async (req, res) => {
+app.post('/api/admin/categories', requireAdmin, async (req, res) => {
     try {
         const categoryName = String(req.body.category_name || '').trim();
         if (!categoryName) return res.status(400).json({ error: 'กรุณากรอกชื่อหมวดหมู่สินค้า' });
@@ -999,7 +1108,7 @@ app.post('/api/admin/categories', async (req, res) => {
     }
 });
 
-app.put('/api/admin/categories/:id', async (req, res) => {
+app.put('/api/admin/categories/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const categoryName = String(req.body.category_name || '').trim();
@@ -1018,7 +1127,7 @@ app.put('/api/admin/categories/:id', async (req, res) => {
     }
 });
 
-app.delete('/api/admin/categories/:id', async (req, res) => {
+app.delete('/api/admin/categories/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         if (!id) return res.status(400).json({ error: 'ไม่พบรหัสหมวดหมู่สินค้า' });
@@ -1047,7 +1156,7 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
     }
 });
 
-app.post('/api/products/upload-image', (req, res) => {
+app.post('/api/products/upload-image', requireAdmin, (req, res) => {
     const { imageData, fileName } = req.body;
 
     saveBase64Image(imageData, fileName, 'products')
@@ -1060,9 +1169,10 @@ app.post('/api/products/upload-image', (req, res) => {
         .catch((err) => res.status(400).json({ error: err.message || 'อัปโหลดรูปภาพไม่สำเร็จ' }));
 });
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', requireAdmin, async (req, res) => {
     try {
-        const { name, description, price, image_url, stock, category_id, category_name, user_id } = req.body;
+        const { name, description, price, image_url, stock, category_id, category_name } = req.body;
+        const user_id = req.authUser.id;
         const categoryId = await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name });
         if (!categoryId) return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
 
@@ -1103,7 +1213,7 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         await query('UPDATE product SET product_status = 0 WHERE product_id = ?', [id]);
@@ -1138,18 +1248,19 @@ app.post('/api/login', async (req, res) => {
             await query('UPDATE `user` SET password = ? WHERE user_id = ?', [await hashPassword(password), results[0].id]);
         }
 
-        await writeSystemLog(results[0].id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ', getAuditRequestMeta(req));
-        delete results[0].password;
-        res.json({ success: true, message: 'เข้าสู่ระบบสำเร็จ', user: results[0] });
+        const user = mapAuthUser(results[0]);
+        const token = signAuthToken(user);
+        await writeSystemLog(user.id, 'เข้าสู่ระบบ', 'ผู้ใช้เข้าสู่ระบบ', getAuditRequestMeta(req));
+        res.json({ success: true, message: 'เข้าสู่ระบบสำเร็จ', user, token });
     } catch (err) {
         respondError(res, err, 'เข้าสู่ระบบไม่สำเร็จ');
     }
 });
 
-app.post('/api/logout', async (req, res) => {
+app.post('/api/logout', requireAuth, async (req, res) => {
     try {
-        const { user_id, session_duration } = req.body;
-        await writeSystemLog(user_id, 'ออกจากระบบ', 'ผู้ใช้ออกจากระบบ', {
+        const { session_duration } = req.body;
+        await writeSystemLog(req.authUser.id, 'ออกจากระบบ', 'ผู้ใช้ออกจากระบบ', {
             ...getAuditRequestMeta(req),
             sessionDuration: session_duration || null,
         });
@@ -1355,7 +1466,7 @@ app.post('/api/password-reset/complete', async (req, res) => {
     }
 });
 
-app.get('/api/admin/summary', async (req, res) => {
+app.get('/api/admin/summary', requireAdmin, async (req, res) => {
     try {
         const [result] = await query(
             "SELECT COUNT(order_id) AS total_orders, COALESCE(SUM(final_price), 0) AS total_revenue FROM orders WHERE order_status <> 'ยกเลิก'",
@@ -1366,7 +1477,7 @@ app.get('/api/admin/summary', async (req, res) => {
     }
 });
 
-app.get('/api/admin/dashboard', async (req, res) => {
+app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
     try {
         const allowedIntervals = ['day', 'week', 'month', 'year'];
         const interval = allowedIntervals.includes(req.query.interval) ? req.query.interval : 'day';
@@ -1535,7 +1646,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
     }
 });
 
-app.get('/api/admin/orders', async (req, res) => {
+app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     try {
         const [results] = await query(`
             SELECT
@@ -1616,7 +1727,7 @@ app.get('/api/admin/orders', async (req, res) => {
     }
 });
 
-app.get('/api/admin/orders/:id/details', async (req, res) => {
+app.get('/api/admin/orders/:id/details', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const [orders] = await query(
@@ -1703,9 +1814,10 @@ app.get('/api/admin/orders/:id/details', async (req, res) => {
     }
 });
 
-app.post('/api/admin/orders/delete', async (req, res) => {
+app.post('/api/admin/orders/delete', requireAdmin, async (req, res) => {
     try {
         const { order_id, user_id } = req.body;
+        const actorId = req.authUser.id;
         if (!order_id) return res.status(400).json({ error: 'กรุณาระบุรหัสคำสั่งซื้อที่ต้องการลบ' });
 
         const [orders] = await query(
@@ -1730,16 +1842,15 @@ app.post('/api/admin/orders/delete', async (req, res) => {
                     changeType: 'คืนสินค้า',
                     changeQuantity: item.quantity,
                     reason: `ลบคำสั่งซื้อ #${order_id}`,
-                    userId: user_id || null,
+                    userId: actorId,
                 });
             }
         }
         await query('DELETE FROM order_status_history WHERE order_id = ?', [order_id]);
-        await query('DELETE FROM order_admin_notes WHERE order_id = ?', [order_id]);
         await query('DELETE FROM payment WHERE order_id = ?', [order_id]);
         await query('DELETE FROM order_detail WHERE order_id = ?', [order_id]);
         await query('DELETE FROM orders WHERE order_id = ?', [order_id]);
-        await writeSystemLog(user_id, 'ลบคำสั่งซื้อ', `ลบคำสั่งซื้อ #${order_id}`, {
+        await writeSystemLog(actorId, 'ลบคำสั่งซื้อ', `ลบคำสั่งซื้อ #${order_id}`, {
             beforeData: {
                 ...beforeOrderSnapshot,
                 items: beforeItemSnapshots,
@@ -1756,7 +1867,7 @@ app.post('/api/admin/orders/delete', async (req, res) => {
     }
 });
 
-app.get('/api/admin/customers', async (req, res) => {
+app.get('/api/admin/customers', requireAdmin, async (req, res) => {
     try {
         const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
         const limit = Math.min(100, Math.max(5, Number.parseInt(req.query.limit, 10) || 10));
@@ -1860,7 +1971,7 @@ app.get('/api/admin/customers', async (req, res) => {
     }
 });
 
-app.get('/api/admin/order-items/:orderId', async (req, res) => {
+app.get('/api/admin/order-items/:orderId', requireAdmin, async (req, res) => {
     try {
         const { orderId } = req.params;
         const [results] = await query(`
@@ -1875,9 +1986,9 @@ app.get('/api/admin/order-items/:orderId', async (req, res) => {
     }
 });
 
-app.post('/api/admin/change-role', async (req, res) => {
+app.post('/api/admin/change-role', requireAdmin, async (req, res) => {
     try {
-        const { user_id, new_role, actor_id } = req.body;
+        const { user_id, new_role } = req.body;
         const nextRole = normalizeRole(new_role);
         const [users] = await query(
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
@@ -1898,7 +2009,7 @@ app.post('/api/admin/change-role', async (req, res) => {
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
             [user_id],
         );
-        await writeSystemLog(actor_id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์ ${users[0].username} เป็น ${nextRole}`, {
+        await writeSystemLog(req.authUser.id, 'เปลี่ยนสิทธิ์', `เปลี่ยนสิทธิ์ ${users[0].username} เป็น ${nextRole}`, {
             beforeData: beforeUserSnapshot,
             afterData: snapshotUser(updatedUsers[0]),
         });
@@ -1908,10 +2019,10 @@ app.post('/api/admin/change-role', async (req, res) => {
     }
 });
 
-app.delete('/api/admin/users/:id', async (req, res) => {
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const actorId = req.query.actor_id || null;
+        const actorId = req.authUser.id;
         const [users] = await query(
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
             [id],
@@ -1941,10 +2052,10 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     }
 });
 
-app.put('/api/admin/users/:id/reactivate', async (req, res) => {
+app.put('/api/admin/users/:id/reactivate', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const actorId = req.body.actor_id || null;
+        const actorId = req.authUser.id;
         const [users] = await query(
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
             [id],
@@ -1970,7 +2081,7 @@ app.put('/api/admin/users/:id/reactivate', async (req, res) => {
     }
 });
 
-app.put('/api/admin/users/:id', async (req, res) => {
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, full_name, email, phone } = req.body;
@@ -1997,7 +2108,7 @@ app.put('/api/admin/users/:id', async (req, res) => {
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
             [id],
         );
-        await writeSystemLog(id, 'แก้ไขสมาชิก', `แก้ไขข้อมูล ${username}`, {
+        await writeSystemLog(req.authUser.id, 'แก้ไขสมาชิก', `แก้ไขข้อมูล ${username}`, {
             beforeData: beforeUserSnapshot,
             afterData: snapshotUser(updatedUsers[0]),
         });
@@ -2007,7 +2118,7 @@ app.put('/api/admin/users/:id', async (req, res) => {
     }
 });
 
-app.put('/api/users/:id/profile', async (req, res) => {
+app.put('/api/users/:id/profile', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
         const { username, password, full_name, email, phone } = req.body;
@@ -2046,7 +2157,7 @@ app.put('/api/users/:id/profile', async (req, res) => {
 
         const beforeUserSnapshot = snapshotUser(users[0]);
         await query(sql, params);
-        await writeSystemLog(id, 'แก้ไขโปรไฟล์', 'ผู้ใช้แก้ไขข้อมูลส่วนตัว', {
+        await writeSystemLog(req.authUser.id, 'แก้ไขโปรไฟล์', 'ผู้ใช้แก้ไขข้อมูลส่วนตัว', {
             beforeData: beforeUserSnapshot,
             afterData: {
                 ...beforeUserSnapshot,
@@ -2071,7 +2182,7 @@ app.put('/api/users/:id/profile', async (req, res) => {
     }
 });
 
-app.get('/api/users/:id/addresses', async (req, res) => {
+app.get('/api/users/:id/addresses', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
         const [results] = await query(
@@ -2089,7 +2200,7 @@ app.get('/api/users/:id/addresses', async (req, res) => {
     }
 });
 
-app.post('/api/users/:id/addresses', async (req, res) => {
+app.post('/api/users/:id/addresses', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;
         const addressPayload = normalizeAddressPayload(req.body);
@@ -2132,7 +2243,7 @@ app.post('/api/users/:id/addresses', async (req, res) => {
     }
 });
 
-app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
+app.put('/api/users/:id/addresses/:addressId', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id, addressId } = req.params;
         const addressPayload = normalizeAddressPayload(req.body);
@@ -2191,7 +2302,7 @@ app.put('/api/users/:id/addresses/:addressId', async (req, res) => {
     }
 });
 
-app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
+app.delete('/api/users/:id/addresses/:addressId', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id, addressId } = req.params;
         const [addresses] = await query(
@@ -2231,7 +2342,7 @@ app.delete('/api/users/:id/addresses/:addressId', async (req, res) => {
     }
 });
 
-app.post('/api/users/:id/addresses/:addressId/default', async (req, res) => {
+app.post('/api/users/:id/addresses/:addressId/default', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id, addressId } = req.params;
         const [targetAddresses] = await query('SELECT * FROM address WHERE address_id = ? AND user_id = ? LIMIT 1', [addressId, id]);
@@ -2260,7 +2371,7 @@ app.post('/api/users/:id/addresses/:addressId/default', async (req, res) => {
     }
 });
 
-app.get('/api/admin/stock-logs', async (req, res) => {
+app.get('/api/admin/stock-logs', requireAdmin, async (req, res) => {
     try {
         const [results] = await query(`
             SELECT
@@ -2321,7 +2432,7 @@ app.get('/api/admin/stock-logs', async (req, res) => {
     }
 });
 
-app.get('/api/admin/system-logs', async (req, res) => {
+app.get('/api/admin/system-logs', requireAdmin, async (req, res) => {
     try {
         const [results] = await query(`
             SELECT
@@ -2351,16 +2462,16 @@ app.get('/api/admin/system-logs', async (req, res) => {
     }
 });
 
-app.post('/api/products/update-stock', async (req, res) => {
+app.post('/api/products/update-stock', requireAdmin, async (req, res) => {
     try {
         const {
             product_id,
             amount,
             reason,
-            user_id,
             change_type,
             operation,
         } = req.body;
+        const user_id = req.authUser.id;
         const stockAmount = Number(amount);
         if (!Number.isInteger(stockAmount) || stockAmount <= 0) {
             return res.status(400).json({ error: 'จำนวนสต็อกต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
@@ -2392,17 +2503,18 @@ app.post('/api/products/update-stock', async (req, res) => {
             'ปรับสต๊อก',
             normalizedReason ? `${normalizedType}: ${normalizedReason}` : normalizedType,
             {
-            beforeData: {
-                product_id,
-                before_quantity: result.beforeQuantity,
-            },
-            afterData: {
-                product_id,
-                change_type: normalizedType,
-                change_quantity: result.changeQuantity,
-                after_quantity: result.afterQuantity,
-                reason: normalizedReason,
-            },
+                ...getAuditRequestMeta(req),
+                beforeData: {
+                    product_id,
+                    before_quantity: result.beforeQuantity,
+                },
+                afterData: {
+                    product_id,
+                    change_type: normalizedType,
+                    change_quantity: result.changeQuantity,
+                    after_quantity: result.afterQuantity,
+                    reason: normalizedReason,
+                },
             },
         );
 
@@ -2412,11 +2524,11 @@ app.post('/api/products/update-stock', async (req, res) => {
     }
 });
 
-app.post('/api/admin/stock-logs/delete', async (req, res) => {
+app.post('/api/admin/stock-logs/delete', requireAdmin, async (req, res) => {
     res.status(403).json({ error: 'ไม่อนุญาตให้ลบหรือแก้ไขประวัติ stock_logs' });
 });
 
-app.post('/api/admin/products/edit', async (req, res) => {
+app.post('/api/admin/products/edit', requireAdmin, async (req, res) => {
     try {
         const { id, name, price, description, image_url, category_id, category_name, product_status } = req.body;
         const shouldUpdateCategory = Boolean(category_id || String(category_name || '').trim());
@@ -2452,7 +2564,7 @@ app.post('/api/admin/products/edit', async (req, res) => {
     }
 });
 
-app.post('/api/admin/products/delete', async (req, res) => {
+app.post('/api/admin/products/delete', requireAdmin, async (req, res) => {
     try {
         const { id } = req.body;
         if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
@@ -2464,7 +2576,7 @@ app.post('/api/admin/products/delete', async (req, res) => {
     }
 });
 
-app.delete('/api/admin/products/:id', async (req, res) => {
+app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
 
@@ -2504,7 +2616,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
     }
 });
 
-app.post('/api/admin/products/status', async (req, res) => {
+app.post('/api/admin/products/status', requireAdmin, async (req, res) => {
     try {
         const { id, product_status } = req.body;
         const nextStatus = Number(product_status);
@@ -2532,17 +2644,16 @@ app.post('/api/admin/products/status', async (req, res) => {
     }
 });
 
-app.post('/api/admin/pos/checkout', async (req, res) => {
+app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
     let transactionStarted = false;
     try {
         const {
-            user_id,
             payment_method,
             cash_received,
             cart_items,
         } = req.body;
+        const user_id = req.authUser.id;
 
-        if (!user_id) return res.status(400).json({ error: 'ไม่พบข้อมูลพนักงานขาย' });
         if (!Array.isArray(cart_items) || cart_items.length === 0) {
             return res.status(400).json({ error: 'ไม่มีสินค้าในรายการขาย' });
         }
@@ -2630,10 +2741,16 @@ app.post('/api/admin/pos/checkout', async (req, res) => {
             'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
             [orderId, 'เสร็จสิ้น', user_id, `ขายหน้าร้าน ชำระด้วย${payment_method}`],
         );
-        await dbp.query(
-            'INSERT INTO system_log (user_id, action, remark) VALUES (?, ?, ?)',
-            [user_id, 'ขายหน้าร้าน', `คำสั่งซื้อ #${orderId} ชำระด้วย${payment_method}`],
-        );
+        await writeSystemLog(user_id, 'ขายหน้าร้าน', `คำสั่งซื้อ #${orderId} ชำระด้วย${payment_method}`, {
+            ...getAuditRequestMeta(req),
+            afterData: {
+                order_id: orderId,
+                user_id,
+                payment_method,
+                total_price: totalPrice,
+                item_count: itemCount,
+            },
+        });
 
         await dbp.commit();
         transactionStarted = false;
@@ -2667,14 +2784,15 @@ app.post('/api/admin/pos/checkout', async (req, res) => {
     }
 });
 
-app.post('/api/orders/checkout', async (req, res) => {
+app.post('/api/orders/checkout', requireAuth, async (req, res) => {
+    let transactionStarted = false;
+    const checkoutError = (message, status = 400) => {
+        const error = new Error(message);
+        error.status = status;
+        throw error;
+    };
     try {
         const {
-            user_id,
-            username,
-            total_price,
-            shipping_fee,
-            discount: requested_discount,
             receiver_name,
             address,
             address_id,
@@ -2689,42 +2807,96 @@ app.post('/api/orders/checkout', async (req, res) => {
             receipt_file_name,
             cart_items,
         } = req.body;
+        const user_id = req.authUser.id;
+        const username = req.authUser.username;
 
-        if (!user_id) return res.status(400).json({ error: 'กรุณาเข้าสู่ระบบก่อนสั่งซื้อ' });
-        if (!cart_items || cart_items.length === 0) return res.status(400).json({ error: 'ไม่มีสินค้าในตะกร้า' });
+        if (!Array.isArray(cart_items) || cart_items.length === 0) return res.status(400).json({ error: 'ไม่มีสินค้าในตะกร้า' });
+        const shippingMethod = String(shipping_method || 'ส่งสินค้า').trim();
+        if (!ALLOWED_SHIPPING_METHODS.has(shippingMethod)) {
+            return res.status(400).json({ error: 'รูปแบบการรับสินค้าไม่ถูกต้อง' });
+        }
+        const paymentMethod = String(payment_method || 'โอนเงินผ่านธนาคาร').trim();
+        if (!ALLOWED_CUSTOMER_PAYMENT_METHODS.has(paymentMethod)) {
+            return res.status(400).json({ error: 'รูปแบบการชำระเงินไม่ถูกต้อง' });
+        }
 
-        const cleanTotal = String(total_price).replace(/[^\d.]/g, '');
-        const totalPrice = parseFloat(cleanTotal) || 0;
-        const requestedShippingFee = parseFloat(String(shipping_fee ?? '').replace(/[^\d.]/g, ''));
-        const shippingFee = shipping_method === 'รับหน้าร้าน' ? 0 : (Number.isFinite(requestedShippingFee) ? requestedShippingFee : 50);
-        const requestedDiscount = parseFloat(String(requested_discount ?? '').replace(/[^\d.]/g, '')) || 0;
-        const discount = Math.min(Math.max(requestedDiscount, 0), totalPrice + shippingFee);
-        const finalPrice = Math.max(totalPrice + shippingFee - discount, 0);
+        const normalizedCartItems = [];
+        for (const [index, item] of cart_items.entries()) {
+            const normalizedItem = normalizeCheckoutItem(item, index);
+            if (normalizedItem.error) {
+                return res.status(400).json({ error: normalizedItem.error });
+            }
+            normalizedCartItems.push(normalizedItem);
+        }
+
         const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts', RECEIPT_UPLOAD_OPTIONS);
         const receiptUrl = receiptPath ? `${req.protocol}://${req.get('host')}${receiptPath}` : null;
         const initialOrderStatus = receiptUrl ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
         const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : 'รอชำระ';
+        const shippingFee = shippingMethod === 'รับหน้าร้าน' ? 0 : 50;
         const shippingAddressPayload = normalizeAddressPayload({
             receiver_name: receiver_name || username || 'ลูกค้า',
             phone,
-            address_detail: shipping_method === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
+            address_detail: shippingMethod === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
             subdistrict,
             district,
             province,
             postal_code,
-            address_type: shipping_method || 'ส่งสินค้า',
+            address_type: shippingMethod,
             is_default: true,
         });
 
-        if (shipping_method === 'ส่งสินค้า') {
+        if (shippingMethod === 'ส่งสินค้า') {
             const validationMessage = getFirstAddressValidationMessage(shippingAddressPayload);
             if (validationMessage) return res.status(400).json({ error: validationMessage });
         } else if (!shippingAddressPayload.phone || !PHONE_REGEX.test(shippingAddressPayload.phone)) {
             return res.status(400).json({ error: shippingAddressPayload.phone ? 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' : 'กรุณากรอกเบอร์โทรผู้รับ' });
         }
 
-        if (shipping_method === 'ส่งสินค้า') {
+        const resolvedCartItems = [];
+        let totalPrice = 0;
+
+        await dbp.beginTransaction();
+        transactionStarted = true;
+
+        for (const item of normalizedCartItems) {
+            if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+                checkoutError('จำนวนสินค้าที่สั่งซื้อต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป');
+            }
+
+            const [products] = await dbp.query(
+                'SELECT product_id, product_name, price, quantity FROM product WHERE product_id = ? AND product_status = 1 FOR UPDATE',
+                [item.productId],
+            );
+            if (products.length === 0) {
+                checkoutError('ไม่พบสินค้าในระบบ');
+            }
+            if ((Number(products[0].quantity) || 0) < item.quantity) {
+                checkoutError(`สินค้า ${products[0].product_name} มีจำนวนไม่พอ`);
+            }
+
+            const unitPrice = Number(products[0].price) || 0;
+            totalPrice += unitPrice * item.quantity;
+            resolvedCartItems.push({
+                product_id: products[0].product_id,
+                product_name: products[0].product_name,
+                quantity: item.quantity,
+                price: unitPrice,
+            });
+        }
+
+        const discount = 0;
+        const finalPrice = Math.max(totalPrice + shippingFee - discount, 0);
+
+        if (shippingMethod === 'ส่งสินค้า') {
             if (address_id) {
+                const [addresses] = await query(
+                    'SELECT address_id FROM address WHERE address_id = ? AND user_id = ? LIMIT 1',
+                    [address_id, user_id],
+                );
+                if (addresses.length === 0) {
+                    checkoutError('ไม่พบที่อยู่จัดส่งที่เลือก');
+                }
                 await query(
                     `
                         UPDATE address
@@ -2783,9 +2955,9 @@ app.post('/api/orders/checkout', async (req, res) => {
                 discount,
                 finalPrice,
                 initialOrderStatus,
-                payment_method || 'โอนเงินผ่านธนาคาร',
+                paymentMethod,
                 initialPaymentStatus,
-                shipping_method || 'ส่งสินค้า',
+                shippingMethod,
                 null,
             ],
         );
@@ -2793,35 +2965,15 @@ app.post('/api/orders/checkout', async (req, res) => {
         const orderId = orderResult.insertId;
         await writeOrderStatusHistory(orderId, initialOrderStatus, user_id, receiptUrl ? 'สร้างคำสั่งซื้อพร้อมแนบหลักฐานการชำระเงิน' : 'สร้างคำสั่งซื้อ รอชำระเงิน');
 
-        for (const item of cart_items) {
-            const productId = item.id || item.product_id || item.p_id;
-            const quantity = Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10);
-            const itemPrice = parseFloat(String(item.price || 0).replace(/[^\d.]/g, '')) || 0;
-
-            if (!productId) continue;
-            if (!Number.isInteger(quantity) || quantity <= 0) {
-                return res.status(400).json({ error: 'จำนวนสินค้าที่สั่งซื้อต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป' });
-            }
-
-            const [products] = await query(
-                'SELECT quantity, product_name FROM product WHERE product_id = ? AND product_status = 1',
-                [productId],
-            );
-            if (products.length === 0) {
-                return res.status(400).json({ error: 'ไม่พบสินค้าในระบบ' });
-            }
-            if ((Number(products[0].quantity) || 0) < quantity) {
-                return res.status(400).json({ error: `สินค้า ${products[0].product_name} มีจำนวนไม่พอ` });
-            }
-
+        for (const item of resolvedCartItems) {
             const [detailResult] = await query(
                 'INSERT INTO order_detail (product_id, order_id, quantity, price) VALUES (?, ?, ?, ?)',
-                [productId, orderId, quantity, itemPrice],
+                [item.product_id, orderId, item.quantity, item.price],
             );
             await applyStockChange({
-                productId,
+                productId: item.product_id,
                 changeType: 'ขายสินค้า',
-                changeQuantity: -quantity,
+                changeQuantity: -item.quantity,
                 reason: `คำสั่งซื้อ #${orderId}`,
                 userId: user_id,
                 orderDetailId: detailResult.insertId,
@@ -2830,24 +2982,22 @@ app.post('/api/orders/checkout', async (req, res) => {
 
         await query(
             'INSERT INTO payment (order_id, payment_type, payment_amount, receipt_image, receipt_file_name) VALUES (?, ?, ?, ?, ?)',
-            [orderId, payment_method || 'โอนเงินผ่านธนาคาร', finalPrice, receiptUrl, receipt_file_name || null],
+            [orderId, paymentMethod, finalPrice, receiptUrl, receipt_file_name || null],
         );
         await writeSystemLog(user_id, 'สั่งซื้อสินค้า', `คำสั่งซื้อ #${orderId}`, {
+            ...getAuditRequestMeta(req),
             afterData: {
                 order_id: orderId,
                 user_id,
                 final_price: finalPrice,
-                payment_method: payment_method || 'โอนเงินผ่านธนาคาร',
+                payment_method: paymentMethod,
                 payment_status: initialPaymentStatus,
-                items: cart_items.map((item) => ({
-                    product_id: item.id || item.product_id || item.p_id || null,
-                    quantity: Number.parseInt(item.qty ?? item.selected_quantity ?? 1, 10) || 0,
-                    price: parseFloat(String(item.price || 0).replace(/[^\d.]/g, '')) || 0,
-                })),
+                items: resolvedCartItems,
             },
         });
         if (receiptUrl) {
             await writeSystemLog(user_id, 'ส่งหลักฐานการชำระเงิน', `คำสั่งซื้อ #${orderId}: มีหลักฐานการชำระเงินใหม่รอตรวจสอบ`, {
+                ...getAuditRequestMeta(req),
                 afterData: {
                     order_id: orderId,
                     user_id,
@@ -2858,23 +3008,30 @@ app.post('/api/orders/checkout', async (req, res) => {
             });
         }
 
+        await dbp.commit();
+        transactionStarted = false;
         res.json({ success: true, message: 'สั่งซื้อสำเร็จ', order_id: orderId });
     } catch (err) {
+        if (transactionStarted) {
+            try {
+                await dbp.rollback();
+            } catch (rollbackError) {
+                console.error('Rollback checkout failed', rollbackError);
+            }
+        }
+        if (Number(err.status) === 400) {
+            return res.status(400).json({ error: err.message });
+        }
         respondError(res, err, 'บันทึกคำสั่งซื้อไม่สำเร็จ');
     }
 });
 
-app.put('/api/orders/:id/receipt', async (req, res) => {
+app.put('/api/orders/:id/receipt', requireOrderOwnerOrAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { receipt_image_data, receipt_file_name, note } = req.body;
         const cleanNote = String(note || '').trim();
         const [orders] = await query('SELECT order_id, user_id, final_price, payment_method, payment_status, order_status FROM orders WHERE order_id = ?', [id]);
-
-        if (orders.length === 0) {
-            return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
-        }
-
         const order = orders[0];
         if ([PAID_PAYMENT_STATUS, 'ชำระแล้ว'].includes(order.payment_status)) {
             return res.status(403).json({ error: 'ออเดอร์นี้ชำระเงินแล้ว ไม่สามารถแทนที่สลิปได้' });
@@ -2912,6 +3069,7 @@ app.put('/api/orders/:id/receipt', async (req, res) => {
         );
         await writeOrderStatusHistory(id, ORDER_PAYMENT_REVIEW_STATUS, order.user_id, cleanNote || 'ลูกค้าแนบหลักฐานการชำระเงิน รอแอดมินตรวจสอบ');
         await writeSystemLog(order.user_id, 'ส่งหลักฐานการชำระเงิน', `คำสั่งซื้อ #${id}: มีหลักฐานการชำระเงินใหม่รอตรวจสอบ`, {
+            ...getAuditRequestMeta(req),
             beforeData: {
                 order_status: order.order_status,
                 payment_status: order.payment_status,
@@ -2940,10 +3098,10 @@ app.put('/api/orders/:id/receipt', async (req, res) => {
     }
 });
 
-app.put('/api/orders/:id/receipt/cancel', async (req, res) => {
+app.put('/api/orders/:id/receipt/cancel', requireOrderOwnerOrAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { user_id } = req.body;
+        const user_id = req.authUser.id;
         const [orders] = await query(
             'SELECT order_id, user_id, order_status, payment_status FROM orders WHERE order_id = ?',
             [id],
@@ -2989,6 +3147,7 @@ app.put('/api/orders/:id/receipt/cancel', async (req, res) => {
         );
         await writeOrderStatusHistory(id, ORDER_WAITING_PAYMENT_STATUS, user_id || order.user_id, 'ลูกค้ายกเลิกสลิปเดิมก่อนส่งใหม่');
         await writeSystemLog(user_id || order.user_id, 'ยกเลิกสลิปการชำระเงิน', `คำสั่งซื้อ #${id}: ลูกค้ายกเลิกสลิปเดิม`, {
+            ...getAuditRequestMeta(req),
             beforeData: {
                 order_status: order.order_status,
                 payment_status: order.payment_status,
@@ -3116,10 +3275,13 @@ const performAdminPaymentReview = async (id, payload = {}) => {
     };
 };
 
-app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
+app.put('/api/admin/orders/:id/payment-review', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await performAdminPaymentReview(id, req.body);
+        const result = await performAdminPaymentReview(id, {
+            ...req.body,
+            user_id: req.authUser.id,
+        });
         if (!result.success) {
             return res.status(result.status || 400).json({ error: result.error, field: result.field });
         }
@@ -3129,16 +3291,16 @@ app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
     }
 });
 
-app.put('/api/admin/orders/payment-review/bulk', async (req, res) => {
+app.put('/api/admin/orders/payment-review/bulk', requireAdmin, async (req, res) => {
     try {
         const {
             action,
-            user_id,
             order_ids,
             verified_amount,
             transaction_ref,
             review_note,
         } = req.body;
+        const user_id = req.authUser.id;
         const cleanAction = String(action || '').trim();
         if (cleanAction !== 'approve') {
             return res.status(400).json({ error: 'การตรวจสลิปทีเดียวรองรับเฉพาะการอนุมัติเท่านั้น', field: 'action' });
@@ -3195,10 +3357,10 @@ app.put('/api/admin/orders/payment-review/bulk', async (req, res) => {
     }
 });
 
-app.put('/api/orders/:id/cancel', async (req, res) => {
+app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { user_id, username } = req.body;
+        const { user_id, username } = req.authUser;
         const cancelableStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า'];
 
         const [orders] = await query(`
@@ -3264,10 +3426,11 @@ app.put('/api/orders/:id/cancel', async (req, res) => {
     }
 });
 
-app.put('/api/orders/:id/status', async (req, res) => {
+app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, tracking_no, user_id } = req.body;
+        const { status, tracking_no } = req.body;
+        const { id: user_id } = req.authUser;
         const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
 
         if (orders.length === 0) {
@@ -3347,6 +3510,7 @@ app.put('/api/orders/:id/status', async (req, res) => {
             'อัปเดตสถานะคำสั่งซื้อ',
             `คำสั่งซื้อ #${id} เป็น ${requestedStatus}${trackingNo ? ` / เลขพัสดุ ${trackingNo}` : ''}`,
             {
+                ...getAuditRequestMeta(req),
                 beforeData: snapshotOrder(order),
                 afterData: {
                     ...snapshotOrder(order),
@@ -3361,9 +3525,9 @@ app.put('/api/orders/:id/status', async (req, res) => {
     }
 });
 
-app.get('/api/orders/history/:username', async (req, res) => {
+app.get('/api/orders/history', requireAuth, async (req, res) => {
     try {
-        const { username } = req.params;
+        const userId = req.authUser.id;
         const [rows] = await query(`
             SELECT
                 o.order_id AS id,
@@ -3396,9 +3560,9 @@ app.get('/api/orders/history/:username', async (req, res) => {
             )
             LEFT JOIN order_detail od ON o.order_id = od.order_id
             LEFT JOIN product p ON od.product_id = p.product_id
-            WHERE LOWER(u.username) = LOWER(?)
+            WHERE o.user_id = ?
             ORDER BY o.order_date DESC, o.order_id DESC, od.order_detail_id ASC
-        `, [username]);
+        `, [userId]);
 
         const orderMap = new Map();
         rows.forEach((row) => {

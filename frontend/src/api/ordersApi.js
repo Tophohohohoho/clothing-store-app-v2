@@ -4,7 +4,7 @@ export const checkoutOrder = (payload) => apiClient.post('/api/orders/checkout',
 
 export const checkoutPosOrder = (payload) => apiClient.post('/api/admin/pos/checkout', payload);
 
-export const getOrderHistory = (username) => apiClient.get(`/api/orders/history/${encodeURIComponent(username)}`);
+export const getOrderHistory = () => apiClient.get('/api/orders/history');
 
 export const uploadReceipt = (orderId, payload) => apiClient.put(`/api/orders/${orderId}/receipt`, payload);
 

@@ -8,8 +8,19 @@ const formatPrice = (price) => {
     });
 };
 
-function StorePage({ products, onAddToCart, onBuyNow, previewProductId, onPreviewShown, showStockCounts = false }) {
-    const [searchText, setSearchText] = useState('');
+function StorePage({
+    products,
+    onAddToCart,
+    onBuyNow,
+    previewProductId,
+    onPreviewShown,
+    showStockCounts = false,
+    searchText: externalSearchText,
+    onSearchTextChange,
+}) {
+    const [internalSearchText, setInternalSearchText] = useState('');
+    const searchText = externalSearchText ?? internalSearchText;
+    const setSearchText = onSearchTextChange || setInternalSearchText;
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [selectedQuantity, setSelectedQuantity] = useState(1);

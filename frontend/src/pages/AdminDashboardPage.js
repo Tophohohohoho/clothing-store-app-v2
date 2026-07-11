@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
 import { notify } from '../components/AppNotification';
 import { extractPaymentReviewData, extractTextFromImage } from '../utils/imageText';
@@ -74,6 +74,66 @@ const formatDateTime = (value) => {
         dateStyle: 'medium',
         timeStyle: 'short',
     });
+};
+
+const getOrderDate = (order = {}) => new Date(order.created_at || order.order_date || order.payment_date || 0);
+const getOrderAmount = (order = {}) => Number(order.final_price ?? order.total_price ?? 0) || 0;
+const getPersonName = (item = {}, fallback = 'ผู้ใช้งานทั่วไป') => item.full_name || item.username || item.name || fallback;
+
+const getRangeBounds = (range = {}) => ({
+    from: new Date(`${range.from}T00:00:00`),
+    to: new Date(`${range.to}T23:59:59`),
+});
+
+const getPreviousRange = (range = {}) => {
+    const { from, to } = getRangeBounds(range);
+    const span = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
+    const previousTo = new Date(from);
+    previousTo.setDate(previousTo.getDate() - 1);
+    previousTo.setHours(23, 59, 59, 999);
+    const previousFrom = new Date(previousTo);
+    previousFrom.setDate(previousFrom.getDate() - span + 1);
+    previousFrom.setHours(0, 0, 0, 0);
+    return { from: previousFrom, to: previousTo };
+};
+
+const isWithinBounds = (value, bounds) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    return date >= bounds.from && date <= bounds.to;
+};
+
+const getChangeMeta = (currentValue, previousValue, {
+    positiveLabel = 'ดีขึ้นจากช่วงก่อนหน้า',
+    negativeLabel = 'ต่ำกว่าช่วงก่อนหน้า',
+    neutralLabel = 'เท่ากับช่วงก่อนหน้า',
+} = {}) => {
+    const current = Number(currentValue) || 0;
+    const previous = Number(previousValue) || 0;
+    if (previous <= 0) {
+        if (current <= 0) return { tone: 'neutral', value: '0%', label: neutralLabel };
+        return { tone: 'up', value: 'ใหม่', label: 'เริ่มมีข้อมูลในช่วงนี้' };
+    }
+    const diff = ((current - previous) / previous) * 100;
+    const abs = Math.abs(diff).toLocaleString('th-TH', { maximumFractionDigits: 0 });
+    if (Math.abs(diff) < 0.5) return { tone: 'neutral', value: '0%', label: neutralLabel };
+    return {
+        tone: diff > 0 ? 'up' : 'down',
+        value: `${diff > 0 ? '+' : '-'}${abs}%`,
+        label: diff > 0 ? positiveLabel : negativeLabel,
+    };
+};
+
+const formatRelativeTime = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+    if (diffMinutes < 1) return 'เมื่อสักครู่';
+    if (diffMinutes < 60) return `${diffMinutes.toLocaleString('th-TH')} นาทีที่แล้ว`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours.toLocaleString('th-TH')} ชั่วโมงที่แล้ว`;
+    const diffDays = Math.round(diffHours / 24);
+    return `${diffDays.toLocaleString('th-TH')} วันที่แล้ว`;
 };
 
 const summarizeOrderItems = (items = [], { full = false } = {}) => {
@@ -332,6 +392,7 @@ const writeShippingPrintDocument = (popup, bodyContent, shouldPrint = true) => {
 function AdminDashboardPage({
     orders,
     ordersLoading = false,
+    products = [],
     onDeleteOrder,
     onUpdateOrderStatus,
     onReviewOrderPayment,
@@ -400,9 +461,14 @@ function AdminDashboardPage({
     const orderManagementRef = useRef(null);
     const paymentReviewRequestRef = useRef('');
     const printStatusFilterRef = useRef(DEFAULT_ORDER_STATUS_FILTER);
-    const scrollToOrderManagement = () => {
-        setAdminPage?.('admin-orders');
-    };
+    const navigateQuickAction = useCallback((target, view = '') => {
+        if (target === 'store') {
+            setIsAdminView?.(false);
+            return;
+        }
+        if (view) sessionStorage.setItem('adminProductView', view);
+        setAdminPage?.(target);
+    }, [setAdminPage, setIsAdminView]);
     const orderRange = useMemo(
         () => getDateRange(orderDatePreset, orderDateFrom, orderDateTo),
         [orderDatePreset, orderDateFrom, orderDateTo],
@@ -488,6 +554,150 @@ function AdminDashboardPage({
         return { ...item, x, y };
     });
     const chartPath = chartPoints.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ');
+    const selectedRangeBounds = useMemo(() => getRangeBounds(selectedRange), [selectedRange]);
+    const previousRangeBounds = useMemo(() => getPreviousRange(selectedRange), [selectedRange]);
+    const rangeOrders = useMemo(
+        () => orders.filter((order) => !isCancelledOrder(order) && isWithinBounds(order.created_at || order.order_date, selectedRangeBounds)),
+        [orders, selectedRangeBounds],
+    );
+    const previousRangeOrders = useMemo(
+        () => orders.filter((order) => !isCancelledOrder(order) && isWithinBounds(order.created_at || order.order_date, previousRangeBounds)),
+        [orders, previousRangeBounds],
+    );
+    const currentRevenue = useMemo(
+        () => rangeOrders.reduce((sum, order) => sum + getOrderAmount(order), 0),
+        [rangeOrders],
+    );
+    const previousRevenue = useMemo(
+        () => previousRangeOrders.reduce((sum, order) => sum + getOrderAmount(order), 0),
+        [previousRangeOrders],
+    );
+    const revenueChange = useMemo(
+        () => getChangeMeta(currentRevenue, previousRevenue, { positiveLabel: 'สูงกว่าช่วงก่อนหน้า', negativeLabel: 'ต่ำกว่าช่วงก่อนหน้า' }),
+        [currentRevenue, previousRevenue],
+    );
+    const orderChange = useMemo(
+        () => getChangeMeta(rangeOrders.length, previousRangeOrders.length, { positiveLabel: 'ออเดอร์เพิ่มขึ้น', negativeLabel: 'ออเดอร์ลดลง' }),
+        [rangeOrders.length, previousRangeOrders.length],
+    );
+    const attentionItems = useMemo(() => ([
+        ['new_orders', 'ออเดอร์ใหม่วันนี้', 'blue', () => navigateQuickAction('admin-orders')],
+        ['waiting_payment', 'รอชำระเงิน', 'amber', () => navigateQuickAction('admin-orders')],
+        ['waiting_review', 'รอตรวจสอบสลิป', 'purple', () => navigateQuickAction('admin-orders')],
+        ['low_stock', 'สินค้าใกล้หมด', 'orange', () => navigateQuickAction('add-product', 'products')],
+        ['out_of_stock', 'สินค้าหมดสต๊อก', 'red', () => navigateQuickAction('add-product', 'products')],
+    ].map(([key, label, color, action]) => ({
+        key,
+        label,
+        color,
+        action,
+        total: Number(dashboardData.notifications?.[key] || 0),
+    }))), [dashboardData.notifications, navigateQuickAction]);
+    const totalAttentionCount = useMemo(
+        () => attentionItems.reduce((sum, item) => sum + item.total, 0),
+        [attentionItems],
+    );
+    const taskInboxItems = useMemo(() => {
+        const waitingReviewOrders = orders
+            .filter((order) => order.payment_status === 'รอตรวจสอบ')
+            .sort((a, b) => new Date(a.payment_date || a.created_at || 0) - new Date(b.payment_date || b.created_at || 0));
+        const stuckOrders = orders
+            .filter((order) => !isCancelledOrder(order) && ['รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า'].includes(order.status || 'รอจัดการ'))
+            .sort((a, b) => getOrderDate(a) - getOrderDate(b));
+        const readyToPrintOrders = orders
+            .filter((order) => isPaidOrder(order) && order.status === 'เตรียมสินค้า')
+            .sort((a, b) => getOrderDate(a) - getOrderDate(b));
+        const lowStockProducts = products
+            .filter((product) => Number(product.product_status ?? product.status ?? 1) === 1 && Number(product.stock ?? product.quantity ?? 0) <= 5)
+            .sort((a, b) => (Number(a.stock ?? a.quantity ?? 0) || 0) - (Number(b.stock ?? b.quantity ?? 0) || 0));
+        const newOrdersToday = orders.filter((order) => isWithinBounds(order.created_at || order.order_date, getRangeBounds(getDateRange('today'))));
+        const items = [];
+        if (waitingReviewOrders[0]) {
+            const order = waitingReviewOrders[0];
+            items.push({
+                id: `review-${order.id}`,
+                tone: 'purple',
+                eyebrow: 'ตรวจสลิป',
+                title: `ออเดอร์ #${order.id} ส่งหลักฐานแล้ว`,
+                detail: `${getPersonName(order)} · ยอดสุทธิ ฿${formatMoney(getOrderAmount(order))}`,
+                age: formatRelativeTime(order.payment_date || order.created_at),
+                actionLabel: 'ตรวจเลย',
+                onAction: () => loadOrderDetails(order),
+            });
+        }
+        if (stuckOrders[0]) {
+            const order = stuckOrders[0];
+            items.push({
+                id: `stuck-${order.id}`,
+                tone: 'blue',
+                eyebrow: 'ออเดอร์ค้าง',
+                title: `ออเดอร์ #${order.id} ยังอยู่สถานะ ${order.status || 'รอจัดการ'}`,
+                detail: `${getPersonName(order)} · ${order.shipping_method || '-'}`,
+                age: formatRelativeTime(order.created_at || order.order_date),
+                actionLabel: 'เปิดออเดอร์',
+                onAction: () => loadOrderDetails(order),
+            });
+        }
+        if (lowStockProducts[0]) {
+            const product = lowStockProducts[0];
+            const stock = Number(product.stock ?? product.quantity ?? 0) || 0;
+            items.push({
+                id: `stock-${product.id || product.product_id}`,
+                tone: stock <= 0 ? 'red' : 'orange',
+                eyebrow: stock <= 0 ? 'สินค้าหมด' : 'สต๊อกต่ำ',
+                title: `${product.name || product.product_name || 'สินค้า'} เหลือ ${stock.toLocaleString('th-TH')} ชิ้น`,
+                detail: `${product.category_name || 'ยังไม่ระบุหมวดหมู่'} · ควรเติมสต๊อกก่อนยอดตก`,
+                age: stock <= 0 ? 'ต้องเติมทันที' : 'ควรเติมเร็ว ๆ นี้',
+                actionLabel: 'ไปจัดการสต๊อก',
+                onAction: () => navigateQuickAction('add-product', 'products'),
+            });
+        }
+        if (readyToPrintOrders[0]) {
+            items.push({
+                id: `print-${readyToPrintOrders[0].id}`,
+                tone: 'green',
+                eyebrow: 'พร้อมจัดส่ง',
+                title: `ออเดอร์ #${readyToPrintOrders[0].id} พร้อมพิมพ์ใบจัดส่ง`,
+                detail: `${getPersonName(readyToPrintOrders[0])} · ${readyToPrintOrders.length.toLocaleString('th-TH')} รายการพร้อมทำต่อ`,
+                age: formatRelativeTime(readyToPrintOrders[0].created_at || readyToPrintOrders[0].order_date),
+                actionLabel: 'ไปหน้าพิมพ์',
+                onAction: () => {
+                    setAdminPage?.('admin-orders');
+                    setOrderViewTab('print');
+                },
+            });
+        }
+        if (newOrdersToday.length) {
+            items.push({
+                id: 'today-orders',
+                tone: 'amber',
+                eyebrow: 'ออเดอร์ใหม่',
+                title: `วันนี้มีออเดอร์เข้า ${newOrdersToday.length.toLocaleString('th-TH')} รายการ`,
+                detail: 'เช็กคิวชำระเงินและการจัดส่งเพื่อไม่ให้มีงานตกค้าง',
+                age: 'อัปเดตจากข้อมูลวันนี้',
+                actionLabel: 'ดูทั้งหมด',
+                onAction: () => setAdminPage?.('admin-orders'),
+            });
+        }
+        return items.slice(0, 5);
+    }, [navigateQuickAction, orders, products, setAdminPage, setOrderViewTab]);
+    const funnelSteps = useMemo(() => {
+        const paymentWaiting = rangeOrders.filter((order) => ['รอชำระ', 'รอชำระเงิน'].includes(order.payment_status)).length;
+        const waitingReview = rangeOrders.filter((order) => order.payment_status === 'รอตรวจสอบ').length;
+        const preparing = rangeOrders.filter((order) => ['รอจัดการ', 'เตรียมสินค้า'].includes(order.status || 'รอจัดการ')).length;
+        const inTransit = rangeOrders.filter((order) => ['กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'].includes(order.status)).length;
+        const completed = rangeOrders.filter((order) => order.status === 'เสร็จสิ้น').length;
+        return [
+            { key: 'all', label: 'สั่งซื้อทั้งหมด', total: rangeOrders.length, tone: 'blue' },
+            { key: 'payment', label: 'รอชำระ/รอตรวจ', total: paymentWaiting + waitingReview, tone: 'amber' },
+            { key: 'prepare', label: 'กำลังเตรียมสินค้า', total: preparing, tone: 'purple' },
+            { key: 'shipping', label: 'กำลังส่ง/พร้อมรับ', total: inTransit, tone: 'green' },
+            { key: 'done', label: 'เสร็จสิ้น', total: completed, tone: 'slate' },
+        ];
+    }, [rangeOrders]);
+    const strongestSignal = totalAttentionCount > 0
+        ? `มี ${totalAttentionCount.toLocaleString('th-TH')} งานที่ต้องตามต่อ`
+        : 'ไม่มีงานค้างสำคัญในตอนนี้';
 
     useEffect(() => {
         // เก็บเลขพัสดุแยกตามออเดอร์ เพื่อให้แก้ในตารางได้โดยไม่กระทบแถวอื่น
@@ -593,15 +803,6 @@ function AdminDashboardPage({
         loadDashboard();
         return () => { active = false; };
     }, [selectedRange.from, selectedRange.to, chartInterval, showDashboard]);
-
-    const navigateQuickAction = (target, view = '') => {
-        if (target === 'store') {
-            setIsAdminView?.(false);
-            return;
-        }
-        if (view) sessionStorage.setItem('adminProductView', view);
-        setAdminPage?.(target);
-    };
 
     const exportReport = (format) => {
         const headers = ['ช่วงเวลา', 'ยอดขาย', 'จำนวนออเดอร์'];
@@ -1399,7 +1600,7 @@ function AdminDashboardPage({
                 <div>
                     <span>STORE PERFORMANCE</span>
                     <h1>ภาพรวมร้านค้า</h1>
-                                    <p>ยอดขาย ออเดอร์ สต๊อก และผู้ใช้งาน — ข้อมูลสำคัญครบใน 5 วินาที</p>
+                    <p>เปิดมาแล้วรู้ทันทีว่าอะไรต้องทำก่อน พร้อมดูยอดขาย ออเดอร์ และสต๊อกในหน้าเดียว</p>
                 </div>
                 <div className="commerce-heading-actions">
                     <div className="commerce-date-filter">
@@ -1423,39 +1624,57 @@ function AdminDashboardPage({
 
             {dashboardError && <div className="commerce-error">{dashboardError}</div>}
 
-            <section className="commerce-primary-stats">
-                {dashboardLoading ? [...Array(4)].map((_, index) => <div key={index} className="commerce-stat-card skeleton"><i /></div>) : (
-                    <>
-                        <article className="commerce-stat-card revenue">
-                            <div className="commerce-stat-icon">฿</div>
-                            <div><span>ยอดขายในช่วงนี้</span><strong>฿{formatMoney(dashboardData.summary?.total_revenue)}</strong><small>ไม่รวมออเดอร์ยกเลิก</small></div>
+            <section className="commerce-signal-banner">
+                <div>
+                    <strong>{strongestSignal}</strong>
+                    <p>{revenueChange.label} และยอดขาย {revenueChange.value} เมื่อเทียบกับช่วงก่อนหน้า</p>
+                </div>
+                <div className="commerce-signal-chips">
+                    <span className={`tone-${revenueChange.tone}`}>ยอดขาย {revenueChange.value}</span>
+                    <span className={`tone-${orderChange.tone}`}>ออเดอร์ {orderChange.value}</span>
+                    <span>{pendingSlipReviewCount.toLocaleString('th-TH')} สลิปรอตรวจ</span>
+                </div>
+            </section>
+
+            <section className="commerce-overview-grid">
+                <aside className="commerce-card commerce-priority-card">
+                    <header className="commerce-card-header">
+                        <div><span>ATTENTION NEEDED</span><h2>งานด่วนวันนี้</h2></div>
+                        <b>{totalAttentionCount.toLocaleString('th-TH')}</b>
+                    </header>
+                    <div className="commerce-priority-list">
+                        {attentionItems.map((item) => (
+                            <button type="button" key={item.key} onClick={item.action}>
+                                <i className={item.color} />
+                                <span>{item.label}</span>
+                                <strong>{item.total.toLocaleString('th-TH')}</strong>
+                                <em>›</em>
+                            </button>
+                        ))}
+                    </div>
+                </aside>
+            </section>
+
+            <section className="commerce-card commerce-task-inbox">
+                <header className="commerce-card-header">
+                    <div><span>TASK INBOX</span><h2>งานที่ต้องทำตอนนี้</h2></div>
+                    <button type="button" className="commerce-inline-link" onClick={() => setAdminPage?.('admin-orders')}>ดูออเดอร์ทั้งหมด</button>
+                </header>
+                <div className="commerce-task-grid">
+                    {taskInboxItems.length ? taskInboxItems.map((item) => (
+                        <article key={item.id} className={`commerce-task-card ${item.tone}`}>
+                            <span>{item.eyebrow}</span>
+                            <strong>{item.title}</strong>
+                            <p>{item.detail}</p>
+                            <footer>
+                                <small>{item.age}</small>
+                                <button type="button" onClick={item.onAction}>{item.actionLabel}</button>
+                            </footer>
                         </article>
-                        <article
-                            className="commerce-stat-card orders is-clickable"
-                            role="button"
-                            tabIndex={0}
-                            aria-label="ไปยังพิมพ์รายงาน"
-                            onClick={scrollToOrderManagement}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    scrollToOrderManagement();
-                                }
-                            }}
-                        >
-                            <div className="commerce-stat-icon">▣</div>
-                            <div><span>จำนวนออเดอร์</span><strong>{Number(dashboardData.summary?.total_orders || 0).toLocaleString('th-TH')}</strong><small>เฉลี่ย ฿{formatMoney(dashboardData.summary?.average_order_value)} / ออเดอร์</small></div>
-                        </article>
-                        <article className="commerce-stat-card members">
-                            <div className="commerce-stat-icon">♙</div>
-                            <div><span>สมาชิกทั้งหมด</span><strong>{Number(dashboardData.summary?.total_members || 0).toLocaleString('th-TH')}</strong><small>+{Number(dashboardData.summary?.new_members_today || 0).toLocaleString('th-TH')} สมาชิกใหม่วันนี้</small></div>
-                        </article>
-                        <article className="commerce-stat-card products">
-                            <div className="commerce-stat-icon">◇</div>
-                            <div><span>สินค้าทั้งหมด</span><strong>{Number(dashboardData.summary?.total_products || 0).toLocaleString('th-TH')}</strong><small>{Number(dashboardData.summary?.low_stock || 0)} ใกล้หมด · {Number(dashboardData.summary?.out_of_stock || 0)} หมดสต๊อก</small></div>
-                        </article>
-                    </>
-                )}
+                    )) : (
+                        <div className="commerce-task-empty">ยังไม่มีงานเร่งด่วนในตอนนี้</div>
+                    )}
+                </div>
             </section>
 
             <section className="commerce-main-grid">
@@ -1486,31 +1705,25 @@ function AdminDashboardPage({
                     ) : <div className="commerce-empty-chart">ยังไม่มียอดขายในช่วงเวลาที่เลือก</div>}
                 </div>
 
-                <aside className="commerce-card commerce-notifications">
-                    <header className="commerce-card-header"><div><span>ATTENTION NEEDED</span><h2>ศูนย์แจ้งเตือน</h2></div><b>{Object.values(dashboardData.notifications || {}).reduce((sum, value) => sum + Number(value || 0), 0)}</b></header>
-                    {[
-                        ['new_orders', 'ออเดอร์ใหม่วันนี้', 'blue', () => navigateQuickAction('admin-orders')],
-                        ['waiting_payment', 'รอชำระเงิน', 'amber', () => navigateQuickAction('admin-orders')],
-                        ['waiting_review', 'รอตรวจสอบสลิป', 'purple', () => navigateQuickAction('admin-orders')],
-                        ['low_stock', 'สินค้าใกล้หมด', 'orange', () => navigateQuickAction('add-product', 'products')],
-                        ['out_of_stock', 'สินค้าหมดสต๊อก', 'red', () => navigateQuickAction('add-product', 'products')],
-                    ].map(([key, label, color, action]) => (
-                        <button type="button" key={key} onClick={action}>
-                            <i className={color} /><span>{label}</span><strong>{Number(dashboardData.notifications?.[key] || 0).toLocaleString('th-TH')}</strong><em>›</em>
-                        </button>
-                    ))}
+                <aside className="commerce-card commerce-funnel-card">
+                    <header className="commerce-card-header">
+                        <div><span>ORDER FLOW</span><h2>Funnel สถานะออเดอร์</h2></div>
+                    </header>
+                    <div className="commerce-funnel-list">
+                        {funnelSteps.map((step) => (
+                            <div key={step.key} className="commerce-funnel-row">
+                                <div>
+                                    <i className={step.tone} />
+                                    <span>{step.label}</span>
+                                </div>
+                                <strong>{step.total.toLocaleString('th-TH')}</strong>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="commerce-funnel-footer">
+                        <p>ใช้ funnel นี้ดูคอขวดของร้าน ว่างานค้างอยู่ตรงชำระเงิน การเตรียมสินค้า หรือการจัดส่ง</p>
+                    </div>
                 </aside>
-            </section>
-
-            <section className="commerce-card commerce-quick-actions">
-                <header className="commerce-card-header"><div><span>SHORTCUTS</span><h2>เมนูใช้งานด่วน</h2></div></header>
-                <div>
-                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="blue">＋</b><span>เพิ่มสินค้า<small>สร้างสินค้าใหม่</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('add-product', 'categories')}><b className="purple">▦</b><span>เพิ่มหมวดหมู่<small>จัดระเบียบสินค้า</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('store')}><b className="green">▣</b><span>สร้างออเดอร์<small>ไปยังหน้าร้าน</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('customers')}><b className="amber">♙</b><span>จัดการผู้ใช้งาน<small>ดูข้อมูลผู้ใช้งาน</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="red">▤</b><span>จัดการสต๊อก<small>ตรวจจำนวนคงเหลือ</small></span></button>
-                </div>
             </section>
 
             <section className="commerce-top-grid">
@@ -1531,6 +1744,17 @@ function AdminDashboardPage({
                     {(dashboardData.top_customers || []).length ? dashboardData.top_customers.map((item, index) => (
                         <div className="commerce-rank-row" key={item.user_id}><b>{index + 1}</b><div><strong>{item.full_name || item.username}</strong><small>{Number(item.order_count || 0).toLocaleString('th-TH')} ออเดอร์</small></div><span>฿{formatMoney(item.total_spent)}</span></div>
                     )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลผู้ใช้งาน</p>}
+                </div>
+            </section>
+
+            <section className="commerce-card commerce-quick-actions">
+                <header className="commerce-card-header"><div><span>SHORTCUTS</span><h2>เมนูใช้งานด่วน</h2></div></header>
+                <div>
+                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="blue">＋</b><span>เพิ่มสินค้า<small>สร้างสินค้าใหม่</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('add-product', 'categories')}><b className="purple">▦</b><span>เพิ่มหมวดหมู่<small>จัดระเบียบสินค้า</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('store')}><b className="green">▣</b><span>สร้างออเดอร์<small>ไปยังหน้าร้าน</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('customers')}><b className="amber">♙</b><span>จัดการผู้ใช้งาน<small>ดูข้อมูลผู้ใช้งาน</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="red">▤</b><span>จัดการสต๊อก<small>ตรวจจำนวนคงเหลือ</small></span></button>
                 </div>
             </section>
                 </>
