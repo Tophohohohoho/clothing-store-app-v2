@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { notify } from './AppNotification';
+import { copyTextToClipboard, extractTextFromImage } from '../utils/imageText';
+import { resolveMediaUrl } from '../utils/media';
 
 const BANK_ACCOUNT = '123-4-56789-0';
 const BANK_ACCOUNT_DIGITS = '1234567890';
@@ -33,6 +36,8 @@ function OrderHistoryModal({
     const [customerOrderFilter, setCustomerOrderFilter] = useState('all');
     const [receiptOrder, setReceiptOrder] = useState(null);
     const [slipPreview, setSlipPreview] = useState(null);
+    const [slipOcrLoading, setSlipOcrLoading] = useState(false);
+    const [slipOcrError, setSlipOcrError] = useState('');
     const [salesOrderSearch, setSalesOrderSearch] = useState('');
     const [isAccountCopied, setIsAccountCopied] = useState(false);
     const cancelableStatuses = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'รอจัดการ', 'เตรียมสินค้า'];
@@ -142,6 +147,43 @@ function OrderHistoryModal({
             window.setTimeout(() => setIsAccountCopied(false), 1800);
         } catch {
             setIsAccountCopied(false);
+        }
+    };
+
+    const copySlipText = async () => {
+        if (!slipPreview?.src || slipOcrLoading) return;
+
+        setSlipOcrLoading(true);
+        setSlipOcrError('');
+        try {
+            const extractedText = await extractTextFromImage(slipPreview.src);
+            if (!extractedText) {
+                notify({
+                    type: 'warning',
+                    title: 'ไม่พบข้อความในภาพ',
+                    message: 'รูปนี้อาจไม่ชัดพอสำหรับการอ่านตัวอักษร',
+                });
+                return;
+            }
+
+            const copied = await copyTextToClipboard(extractedText);
+            if (!copied) throw new Error('copy_failed');
+
+            notify({
+                type: 'success',
+                title: 'คัดลอกข้อความจากภาพแล้ว',
+                message: 'ข้อความจากสลิปถูกคัดลอกไปยังคลิปบอร์ด',
+            });
+        } catch (error) {
+            setSlipOcrError('คัดลอกข้อความจากภาพไม่สำเร็จ');
+            notify({
+                type: 'error',
+                title: 'คัดลอกข้อความจากภาพไม่สำเร็จ',
+                message: 'ลองใช้รูปที่ชัดขึ้นหรือเปิดใหม่อีกครั้ง',
+            });
+            console.error(error);
+        } finally {
+            setSlipOcrLoading(false);
         }
     };
 
@@ -651,10 +693,11 @@ function OrderHistoryModal({
                                                         className="order-history-slip-preview"
                                                         onClick={(event) => {
                                                             stopCardToggle(event);
-                                                            setSlipPreview({ src: item.receipt_image, orderId: item.id });
+                                                            setSlipOcrError('');
+                                                            setSlipPreview({ src: resolveMediaUrl(item.receipt_image), orderId: item.id });
                                                         }}
                                                     >
-                                                        <img src={item.receipt_image} alt={`สลิปคำสั่งซื้อ ${item.id}`} />
+                                                        <img src={resolveMediaUrl(item.receipt_image)} alt={`สลิปคำสั่งซื้อ ${item.id}`} />
                                                         <span>ดูรูปใหญ่</span>
                                                     </button>
                                                     {canCancelSubmittedReceipt && (
@@ -856,9 +899,22 @@ function OrderHistoryModal({
                                 <span>PAYMENT SLIP</span>
                                 <h2 id="order-slip-lightbox-title">สลิปคำสั่งซื้อ #{slipPreview.orderId}</h2>
                             </div>
-                            <button type="button" onClick={() => setSlipPreview(null)} aria-label="ปิดรูปสลิป">×</button>
+                            <div className="order-slip-lightbox-actions">
+                                <button
+                                    type="button"
+                                    className="order-slip-copy"
+                                    onClick={copySlipText}
+                                    disabled={slipOcrLoading}
+                                >
+                                    {slipOcrLoading ? 'กำลังอ่านข้อความ...' : 'คัดลอกข้อความจากภาพ'}
+                                </button>
+                                <button type="button" onClick={() => setSlipPreview(null)} aria-label="ปิดรูปสลิป">×</button>
+                            </div>
                         </header>
-                        <img src={slipPreview.src} alt={`สลิปคำสั่งซื้อ ${slipPreview.orderId}`} />
+                        <div className="order-slip-lightbox-body">
+                            {slipOcrError && <div className="order-slip-lightbox-error">{slipOcrError}</div>}
+                            <img src={slipPreview.src} alt={`สลิปคำสั่งซื้อ ${slipPreview.orderId}`} />
+                        </div>
                     </section>
                 </div>
             )}

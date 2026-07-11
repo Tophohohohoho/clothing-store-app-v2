@@ -8,7 +8,7 @@ const formatPrice = (price) => {
     });
 };
 
-function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, showStockCounts = false }) {
+function StorePage({ products, onAddToCart, onBuyNow, previewProductId, onPreviewShown, showStockCounts = false }) {
     const [searchText, setSearchText] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -62,6 +62,17 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
             selected_quantity: selectedQuantity,
         });
         setSelectedProduct(null);
+    };
+
+    const handleBuyNow = (product) => {
+        const didStartCheckout = onBuyNow?.({
+            ...product,
+            selected_quantity: selectedQuantity,
+        });
+
+        if (didStartCheckout) {
+            setSelectedProduct(null);
+        }
     };
 
     return (
@@ -273,15 +284,26 @@ function StorePage({ products, onAddToCart, previewProductId, onPreviewShown, sh
                                         </div>
                                     </div>
                                 )}
-                                <button
-                                    type="button"
-                                    className="store-add-button product-detail-add"
-                                    onClick={() => handleAddFromModal(selectedProduct)}
-                                    disabled={isOutOfStock}
-                                >
-                                    <span>+</span>
-                                    เพิ่มลงตะกร้า{!isOutOfStock && selectedQuantity > 1 ? ` ${selectedQuantity} ชิ้น` : ''}
-                                </button>
+                                <div className="product-detail-actions">
+                                    <button
+                                        type="button"
+                                        className="store-add-button product-detail-add product-detail-secondary"
+                                        onClick={() => handleAddFromModal(selectedProduct)}
+                                        disabled={isOutOfStock}
+                                    >
+                                        <span>+</span>
+                                        เพิ่มลงตะกร้า{!isOutOfStock && selectedQuantity > 1 ? ` ${selectedQuantity} ชิ้น` : ''}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="store-add-button product-detail-add product-detail-primary"
+                                        onClick={() => handleBuyNow(selectedProduct)}
+                                        disabled={isOutOfStock}
+                                    >
+                                        <span aria-hidden="true">→</span>
+                                        สั่งซื้อเลย{!isOutOfStock && selectedQuantity > 1 ? ` ${selectedQuantity} ชิ้น` : ''}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

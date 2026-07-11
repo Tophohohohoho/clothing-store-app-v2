@@ -1550,7 +1550,11 @@ app.get('/api/admin/orders', async (req, res) => {
                 pay.receipt_image,
                 pay.receipt_file_name,
                 pay.reviewed_at,
-                pay.review_note
+                pay.review_note,
+                pay.verified_amount,
+                pay.transaction_ref,
+                reviewer.username AS reviewer_username,
+                reviewer.full_name AS reviewer_full_name
             FROM orders o
             LEFT JOIN \`user\` u ON o.user_id = u.user_id
             LEFT JOIN address a ON a.address_id = (
@@ -1563,6 +1567,7 @@ app.get('/api/admin/orders', async (req, res) => {
                 FROM payment
                 WHERE order_id = o.order_id
             )
+            LEFT JOIN \`user\` reviewer ON reviewer.user_id = pay.reviewed_by
             ORDER BY o.order_date DESC
         `);
         const orderIds = results.map((order) => order.order_id).filter(Boolean);
@@ -3008,111 +3013,185 @@ app.put('/api/orders/:id/receipt/cancel', async (req, res) => {
     }
 });
 
+const performAdminPaymentReview = async (id, payload = {}) => {
+    const {
+        action,
+        user_id,
+        verified_amount,
+        transaction_ref,
+        review_note,
+    } = payload;
+    const cleanAction = String(action || '').trim();
+    const cleanNote = String(review_note || '').trim();
+    const cleanRef = String(transaction_ref || '').trim();
+    const actionMap = {
+        approve: { paymentStatus: PAID_PAYMENT_STATUS, label: 'อนุมัติการชำระเงิน', requiresNote: false },
+        reject: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน', requiresNote: true },
+        request_new: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐานและขอหลักฐานใหม่', requiresNote: true },
+        suspicious: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน: สงสัยสลิปปลอม', requiresNote: true },
+    };
+    const review = actionMap[cleanAction];
+
+    if (!review) {
+        return { success: false, status: 400, error: 'คำสั่งตรวจสอบหลักฐานไม่ถูกต้อง', field: 'action' };
+    }
+
+    if (review.requiresNote && !cleanNote) {
+        return { success: false, status: 400, error: 'กรุณากรอกเหตุผลการตรวจสอบ', field: 'review_note' };
+    }
+
+    const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
+    if (orders.length === 0) {
+        return { success: false, status: 404, error: 'ไม่พบคำสั่งซื้อ', field: 'order_id' };
+    }
+    const order = orders[0];
+
+    const [payments] = await query(
+        'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
+        [id],
+    );
+
+    if (!payments[0]?.receipt_image) {
+        return { success: false, status: 400, error: 'ยังไม่มีหลักฐานการชำระเงินให้ตรวจสอบ', field: 'receipt_image' };
+    }
+
+    const detectedAmount = verified_amount === '' || verified_amount === null || verified_amount === undefined
+        ? null
+        : Number(verified_amount);
+
+    if (detectedAmount !== null && Number.isNaN(detectedAmount)) {
+        return { success: false, status: 400, error: 'ยอดที่ตรวจพบไม่ถูกต้อง', field: 'verified_amount' };
+    }
+
+    await query(
+        `UPDATE payment
+         SET verified_amount = ?, transaction_ref = ?, reviewed_by = ?, reviewed_at = NOW(), review_note = ?
+         WHERE payment_id = ?`,
+        [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
+    );
+    const nextOrderStatus = cleanAction === 'approve'
+        ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : 'เตรียมสินค้า')
+        : ORDER_WAITING_PAYMENT_STATUS;
+    await query(
+        'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
+        [review.paymentStatus, nextOrderStatus, id],
+    );
+    await writeOrderStatusHistory(
+        id,
+        nextOrderStatus,
+        user_id,
+        [
+            review.label,
+            `สถานะชำระเงิน: ${review.paymentStatus}`,
+            detectedAmount !== null ? `ยอดที่ตรวจพบ ฿${detectedAmount.toFixed(2)}` : '',
+            cleanRef ? `เลขอ้างอิง ${cleanRef}` : '',
+            cleanNote,
+        ].filter(Boolean).join(' / '),
+    );
+    await writeSystemLog(
+        user_id,
+        'ตรวจสอบหลักฐานการชำระเงิน',
+        `คำสั่งซื้อ #${id}: ${review.label} (${review.paymentStatus})`,
+        {
+            beforeData: {
+                order_status: order.order_status,
+                payment_status: order.payment_status,
+            },
+            afterData: {
+                order_status: nextOrderStatus,
+                payment_status: review.paymentStatus,
+                verified_amount: detectedAmount,
+                transaction_ref: cleanRef || null,
+                review_note: cleanNote || null,
+            },
+        },
+    );
+
+    return {
+        success: true,
+        order_status: nextOrderStatus,
+        payment_status: review.paymentStatus,
+        review_note: cleanNote || null,
+        message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานการชำระเงินแล้ว',
+    };
+};
+
 app.put('/api/admin/orders/:id/payment-review', async (req, res) => {
     try {
         const { id } = req.params;
+        const result = await performAdminPaymentReview(id, req.body);
+        if (!result.success) {
+            return res.status(result.status || 400).json({ error: result.error, field: result.field });
+        }
+        res.json(result);
+    } catch (err) {
+        respondError(res, err, 'ตรวจสอบหลักฐานการชำระเงินไม่สำเร็จ');
+    }
+});
+
+app.put('/api/admin/orders/payment-review/bulk', async (req, res) => {
+    try {
         const {
             action,
             user_id,
+            order_ids,
             verified_amount,
             transaction_ref,
             review_note,
         } = req.body;
         const cleanAction = String(action || '').trim();
-        const cleanNote = String(review_note || '').trim();
-        const cleanRef = String(transaction_ref || '').trim();
-        const actionMap = {
-            approve: { paymentStatus: PAID_PAYMENT_STATUS, label: 'อนุมัติการชำระเงิน', requiresNote: false },
-            reject: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน', requiresNote: true },
-            request_new: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐานและขอหลักฐานใหม่', requiresNote: true },
-            suspicious: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน: สงสัยสลิปปลอม', requiresNote: true },
-        };
-        const review = actionMap[cleanAction];
-
-        if (!review) {
-            return res.status(400).json({ error: 'คำสั่งตรวจสอบหลักฐานไม่ถูกต้อง', field: 'action' });
+        if (cleanAction !== 'approve') {
+            return res.status(400).json({ error: 'การตรวจสลิปทีเดียวรองรับเฉพาะการอนุมัติเท่านั้น', field: 'action' });
         }
 
-        if (review.requiresNote && !cleanNote) {
-            return res.status(400).json({ error: 'กรุณากรอกเหตุผลการตรวจสอบ', field: 'review_note' });
+        const ids = Array.isArray(order_ids)
+            ? [...new Set(order_ids.map((value) => String(value || '').trim()).filter(Boolean))]
+            : [];
+
+        if (!ids.length) {
+            return res.status(400).json({ error: 'กรุณาเลือกออเดอร์อย่างน้อย 1 รายการ', field: 'order_ids' });
         }
 
-        const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
-        if (orders.length === 0) {
-            return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
+        const results = [];
+        let success_count = 0;
+        let fail_count = 0;
+
+        for (const id of ids) {
+            try {
+                const result = await performAdminPaymentReview(id, {
+                    action: 'approve',
+                    user_id,
+                    verified_amount,
+                    transaction_ref,
+                    review_note,
+                });
+
+                if (result.success) {
+                    success_count += 1;
+                    results.push({ order_id: id, success: true, ...result });
+                } else {
+                    fail_count += 1;
+                    results.push({ order_id: id, success: false, error: result.error, field: result.field, status: result.status });
+                }
+            } catch (err) {
+                fail_count += 1;
+                results.push({
+                    order_id: id,
+                    success: false,
+                    error: err?.response?.data?.error || err?.message || 'ตรวจสอบสลิปไม่สำเร็จ',
+                });
+            }
         }
-        const order = orders[0];
-
-        const [payments] = await query(
-            'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
-            [id],
-        );
-
-        if (!payments[0]?.receipt_image) {
-            return res.status(400).json({ error: 'ยังไม่มีหลักฐานการชำระเงินให้ตรวจสอบ', field: 'receipt_image' });
-        }
-
-        const detectedAmount = verified_amount === '' || verified_amount === null || verified_amount === undefined
-            ? null
-            : Number(verified_amount);
-
-        if (detectedAmount !== null && Number.isNaN(detectedAmount)) {
-            return res.status(400).json({ error: 'ยอดที่ตรวจพบไม่ถูกต้อง', field: 'verified_amount' });
-        }
-
-        await query(
-            `UPDATE payment
-             SET verified_amount = ?, transaction_ref = ?, reviewed_by = ?, reviewed_at = NOW(), review_note = ?
-             WHERE payment_id = ?`,
-            [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
-        );
-        const nextOrderStatus = cleanAction === 'approve'
-            ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : 'เตรียมสินค้า')
-            : ORDER_WAITING_PAYMENT_STATUS;
-        await query(
-            'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
-            [review.paymentStatus, nextOrderStatus, id],
-        );
-        await writeOrderStatusHistory(
-            id,
-            nextOrderStatus,
-            user_id,
-            [
-                review.label,
-                `สถานะชำระเงิน: ${review.paymentStatus}`,
-                detectedAmount !== null ? `ยอดที่ตรวจพบ ฿${detectedAmount.toFixed(2)}` : '',
-                cleanRef ? `เลขอ้างอิง ${cleanRef}` : '',
-                cleanNote,
-            ].filter(Boolean).join(' / '),
-        );
-        await writeSystemLog(
-            user_id,
-            'ตรวจสอบหลักฐานการชำระเงิน',
-            `คำสั่งซื้อ #${id}: ${review.label} (${review.paymentStatus})`,
-            {
-                beforeData: {
-                    order_status: order.order_status,
-                    payment_status: order.payment_status,
-                },
-                afterData: {
-                    order_status: nextOrderStatus,
-                    payment_status: review.paymentStatus,
-                    verified_amount: detectedAmount,
-                    transaction_ref: cleanRef || null,
-                    review_note: cleanNote || null,
-                },
-            },
-        );
 
         res.json({
             success: true,
-            order_status: nextOrderStatus,
-            payment_status: review.paymentStatus,
-            review_note: cleanNote || null,
-            message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานการชำระเงินแล้ว',
+            success_count,
+            fail_count,
+            results,
+            message: `ตรวจสลิปสำเร็จ ${success_count} รายการ`,
         });
     } catch (err) {
-        respondError(res, err, 'ตรวจสอบหลักฐานการชำระเงินไม่สำเร็จ');
+        respondError(res, err, 'ตรวจสอบสลิปแบบกลุ่มไม่สำเร็จ');
     }
 });
 

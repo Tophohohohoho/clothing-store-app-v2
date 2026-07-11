@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -613,6 +614,16 @@ function App() {
     }, [fetchProducts, fetchCategories]);
 
     useEffect(() => {
+        if (isAdminUser(user)) {
+            setIsAdminView(true);
+            setAdminPage('dashboard');
+            return;
+        }
+
+        setIsAdminView(false);
+    }, [user]);
+
+    useEffect(() => {
         authApi.getStoreContact()
             .then((res) => setStoreContact(res.data || { full_name: '', email: '', phone: '' }))
             .catch((err) => console.error('โหลดข้อมูลติดต่อร้านไม่สำเร็จ', err));
@@ -888,6 +899,31 @@ function App() {
         }
 
         setCart([...cart, { ...product, qty: Math.min(availableStock, requestedQuantity) }]);
+    };
+
+    const buyNowFromStore = (product) => {
+        const requestedQuantity = Math.max(1, Number.parseInt(product.selected_quantity, 10) || 1);
+        const availableStock = Math.max(0, Number(product.stock) || 0);
+        if (availableStock <= 0) return false;
+
+        const normalizedProduct = {
+            ...product,
+            selected_quantity: requestedQuantity,
+        };
+
+        flushSync(() => {
+            addToCart(normalizedProduct);
+            setSelectedCartKeys([getCartItemKey(normalizedProduct)]);
+        });
+
+        if (isAdminUser(user)) {
+            setIsCartOpen(false);
+            setShowPosCheckout(true);
+            return true;
+        }
+
+        void openMemberCheckout();
+        return true;
     };
 
     const handleAddProduct = async (event) => {
@@ -1742,6 +1778,7 @@ function App() {
                     <StorePage
                         products={products}
                         onAddToCart={addToCart}
+                        onBuyNow={buyNowFromStore}
                         previewProductId={previewProductId}
                         onPreviewShown={() => setPreviewProductId(null)}
                         showStockCounts={isAdminUser(user)}
