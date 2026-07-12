@@ -149,11 +149,28 @@ function OrderHistoryModal({
     );
 
     const getPaymentMethod = (order) => order.payment_method || order.payment_type || 'ไม่ระบุ';
-    const getCompactItemSummary = (orderItems) => orderItems
-        .map((orderItem) => orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น')
-        .filter(Boolean)
-        .slice(0, 3)
-        .join(', ');
+    const getCompactItemSummary = (orderItems) => {
+        const productNames = orderItems
+            .map((orderItem) => orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น')
+            .filter(Boolean);
+
+        if (productNames.length === 0) return '';
+
+        const visibleNames = productNames.slice(0, 3).join(', ');
+        const remainingCount = productNames.length - 3;
+
+        return remainingCount > 0
+            ? `${visibleNames} และอีก ${remainingCount} รายการ`
+            : visibleNames;
+    };
+
+    const renderProductThumb = (orderItem, fallbackText) => {
+        const imageSrc = resolveMediaUrl(orderItem.product_image || orderItem.image_url || orderItem.image);
+        if (imageSrc) {
+            return <img src={imageSrc} alt={orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'} />;
+        }
+        return <span>{fallbackText}</span>;
+    };
 
     const copyBankAccount = async () => {
         try {
@@ -214,6 +231,8 @@ function OrderHistoryModal({
             return [{
                 product_id: order.product_id,
                 product_name: order.product_name || order.name,
+                product_image: order.product_image || order.image_url || order.image,
+                product_description: order.product_description || order.description || '',
                 quantity: order.qty || order.quantity || 1,
                 price: order.price || 0,
             }];
@@ -535,7 +554,9 @@ function OrderHistoryModal({
                             const compactItemSummary = getCompactItemSummary(orderItems);
                             const orderTitle = isSalesMode
                                 ? (isStoreSale(item) ? 'คำสั่งซื้อหน้าร้าน' : `คำสั่งซื้อของ ${item.full_name || item.username || 'ลูกค้าทั่วไป'}`)
-                                : (orderItems.length > 1 ? `สินค้า ${orderItems.length} รายการ` : (item.name || item.product_name || 'สินค้าแฟชั่น'));
+                                : (isCompactCustomerPage
+                                    ? (compactItemSummary || item.name || item.product_name || 'สินค้าแฟชั่น')
+                                    : (orderItems.length > 1 ? `สินค้า ${orderItems.length} รายการ` : (item.name || item.product_name || 'สินค้าแฟชั่น')));
                             const receiptPayload = {
                                 ...item,
                                 items: orderItems,
@@ -548,17 +569,8 @@ function OrderHistoryModal({
 
                             return (
                                 <article
-                                    className={`order-history-card ${isCompactCustomerPage ? 'is-compact-card' : ''} ${!isSalesMode ? 'is-clickable' : ''}`}
+                                    className={`order-history-card ${isCompactCustomerPage ? 'is-compact-card' : ''}`}
                                     key={item.id || index}
-                                    role={!isSalesMode ? 'button' : undefined}
-                                    tabIndex={!isSalesMode ? 0 : undefined}
-                                    onClick={!isSalesMode ? () => openOrderDetail(item, orderKey) : undefined}
-                                    onKeyDown={!isSalesMode ? ((event) => {
-                                        if (event.key === 'Enter' || event.key === ' ') {
-                                            event.preventDefault();
-                                            openOrderDetail(item, orderKey);
-                                        }
-                                    }) : undefined}
                                 >
                                     <div className="order-history-card-header">
                                         <div>
@@ -579,9 +591,13 @@ function OrderHistoryModal({
 
                                     <div className={`order-history-product ${isCompactCustomerPage ? 'is-compact' : ''}`}>
                                         <div className="order-history-product-main">
-                                            <h3>{isCompactCustomerPage ? `สินค้า ${orderItems.length || 1} รายการ` : orderTitle}</h3>
+                                            <h3>{orderTitle}</h3>
                                             {isCompactCustomerPage ? (
-                                                <p className="order-history-compact-summary">{compactItemSummary || 'ไม่มีรายการสินค้า'}</p>
+                                                <div className="order-history-compact-stats">
+                                                    <span>{`สินค้า ${orderItems.length || 0} รายการ`}</span>
+                                                    <span>{`จำนวน ${itemCount || 0} ชิ้น`}</span>
+                                                    <span>{`รวม ฿${formatMoney(productTotal)}`}</span>
+                                                </div>
                                             ) : item.detail && <p>{item.detail}</p>}
                                             <div className={`order-history-tags ${isCompactCustomerPage ? 'is-compact' : ''}`}>
                                                 {isSalesMode && isStoreSale(item) && <span className="order-history-seller-badge">ขายโดย: {sellerName}</span>}
@@ -591,10 +607,10 @@ function OrderHistoryModal({
                                                 {!isCompactCustomerPage && <span>จำนวน {itemCount || Number(item.qty || item.quantity || 1)} ชิ้น</span>}
                                             </div>
                                         </div>
-                                        {!isCompactCustomerPage && (
+                                        {isSalesMode && !isCompactCustomerPage && (
                                             <div className="order-history-price">
-                                                <span>{isSalesMode ? 'ยอดขาย' : 'รวมสินค้า'}</span>
-                                                <strong>฿{formatMoney(isSalesMode ? finalPrice : productTotal)}</strong>
+                                                <span>ยอดขาย</span>
+                                                <strong>฿{formatMoney(finalPrice)}</strong>
                                             </div>
                                         )}
                                     </div>
@@ -641,8 +657,16 @@ function OrderHistoryModal({
 
                                                 return (
                                                     <div className="order-history-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
-                                                        <div>
-                                                            <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
+                                                        <div className={`order-history-item-identity ${isCompactCustomerPage ? 'is-image-only' : ''}`}>
+                                                            <div className="order-history-item-thumb">
+                                                                {renderProductThumb(orderItem, (orderItem.product_name || orderItem.name || 'ส').charAt(0))}
+                                                            </div>
+                                                            {!isCompactCustomerPage && (
+                                                                <div className="order-history-item-copy">
+                                                                    <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
+                                                                    {orderItem.product_description && <small>{orderItem.product_description}</small>}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="order-history-item-qty">
                                                             <span>จำนวน</span>
@@ -659,17 +683,6 @@ function OrderHistoryModal({
                                                     </div>
                                                 );
                                             })}
-                                        </div>
-                                    )}
-
-                                    {!isCompactCustomerPage && !isSalesMode && (item.tracking_no || item.payment_status) && (
-                                        <div className="order-history-meta">
-                                            {item.payment_status && (
-                                                <div>
-                                                    <span>สถานะชำระเงิน</span>
-                                                    <strong>{formatPaymentStatus(item.payment_status)}</strong>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
 
@@ -868,17 +881,25 @@ function OrderHistoryModal({
                                         </div>
                                     )}
 
-                                    {canCancel && (
-                                        <button
-                                            type="button"
-                                            className="order-history-cancel"
-                                            onClick={(event) => {
-                                                stopCardToggle(event);
-                                                onCancelOrder?.(item.id);
-                                            }}
-                                        >
-                                            ยกเลิกคำสั่งซื้อ
-                                        </button>
+                                    {!isSalesMode && (
+                                        <div className="order-history-actions order-history-actions-customer">
+                                            <button
+                                                type="button"
+                                                className="order-history-action secondary"
+                                                onClick={() => openOrderDetail(item, orderKey)}
+                                            >
+                                                ดูรายละเอียด
+                                            </button>
+                                            {canCancel && (
+                                                <button
+                                                    type="button"
+                                                    className="order-history-action danger"
+                                                    onClick={() => onCancelOrder?.(item.id)}
+                                                >
+                                                    ยกเลิกคำสั่งซื้อ
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
                                 </article>
                             );
@@ -939,7 +960,7 @@ function OrderHistoryModal({
                                 <section className="order-detail-popup-section">
                                     <div className="order-detail-popup-table">
                                         <div className="order-detail-popup-row is-head">
-                                            <span>ชื่อสินค้า</span>
+                                            <span>สินค้า</span>
                                             <span>จำนวน</span>
                                             <span>ราคาต่อชิ้น</span>
                                         </div>
@@ -947,11 +968,19 @@ function OrderHistoryModal({
                                             const qty = Number(orderItem.qty || orderItem.quantity || 1);
                                             const unitPrice = Number(orderItem.price || 0);
                                             return (
-                                                <div className="order-detail-popup-row" key={`${detailOrder.id}-${orderItem.product_id || itemIndex}`}>
-                                                    <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
-                                                    <span>{qty} ชิ้น</span>
-                                                    <span>฿{formatMoney(unitPrice)}</span>
-                                                </div>
+                                                    <div className="order-detail-popup-row" key={`${detailOrder.id}-${orderItem.product_id || itemIndex}`}>
+                                                        <div className="order-detail-popup-item">
+                                                            <div className="order-detail-popup-thumb">
+                                                                {renderProductThumb(orderItem, (orderItem.product_name || orderItem.name || 'ส').charAt(0))}
+                                                            </div>
+                                                            <div className="order-detail-popup-copy">
+                                                                <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
+                                                                {orderItem.product_description && <small>{orderItem.product_description}</small>}
+                                                            </div>
+                                                        </div>
+                                                        <span>{qty} ชิ้น</span>
+                                                        <span>฿{formatMoney(unitPrice)}</span>
+                                                    </div>
                                             );
                                         }) : (
                                             <div className="order-detail-popup-empty">ไม่พบรายการสินค้าในคำสั่งซื้อนี้</div>

@@ -3610,7 +3610,9 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 od.product_id,
                 od.quantity,
                 od.price,
-                p.product_name AS product_name
+                p.product_name AS product_name,
+                p.product_image AS product_image,
+                p.description AS product_description
             FROM orders o
             JOIN \`user\` u ON o.user_id = u.user_id
             LEFT JOIN payment pay ON pay.payment_id = (
@@ -3655,6 +3657,8 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                     quantity: row.quantity,
                     price: row.price,
                     product_name: row.product_name,
+                    product_image: row.product_image,
+                    product_description: row.product_description,
                 });
             }
         });
@@ -3667,6 +3671,8 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 quantity: firstItem.quantity || 0,
                 price: firstItem.price || 0,
                 product_name: firstItem.product_name || null,
+                product_image: firstItem.product_image || null,
+                product_description: firstItem.product_description || null,
             };
         });
 
