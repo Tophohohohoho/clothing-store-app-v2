@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCartCount, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
 
 const PROMPTPAY_ID = '1234567890';
+const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
+const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
     minimumFractionDigits: 2,
@@ -41,6 +43,8 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
     const total = getCartTotal(cart);
     const itemCount = getCartCount(cart);
     const [paymentMethod, setPaymentMethod] = useState('เงินสด');
+    const [receiverName, setReceiverName] = useState('');
+    const [receiverPhone, setReceiverPhone] = useState('');
     const [cashReceived, setCashReceived] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -67,6 +71,18 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
 
     const submitSale = async () => {
         setError('');
+        if (!receiverName.trim()) {
+            setError('กรุณากรอกชื่อผู้รับ');
+            return;
+        }
+        if (!receiverPhone.trim()) {
+            setError('กรุณากรอกเบอร์โทรผู้รับ');
+            return;
+        }
+        if (!PHONE_REGEX.test(cleanPhone(receiverPhone))) {
+            setError('รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง');
+            return;
+        }
         if (paymentMethod === 'เงินสด' && cashAmount < total) {
             setError('จำนวนเงินที่รับมาต้องไม่น้อยกว่ายอดสุทธิ');
             return;
@@ -75,6 +91,8 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
         try {
             setIsSubmitting(true);
             const result = await onConfirm({
+                receiver_name: receiverName,
+                phone: cleanPhone(receiverPhone),
                 payment_method: paymentMethod,
                 cash_received: paymentMethod === 'เงินสด' ? cashAmount : total,
             });
@@ -99,6 +117,8 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                         <div className="pos-receipt-meta">
                             <span>วันที่</span><strong>{new Date(receipt.order_date).toLocaleString('th-TH')}</strong>
                             <span>พนักงาน</span><strong>{cashier?.full_name || cashier?.username || '-'}</strong>
+                            <span>ผู้รับ</span><strong>{receipt.receiver_name || '-'}</strong>
+                            <span>เบอร์ผู้รับ</span><strong>{receipt.shipping_phone || '-'}</strong>
                             <span>ชำระโดย</span><strong>{receipt.payment_method}</strong>
                         </div>
                         <div className="pos-receipt-items">
@@ -162,6 +182,13 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                     </div>
 
                     <div className="pos-payment-panel">
+                        <h3>ข้อมูลผู้รับ</h3>
+                        <div className="pos-cash-box">
+                            <label>ชื่อผู้รับ</label>
+                            <div><input type="text" value={receiverName} onChange={(event) => { setReceiverName(event.target.value); setError(''); }} placeholder="กรอกชื่อผู้รับ" autoFocus /></div>
+                            <label>เบอร์โทรผู้รับ</label>
+                            <div><input type="tel" value={receiverPhone} onChange={(event) => { setReceiverPhone(event.target.value); setError(''); }} placeholder="08xxxxxxxx" /></div>
+                        </div>
                         <h3>เลือกวิธีชำระเงิน</h3>
                         <div className="pos-payment-methods">
                             {['เงินสด', 'QR'].map((method) => (
@@ -181,7 +208,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                         {paymentMethod === 'เงินสด' ? (
                             <div className="pos-cash-box">
                                 <label>จำนวนเงินที่รับ</label>
-                                <div><span>฿</span><input type="number" min={total} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} autoFocus /></div>
+                                <div><span>฿</span><input type="number" min={total} step="0.01" value={cashReceived} onChange={(event) => setCashReceived(event.target.value)} /></div>
                                 <div className="pos-quick-cash">
                                     {[total, Math.ceil(total / 100) * 100, 500, 1000].filter((value, index, values) => value >= total && values.indexOf(value) === index).map((value) => (
                                         <button type="button" key={value} onClick={() => setCashReceived(String(value))}>฿{formatMoney(value)}</button>

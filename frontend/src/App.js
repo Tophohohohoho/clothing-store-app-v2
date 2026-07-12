@@ -600,7 +600,7 @@ function App() {
         }
     }, []);
 
-    const fetchAdminOrders = async () => {
+    const fetchAdminOrders = useCallback(async () => {
         setAdminOrdersLoading(true);
         try {
             const res = await adminApi.getAdminOrders();
@@ -613,7 +613,7 @@ function App() {
         } finally {
             setAdminOrdersLoading(false);
         }
-    };
+    }, []);
 
     const fetchCustomers = async (params = {}) => {
         setCustomersLoading(true);
@@ -746,14 +746,14 @@ function App() {
             return;
         }
 
-        if (adminPage === 'admin-orders') fetchAdminOrders();
+        if (adminPage === 'dashboard' || adminPage === 'admin-orders') fetchAdminOrders();
         if (adminPage === 'customers') fetchCustomers();
         if (adminPage === 'stock-logs') {
             setActivityLogsLoading(true);
             Promise.all([fetchStockLogs(), fetchSystemLogs()])
                 .finally(() => setActivityLogsLoading(false));
         }
-    }, [isAdminView, adminPage, user]);
+    }, [isAdminView, adminPage, user, fetchAdminOrders]);
 
     const handleLogin = async (event) => {
         event.preventDefault();
@@ -1247,12 +1247,14 @@ function App() {
         setSelectedCartKeys((currentKeys) => currentKeys.filter((key) => !paidKeySet.has(key)));
     };
 
-    const handleConfirmPosPayment = async ({ payment_method, cash_received }) => {
+    const handleConfirmPosPayment = async ({ receiver_name, phone, payment_method, cash_received }) => {
         if (!redirectUnauthorizedPage('pos')) throw new Error('กรุณาเข้าสู่ระบบด้วยสิทธิ์แอดมิน');
         if (selectedCartItems.length === 0) throw new Error('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
 
         const res = await ordersApi.checkoutPosOrder({
             user_id: user?.id,
+            receiver_name,
+            phone,
             payment_method,
             cash_received,
             cart_items: selectedCartItems,
@@ -1416,7 +1418,6 @@ function App() {
                 message: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง',
             };
         }
-
         orderStatusResolverRef.current?.({ success: false });
         setPendingOrderId(orderId);
         setPendingStatus(status);

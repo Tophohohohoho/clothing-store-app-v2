@@ -385,6 +385,8 @@ const snapshotOrder = (order = {}) => ({
     order_status: order.order_status ?? order.status ?? '',
     payment_status: order.payment_status ?? '',
     delivery_type: order.delivery_type ?? order.shipping_method ?? '',
+    receiver_name: order.receiver_name ?? '',
+    shipping_phone: order.shipping_phone ?? order.phone ?? '',
     tracking_no: order.tracking_no ?? '',
     final_price: Number(order.final_price ?? order.total_price) || 0,
 });
@@ -813,6 +815,8 @@ const initializeDatabase = async () => {
             payment_method varchar(50) DEFAULT NULL,
             payment_status varchar(50) DEFAULT NULL,
             delivery_type varchar(50) DEFAULT NULL,
+            receiver_name varchar(255) DEFAULT NULL,
+            shipping_phone varchar(20) DEFAULT NULL,
             tracking_no varchar(100) DEFAULT NULL,
             PRIMARY KEY (order_id),
             KEY fk_order_user (user_id)
@@ -994,6 +998,27 @@ const initializeDatabase = async () => {
     if (!(await columnExists('payment', 'review_note'))) {
         await query('ALTER TABLE payment ADD COLUMN review_note text DEFAULT NULL AFTER reviewed_at');
     }
+    if (!(await columnExists('orders', 'receiver_name'))) {
+        await query('ALTER TABLE orders ADD COLUMN receiver_name varchar(255) DEFAULT NULL AFTER delivery_type');
+    }
+    if (!(await columnExists('orders', 'shipping_phone'))) {
+        await query('ALTER TABLE orders ADD COLUMN shipping_phone varchar(20) DEFAULT NULL AFTER receiver_name');
+    }
+    await query(`
+        UPDATE orders o
+        LEFT JOIN address a ON a.address_id = (
+            SELECT MAX(address_id)
+            FROM address
+            WHERE user_id = o.user_id
+        )
+        LEFT JOIN \`user\` u ON u.user_id = o.user_id
+        SET
+            o.receiver_name = COALESCE(NULLIF(TRIM(o.receiver_name), ''), NULLIF(TRIM(a.receiver_name), ''), NULLIF(TRIM(u.full_name), ''), NULLIF(TRIM(u.username), '')),
+            o.shipping_phone = COALESCE(NULLIF(TRIM(o.shipping_phone), ''), NULLIF(TRIM(a.phone), ''), NULLIF(TRIM(u.phone), ''))
+        WHERE
+            o.receiver_name IS NULL OR TRIM(o.receiver_name) = ''
+            OR o.shipping_phone IS NULL OR TRIM(o.shipping_phone) = ''
+    `);
     if (!(await columnExists('user', 'privacy_notice_acknowledged'))) {
         await query("ALTER TABLE `user` ADD COLUMN privacy_notice_acknowledged tinyint DEFAULT 0 AFTER phone");
     }
@@ -1593,7 +1618,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                     COALESCE(SUM(o.final_price), 0) AS total_spent
                  FROM orders o
                  JOIN \`user\` u ON u.user_id = o.user_id
-                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ? AND u.role = 'user'
                  GROUP BY u.user_id, u.username, u.full_name
                  ORDER BY total_spent DESC, order_count DESC
                  LIMIT 5`,
@@ -1654,7 +1679,8 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
                 u.username,
                 u.full_name,
                 a.address_detail AS address,
-                a.phone,
+                COALESCE(NULLIF(TRIM(o.shipping_phone), ''), a.phone, u.phone) AS phone,
+                COALESCE(NULLIF(TRIM(o.receiver_name), ''), a.receiver_name, u.full_name, u.username) AS receiver_name,
                 pay.payment_type,
                 pay.payment_amount,
                 pay.payment_date,
@@ -1737,8 +1763,8 @@ app.get('/api/admin/orders/:id/details', requireAdmin, async (req, res) => {
                 u.full_name,
                 u.email,
                 u.phone AS customer_phone,
-                a.receiver_name,
-                a.phone AS shipping_phone,
+                COALESCE(NULLIF(TRIM(o.receiver_name), ''), a.receiver_name, u.full_name, u.username) AS receiver_name,
+                COALESCE(NULLIF(TRIM(o.shipping_phone), ''), a.phone, u.phone) AS shipping_phone,
                 a.address_detail,
                 a.subdistrict,
                 a.district,
@@ -2648,17 +2674,30 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
     let transactionStarted = false;
     try {
         const {
+            receiver_name,
+            phone,
             payment_method,
             cash_received,
             cart_items,
         } = req.body;
         const user_id = req.authUser.id;
+        const receiverName = cleanText(receiver_name) || req.authUser.full_name || req.authUser.username || 'ลูกค้าหน้าร้าน';
+        const shippingPhone = cleanPhone(phone);
 
         if (!Array.isArray(cart_items) || cart_items.length === 0) {
             return res.status(400).json({ error: 'ไม่มีสินค้าในรายการขาย' });
         }
         if (!['เงินสด', 'QR'].includes(payment_method)) {
             return res.status(400).json({ error: 'รองรับการชำระเงินสดหรือ QR เท่านั้น' });
+        }
+        if (!receiverName) {
+            return res.status(400).json({ error: 'กรุณากรอกชื่อผู้รับ' });
+        }
+        if (!shippingPhone) {
+            return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรผู้รับ' });
+        }
+        if (!PHONE_REGEX.test(shippingPhone)) {
+            return res.status(400).json({ error: 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' });
         }
 
         const [admins] = await query(
@@ -2711,9 +2750,9 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
 
         const [orderResult] = await dbp.query(
             `INSERT INTO orders
-                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, tracking_no)
-             VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, NULL)`,
-            [user_id, totalPrice, totalPrice, 'เสร็จสิ้น', payment_method, PAID_PAYMENT_STATUS, 'ขายหน้าร้าน'],
+                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, receiver_name, shipping_phone, tracking_no)
+             VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+            [user_id, totalPrice, totalPrice, 'เสร็จสิ้น', payment_method, PAID_PAYMENT_STATUS, 'ขายหน้าร้าน', receiverName, shippingPhone],
         );
         const orderId = orderResult.insertId;
 
@@ -2747,6 +2786,8 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
                 order_id: orderId,
                 user_id,
                 payment_method,
+                receiver_name: receiverName,
+                shipping_phone: shippingPhone,
                 total_price: totalPrice,
                 item_count: itemCount,
             },
@@ -2768,6 +2809,8 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
                 item_count: itemCount,
                 items: receiptItems,
                 cashier: admins[0].full_name || admins[0].username,
+                receiver_name: receiverName,
+                shipping_phone: shippingPhone,
             },
         });
     } catch (err) {
@@ -2946,8 +2989,8 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
 
         const [orderResult] = await query(
             `INSERT INTO orders
-                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, tracking_no)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, receiver_name, shipping_phone, tracking_no)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 user_id,
                 totalPrice,
@@ -2958,6 +3001,8 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
                 paymentMethod,
                 initialPaymentStatus,
                 shippingMethod,
+                shippingAddressPayload.receiver_name,
+                shippingAddressPayload.phone,
                 null,
             ],
         );
@@ -3431,7 +3476,7 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         const { id } = req.params;
         const { status, tracking_no } = req.body;
         const { id: user_id } = req.authUser;
-        const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
+        const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status, tracking_no FROM orders WHERE order_id = ?', [id]);
 
         if (orders.length === 0) {
             return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
@@ -3442,9 +3487,6 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         const trackingNo = String(tracking_no || '').trim();
         const requestedStatus = String(status || '').trim();
         const allowedStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
-        const flowStatuses = deliveryType === 'รับหน้าร้าน'
-            ? [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'พร้อมรับสินค้า', 'เสร็จสิ้น']
-            : [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
         const currentStatus = order.order_status;
 
         if (order.order_status === 'ยกเลิก') {
@@ -3462,10 +3504,25 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
             });
         }
 
-        const currentStep = flowStatuses.indexOf(currentStatus);
-        const requestedStep = flowStatuses.indexOf(requestedStatus);
+        const isValidTransition = (() => {
+            if (deliveryType === 'รับหน้าร้าน') {
+                const pickupFlowStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'พร้อมรับสินค้า', 'เสร็จสิ้น'];
+                const currentStep = pickupFlowStatuses.indexOf(currentStatus);
+                const requestedStep = pickupFlowStatuses.indexOf(requestedStatus);
+                return currentStep !== -1 && requestedStep === currentStep + 1;
+            }
 
-        if (currentStep === -1 || requestedStep !== currentStep + 1) {
+            const transitionMap = {
+                รอจัดการ: ['เตรียมสินค้า'],
+                เตรียมสินค้า: ['กำลังจัดส่ง', 'เสร็จสิ้น'],
+                กำลังจัดส่ง: ['จัดส่งแล้ว', 'เสร็จสิ้น'],
+                จัดส่งแล้ว: ['เสร็จสิ้น'],
+            };
+
+            return transitionMap[currentStatus]?.includes(requestedStatus);
+        })();
+
+        if (!isValidTransition) {
             return res.status(400).json({ error: 'กรุณาอัปเดตสถานะตามลำดับขั้นตอนที่กำหนด', field: 'status' });
         }
 
@@ -3493,6 +3550,9 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
 
         if (requestedStatus === 'กำลังจัดส่ง' && deliveryType !== 'รับหน้าร้าน' && !trackingNo) {
             return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง', field: 'tracking_no' });
+        }
+        if (requestedStatus === 'เสร็จสิ้น' && deliveryType !== 'รับหน้าร้าน' && !trackingNo && !String(order.tracking_no || '').trim()) {
+            return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง', field: 'tracking_no' });
         }
 
         await query(

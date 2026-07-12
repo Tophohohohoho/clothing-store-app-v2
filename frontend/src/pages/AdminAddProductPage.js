@@ -58,6 +58,26 @@ const PRODUCT_SORT_LABELS = {
     updated_at: 'แก้ไขล่าสุด',
 };
 
+const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const downloadFile = (content, fileName, type) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+};
+
 function AdminAddProductPage({
     newProduct,
     setNewProduct,
@@ -406,6 +426,233 @@ function AdminAddProductPage({
         setProductToDelete(null);
     };
 
+    const exportProductsReport = (format) => {
+        const rows = filteredProducts.map((product) => {
+            const stock = Number(product.stock) || 0;
+            const isInactive = Number(product.product_status ?? 1) === 0;
+            return {
+                sku: `PRD-${String(product.id || '').padStart(6, '0')}`,
+                name: product.name || '-',
+                category: product.category_name || 'ทั่วไป',
+                stock,
+                price: Number(product.price) || 0,
+                status: isInactive ? 'ปิดใช้งาน' : 'เปิดใช้งาน',
+                updatedAt: formatCategoryDate(product.updated_at || product.created_at),
+            };
+        });
+
+        if (!rows.length) {
+            notify({ type: 'warning', title: 'ไม่มีข้อมูล', message: 'ยังไม่มีสินค้าตามตัวกรองสำหรับพิมพ์รายงาน' });
+            return;
+        }
+
+        const fileBase = `products-report-${new Date().toISOString().slice(0, 10)}`;
+
+        if (format === 'csv') {
+            const csv = [
+                ['SKU', 'ชื่อสินค้า', 'หมวดหมู่', 'สต็อก', 'ราคา', 'สถานะ', 'แก้ไขล่าสุด'],
+                ...rows.map((row) => [row.sku, row.name, row.category, row.stock, row.price, row.status, row.updatedAt]),
+            ].map((line) => line.map(escapeCsv).join(',')).join('\n');
+            downloadFile(`\uFEFF${csv}`, `${fileBase}.csv`, 'text/csv;charset=utf-8;');
+            return;
+        }
+
+        if (format === 'excel') {
+            const tableRows = rows.map((row) => `
+                <tr>
+                    <td>${escapeHtml(row.sku)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.category)}</td>
+                    <td>${escapeHtml(row.stock)}</td>
+                    <td>${escapeHtml(formatMoney(row.price))}</td>
+                    <td>${escapeHtml(row.status)}</td>
+                    <td>${escapeHtml(row.updatedAt)}</td>
+                </tr>
+            `).join('');
+            const html = `
+                <html>
+                    <head><meta charset="utf-8" /></head>
+                    <body>
+                        <table border="1">
+                            <thead>
+                                <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </body>
+                </html>
+            `;
+            downloadFile(`\uFEFF${html}`, `${fileBase}.xls`, 'application/vnd.ms-excel;charset=utf-8;');
+            return;
+        }
+
+        const popup = window.open('', '_blank', 'width=1100,height=820');
+        if (!popup) {
+            notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+            return;
+        }
+        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const tableRows = rows.map((row) => `
+            <tr>
+                <td>${escapeHtml(row.sku)}</td>
+                <td>${escapeHtml(row.name)}</td>
+                <td>${escapeHtml(row.category)}</td>
+                <td>${escapeHtml(row.stock)}</td>
+                <td>${escapeHtml(formatMoney(row.price))}</td>
+                <td>${escapeHtml(row.status)}</td>
+                <td>${escapeHtml(row.updatedAt)}</td>
+            </tr>
+        `).join('');
+        popup.document.write(`
+            <!doctype html>
+            <html lang="th">
+                <head>
+                    <meta charset="utf-8" />
+                    <title>รายงานสินค้า</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                        h1 { margin: 0 0 8px; font-size: 24px; }
+                        p { margin: 0 0 18px; color: #4b5563; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                        th { background: #f3f4f6; }
+                        .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                        .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                        .primary { background: #111827; color: #fff; }
+                        .secondary { background: #e5e7eb; color: #111827; }
+                        @media print { .actions { display: none; } body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="actions">
+                        <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                        <button class="secondary" onclick="window.close()">ปิด</button>
+                    </div>
+                    <h1>รายงานสินค้า</h1>
+                    <p>จำนวน ${escapeHtml(rows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
+                    <table>
+                        <thead>
+                            <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+    };
+
+    const exportCategoriesReport = (format) => {
+        const rows = filteredCategories.map((category) => ({
+            id: category.category_id,
+            name: category.category_name || '-',
+            status: Number(category.status_category ?? 1) === 1 ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+            createdAt: formatCategoryDate(category.created_at),
+        }));
+
+        if (!rows.length) {
+            notify({ type: 'warning', title: 'ไม่มีข้อมูล', message: 'ยังไม่มีหมวดหมู่ตามตัวกรองสำหรับพิมพ์รายงาน' });
+            return;
+        }
+
+        const fileBase = `categories-report-${new Date().toISOString().slice(0, 10)}`;
+
+        if (format === 'csv') {
+            const csv = [
+                ['รหัสหมวดหมู่', 'ชื่อหมวดหมู่', 'สถานะ', 'วันที่สร้าง'],
+                ...rows.map((row) => [row.id, row.name, row.status, row.createdAt]),
+            ].map((line) => line.map(escapeCsv).join(',')).join('\n');
+            downloadFile(`\uFEFF${csv}`, `${fileBase}.csv`, 'text/csv;charset=utf-8;');
+            return;
+        }
+
+        if (format === 'excel') {
+            const tableRows = rows.map((row) => `
+                <tr>
+                    <td>${escapeHtml(row.id)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.status)}</td>
+                    <td>${escapeHtml(row.createdAt)}</td>
+                </tr>
+            `).join('');
+            const html = `
+                <html>
+                    <head><meta charset="utf-8" /></head>
+                    <body>
+                        <table border="1">
+                            <thead>
+                                <tr><th>รหัสหมวดหมู่</th><th>ชื่อหมวดหมู่</th><th>สถานะ</th><th>วันที่สร้าง</th></tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </body>
+                </html>
+            `;
+            downloadFile(`\uFEFF${html}`, `${fileBase}.xls`, 'application/vnd.ms-excel;charset=utf-8;');
+            return;
+        }
+
+        const popup = window.open('', '_blank', 'width=900,height=760');
+        if (!popup) {
+            notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+            return;
+        }
+        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const tableRows = rows.map((row) => `
+            <tr>
+                <td>${escapeHtml(row.id)}</td>
+                <td>${escapeHtml(row.name)}</td>
+                <td>${escapeHtml(row.status)}</td>
+                <td>${escapeHtml(row.createdAt)}</td>
+            </tr>
+        `).join('');
+        popup.document.write(`
+            <!doctype html>
+            <html lang="th">
+                <head>
+                    <meta charset="utf-8" />
+                    <title>รายงานหมวดหมู่สินค้า</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                        h1 { margin: 0 0 8px; font-size: 24px; }
+                        p { margin: 0 0 18px; color: #4b5563; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                        th { background: #f3f4f6; }
+                        .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                        .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                        .primary { background: #111827; color: #fff; }
+                        .secondary { background: #e5e7eb; color: #111827; }
+                        @media print { .actions { display: none; } body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="actions">
+                        <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                        <button class="secondary" onclick="window.close()">ปิด</button>
+                    </div>
+                    <h1>รายงานหมวดหมู่สินค้า</h1>
+                    <p>จำนวน ${escapeHtml(rows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
+                    <table>
+                        <thead>
+                            <tr><th>รหัสหมวดหมู่</th><th>ชื่อหมวดหมู่</th><th>สถานะ</th><th>วันที่สร้าง</th></tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+    };
+
+    const exportCurrentReport = (format) => {
+        if (productAdminView === 'categories') {
+            exportCategoriesReport(format);
+            return;
+        }
+        exportProductsReport(format);
+    };
+
     return (
         <>
             <div className="card border-0 shadow-sm rounded-4 p-5 mb-4">
@@ -418,21 +665,28 @@ function AdminAddProductPage({
                                 : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานหมวดหมู่สินค้า'}
                         </p>
                     </div>
-                    <div className="admin-subtabs">
-                        <button
-                            type="button"
-                            className={productAdminView === 'products' ? 'active' : ''}
-                            onClick={() => setProductAdminView('products')}
-                        >
-                            จัดการสินค้า
-                        </button>
-                        <button
-                            type="button"
-                            className={productAdminView === 'categories' ? 'active' : ''}
-                            onClick={() => setProductAdminView('categories')}
-                        >
-                            จัดการหมวดหมู่
-                        </button>
+                    <div className="admin-subtabs-wrap">
+                        <div className="panel-export-buttons">
+                            <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
+                            <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
+                            <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
+                        </div>
+                        <div className="admin-subtabs">
+                            <button
+                                type="button"
+                                className={productAdminView === 'products' ? 'active' : ''}
+                                onClick={() => setProductAdminView('products')}
+                            >
+                                จัดการสินค้า
+                            </button>
+                            <button
+                                type="button"
+                                className={productAdminView === 'categories' ? 'active' : ''}
+                                onClick={() => setProductAdminView('categories')}
+                            >
+                                จัดการหมวดหมู่
+                            </button>
+                        </div>
                     </div>
                 </div>
 

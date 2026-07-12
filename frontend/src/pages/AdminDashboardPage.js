@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as adminApi from '../api/adminApi';
 import { notify } from '../components/AppNotification';
 import { extractPaymentReviewData, extractTextFromImage } from '../utils/imageText';
@@ -12,14 +13,33 @@ const formatMoney = (value) => {
     });
 };
 
-const orderStatuses = ['ทั้งหมด', 'รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น', 'ยกเลิก'];
-const DEFAULT_ORDER_STATUS_FILTER = 'ทั้งหมดไม่รวมยกเลิก';
+const DEFAULT_ORDER_STATUS_FILTER = '__active_orders__';
+const orderStatusOptions = [
+    { value: DEFAULT_ORDER_STATUS_FILTER, label: 'ทั้งหมดไม่รวมเสร็จสิ้น/ยกเลิก' },
+    { value: 'รอชำระ', label: 'รอชำระ' },
+    { value: 'รอตรวจสอบ', label: 'รอตรวจสอบ' },
+    { value: 'จัดเตรียม', label: 'จัดเตรียม' },
+    { value: 'เสร็จสิ้น', label: 'เสร็จสิ้น' },
+    { value: 'ยกเลิก', label: 'ยกเลิก' },
+];
+const preparingOrderStatuses = ['รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'];
 const blockedFulfillmentStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
 const rejectionReasons = ['ยอดเงินไม่ถูกต้อง', 'รูปไม่ชัด', 'ไม่พบรายการโอน', 'หลักฐานไม่ถูกต้อง', 'อื่น ๆ'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
 const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status);
 const isCancelledOrder = (order) => order?.status === 'ยกเลิก' || order?.payment_status === 'ยกเลิก';
+const isCompletedOrder = (order) => (order?.status || '') === 'เสร็จสิ้น';
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+const matchesOrderStatusFilter = (order, statusFilter) => {
+    const orderStatus = order.status || 'รอจัดการ';
+    const paymentStatus = order.payment_status || '';
+    if (statusFilter === DEFAULT_ORDER_STATUS_FILTER) return !isCompletedOrder(order) && !isCancelledOrder(order);
+    if (statusFilter === 'รอชำระ') return ['รอชำระเงิน', 'รอจัดการ'].includes(orderStatus) || paymentStatus === 'รอชำระ';
+    if (statusFilter === 'รอตรวจสอบ') return orderStatus === 'รอตรวจสอบการชำระเงิน' || paymentStatus === 'รอตรวจสอบ';
+    if (statusFilter === 'จัดเตรียม') return preparingOrderStatuses.includes(orderStatus);
+    if (statusFilter === 'ยกเลิก') return isCancelledOrder(order);
+    return orderStatus === statusFilter;
+};
 const DATE_PRESETS = [
     { value: 'today', label: 'วันนี้' },
     { value: '7', label: '7 วันล่าสุด' },
@@ -49,6 +69,22 @@ const getDateRange = (preset, customFrom, customTo) => {
         from: from.toISOString().slice(0, 10),
         to: to.toISOString().slice(0, 10),
     };
+};
+
+const dashboardPresetToQuickReportPreset = (preset) => {
+    if (preset === 'today') return 'day';
+    if (preset === '7') return 'week';
+    if (preset === 'month') return 'month';
+    if (preset === 'year') return 'year';
+    return 'custom';
+};
+
+const quickReportPresetToDashboardPreset = (preset) => {
+    if (preset === 'day') return 'today';
+    if (preset === 'week') return '7';
+    if (preset === 'month') return 'month';
+    if (preset === 'year') return 'year';
+    return 'custom';
 };
 
 const formatChartLabel = (value, interval) => {
@@ -158,6 +194,22 @@ const formatOrderTrackingSummary = (order = {}) => {
 const formatOrderContactSummary = (order = {}) => {
     const phone = order.shipping_phone || order.customer_phone || order.phone || '';
     return phone || '-';
+};
+
+const formatAuditDateTime = (value) => (value ? new Date(value).toLocaleString('th-TH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+}) : '-');
+
+const formatReportDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('th-TH', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 };
 
 const renderReportCellHtml = (value) => {
@@ -393,6 +445,8 @@ function AdminDashboardPage({
     orders,
     ordersLoading = false,
     products = [],
+    stockLogs = [],
+    systemLogs = [],
     onDeleteOrder,
     onUpdateOrderStatus,
     onReviewOrderPayment,
@@ -411,6 +465,7 @@ function AdminDashboardPage({
     const [datePreset, setDatePreset] = useState('30');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
+    const [showChartDatePicker, setShowChartDatePicker] = useState(false);
     const [chartInterval, setChartInterval] = useState('day');
     const [dashboardLoading, setDashboardLoading] = useState(true);
     const [dashboardError, setDashboardError] = useState('');
@@ -457,6 +512,11 @@ function AdminDashboardPage({
     const [rejectReviewOpen, setRejectReviewOpen] = useState(false);
     const [rejectReviewReason, setRejectReviewReason] = useState('');
     const [rejectReviewError, setRejectReviewError] = useState('');
+    const [quickReportRequest, setQuickReportRequest] = useState(null);
+    const [quickReportPreset, setQuickReportPreset] = useState('custom');
+    const [quickReportDateFrom, setQuickReportDateFrom] = useState('');
+    const [quickReportDateTo, setQuickReportDateTo] = useState('');
+    const [quickReportError, setQuickReportError] = useState('');
     const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
     const orderManagementRef = useRef(null);
     const paymentReviewRequestRef = useRef('');
@@ -469,6 +529,22 @@ function AdminDashboardPage({
         if (view) sessionStorage.setItem('adminProductView', view);
         setAdminPage?.(target);
     }, [setAdminPage, setIsAdminView]);
+    const openQuickReportDateModal = useCallback((request) => {
+        const currentRange = getDateRange(datePreset, dateFrom, dateTo);
+        setQuickReportRequest(request);
+        setQuickReportPreset(dashboardPresetToQuickReportPreset(datePreset));
+        setQuickReportDateFrom(currentRange.from);
+        setQuickReportDateTo(currentRange.to);
+        setQuickReportError('');
+    }, [dateFrom, datePreset, dateTo]);
+    const applyQuickReportPreset = (preset) => {
+        setQuickReportPreset(preset);
+        if (preset === 'custom') return;
+        const range = getDateRange(quickReportPresetToDashboardPreset(preset), '', '');
+        setQuickReportDateFrom(range.from);
+        setQuickReportDateTo(range.to);
+        setQuickReportError('');
+    };
     const orderRange = useMemo(
         () => getDateRange(orderDatePreset, orderDateFrom, orderDateTo),
         [orderDatePreset, orderDateFrom, orderDateTo],
@@ -489,11 +565,7 @@ function AdminDashboardPage({
                 order.payment_status,
             ].join(' ').toLowerCase();
             return (!keyword || searchable.includes(keyword))
-                && (
-                    statusFilter === DEFAULT_ORDER_STATUS_FILTER
-                        ? !isCancelledOrder(order)
-                        : (statusFilter === 'ทั้งหมด' || (order.status || 'รอจัดการ') === statusFilter)
-                )
+                && matchesOrderStatusFilter(order, statusFilter)
                 && (deliveryFilter === 'ทั้งหมด' || (order.shipping_method || '-') === deliveryFilter)
                 && (!Number.isNaN(orderDate.getTime()) && orderDate >= from && orderDate <= to);
         }).sort((a, b) => {
@@ -504,29 +576,34 @@ function AdminDashboardPage({
             return (new Date(a.created_at || 0) - new Date(b.created_at || 0)) * direction;
         });
     }, [orders, orderSearch, statusFilter, deliveryFilter, orderRange.from, orderRange.to, orderSort]);
-    const slipReviewOrders = useMemo(
-        () => filteredOrders.filter((order) => Boolean(order.receipt_image) && order.payment_status === 'รอตรวจสอบ'),
-        [filteredOrders],
-    );
-    const slipHistoryOrders = useMemo(
-        () => filteredOrders
+    const getOrdersWithinRange = useCallback((range) => {
+        const bounds = getRangeBounds(range);
+        return orders.filter((order) => {
+            const orderDate = order.created_at || order.order_date;
+            return !isCancelledOrder(order) && isWithinBounds(orderDate, bounds);
+        });
+    }, [orders]);
+    const getOrderRowsByView = useCallback((nextOrderView, nextSlipPageTab = 'review', sourceOrders = filteredOrders) => {
+        const nextSlipReviewOrders = sourceOrders.filter((order) => Boolean(order.receipt_image) && order.payment_status === 'รอตรวจสอบ');
+        const nextSlipHistoryOrders = sourceOrders
             .filter((order) => Boolean(order.receipt_image) && Boolean(order.reviewed_at))
-            .sort((a, b) => new Date(b.reviewed_at || b.payment_date || b.created_at) - new Date(a.reviewed_at || a.payment_date || a.created_at)),
-        [filteredOrders],
-    );
-    const activeOrderRows = useMemo(() => {
-        if (orderViewTab === 'slips') {
-            return slipPageTab === 'history' ? slipHistoryOrders : slipReviewOrders;
+            .sort((a, b) => new Date(b.reviewed_at || b.payment_date || b.created_at) - new Date(a.reviewed_at || a.payment_date || a.created_at));
+        if (nextOrderView === 'slips') {
+            return nextSlipPageTab === 'history' ? nextSlipHistoryOrders : nextSlipReviewOrders;
         }
-        if (orderViewTab === 'print') {
-            return filteredOrders.filter((order) => (
+        if (nextOrderView === 'print') {
+            return sourceOrders.filter((order) => (
                 isPaidOrder(order)
                 && order.status === 'เตรียมสินค้า'
                 && ['ส่งสินค้า', 'รับหน้าร้าน'].includes(order.shipping_method)
             ));
         }
-        return filteredOrders;
-    }, [filteredOrders, orderViewTab, slipHistoryOrders, slipPageTab, slipReviewOrders]);
+        return sourceOrders;
+    }, [filteredOrders]);
+    const activeOrderRows = useMemo(
+        () => getOrderRowsByView(orderViewTab, slipPageTab),
+        [getOrderRowsByView, orderViewTab, slipPageTab],
+    );
     const reviewableSlipOrders = useMemo(
         () => (orderViewTab === 'slips' && slipPageTab === 'review' ? activeOrderRows : []),
         [activeOrderRows, orderViewTab, slipPageTab],
@@ -534,6 +611,12 @@ function AdminDashboardPage({
     const orderTotalPages = Math.max(1, Math.ceil(activeOrderRows.length / orderPageSize));
     const visibleOrders = activeOrderRows.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
     const pendingSlipReviewCount = orders.filter((order) => order.payment_status === 'รอตรวจสอบ').length;
+    const newOrdersCount = orders.filter((order) => isWithinBounds(order.created_at || order.order_date, getRangeBounds(getDateRange('today')))).length;
+    const readyToPrintCount = orders.filter((order) => (
+        isPaidOrder(order)
+        && order.status === 'เตรียมสินค้า'
+        && ['ส่งสินค้า', 'รับหน้าร้าน'].includes(order.shipping_method)
+    )).length;
     const visiblePaidOrderIds = visibleOrders.filter(isPaidOrder).map((order) => String(order.id));
     const allVisiblePaidSelected = visiblePaidOrderIds.length > 0 && visiblePaidOrderIds.every((id) => selectedPrintOrderIds.includes(id));
     const showPrintSelectionColumn = orderViewTab === 'print';
@@ -580,6 +663,21 @@ function AdminDashboardPage({
         () => getChangeMeta(rangeOrders.length, previousRangeOrders.length, { positiveLabel: 'ออเดอร์เพิ่มขึ้น', negativeLabel: 'ออเดอร์ลดลง' }),
         [rangeOrders.length, previousRangeOrders.length],
     );
+    const salesBreakdown = useMemo(() => {
+        const activeOrders = orders.filter((order) => !isCancelledOrder(order));
+        const presets = [
+            ['รายวัน', getRangeBounds(getDateRange('today'))],
+            ['รายสัปดาห์', getRangeBounds(getDateRange('7'))],
+            ['รายเดือน', getRangeBounds(getDateRange('month'))],
+            ['ปี', getRangeBounds(getDateRange('year'))],
+        ];
+        return presets.map(([label, bounds]) => ({
+            label,
+            total: activeOrders
+                .filter((order) => isWithinBounds(order.created_at || order.order_date, bounds))
+                .reduce((sum, order) => sum + getOrderAmount(order), 0),
+        }));
+    }, [orders]);
     const attentionItems = useMemo(() => ([
         ['new_orders', 'ออเดอร์ใหม่วันนี้', 'blue', () => navigateQuickAction('admin-orders')],
         ['waiting_payment', 'รอชำระเงิน', 'amber', () => navigateQuickAction('admin-orders')],
@@ -681,24 +779,6 @@ function AdminDashboardPage({
         }
         return items.slice(0, 5);
     }, [navigateQuickAction, orders, products, setAdminPage, setOrderViewTab]);
-    const funnelSteps = useMemo(() => {
-        const paymentWaiting = rangeOrders.filter((order) => ['รอชำระ', 'รอชำระเงิน'].includes(order.payment_status)).length;
-        const waitingReview = rangeOrders.filter((order) => order.payment_status === 'รอตรวจสอบ').length;
-        const preparing = rangeOrders.filter((order) => ['รอจัดการ', 'เตรียมสินค้า'].includes(order.status || 'รอจัดการ')).length;
-        const inTransit = rangeOrders.filter((order) => ['กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'].includes(order.status)).length;
-        const completed = rangeOrders.filter((order) => order.status === 'เสร็จสิ้น').length;
-        return [
-            { key: 'all', label: 'สั่งซื้อทั้งหมด', total: rangeOrders.length, tone: 'blue' },
-            { key: 'payment', label: 'รอชำระ/รอตรวจ', total: paymentWaiting + waitingReview, tone: 'amber' },
-            { key: 'prepare', label: 'กำลังเตรียมสินค้า', total: preparing, tone: 'purple' },
-            { key: 'shipping', label: 'กำลังส่ง/พร้อมรับ', total: inTransit, tone: 'green' },
-            { key: 'done', label: 'เสร็จสิ้น', total: completed, tone: 'slate' },
-        ];
-    }, [rangeOrders]);
-    const strongestSignal = totalAttentionCount > 0
-        ? `มี ${totalAttentionCount.toLocaleString('th-TH')} งานที่ต้องตามต่อ`
-        : 'ไม่มีงานค้างสำคัญในตอนนี้';
-
     useEffect(() => {
         // เก็บเลขพัสดุแยกตามออเดอร์ เพื่อให้แก้ในตารางได้โดยไม่กระทบแถวอื่น
         setTrackingInputs((current) => orders.reduce((next, order) => ({
@@ -770,7 +850,7 @@ function AdminDashboardPage({
     useEffect(() => {
         if (orderViewTab === 'print') return;
         if (statusFilter === 'เตรียมสินค้า') {
-            setStatusFilter(printStatusFilterRef.current || 'ทั้งหมด');
+            setStatusFilter(printStatusFilterRef.current || DEFAULT_ORDER_STATUS_FILTER);
         }
     }, [orderViewTab, statusFilter]);
 
@@ -780,6 +860,20 @@ function AdminDashboardPage({
             setDeliveryFilter('ทั้งหมด');
         }
     }, [orderViewTab, deliveryFilter]);
+
+    useEffect(() => {
+        if (!showOrderManagement) return;
+        const storedOrderView = sessionStorage.getItem('adminDashboardOrderView');
+        const storedSlipView = sessionStorage.getItem('adminDashboardSlipView');
+        if (storedOrderView && ['orders', 'slips', 'print'].includes(storedOrderView)) {
+            setOrderViewTab(storedOrderView);
+            sessionStorage.removeItem('adminDashboardOrderView');
+        }
+        if (storedSlipView && ['review', 'history'].includes(storedSlipView)) {
+            setSlipPageTab(storedSlipView);
+            sessionStorage.removeItem('adminDashboardSlipView');
+        }
+    }, [showOrderManagement]);
 
     useEffect(() => {
         if (!showDashboard) return;
@@ -1497,12 +1591,20 @@ function AdminDashboardPage({
         setOrderDateTo('');
     };
 
-    const exportOrders = (format) => {
-        const reportTitle = orderReportConfig.title;
-        const reportSubtitle = orderReportConfig.subtitle;
-        const headers = orderReportConfig.headers;
-        const rows = orderReportConfig.rows;
-        const fileName = orderReportConfig.fileName;
+    const exportOrders = (format, nextOrderView = orderViewTab, nextSlipPageTab = slipPageTab, customRange = null) => {
+        const reportRange = customRange || orderRange;
+        const sourceOrders = customRange ? getOrdersWithinRange(customRange) : undefined;
+        const reportConfig = getOrderReportConfig(
+            nextOrderView,
+            getOrderRowsByView(nextOrderView, nextSlipPageTab, sourceOrders),
+            reportRange,
+            nextSlipPageTab,
+        );
+        const reportTitle = reportConfig.title;
+        const reportSubtitle = reportConfig.subtitle;
+        const headers = reportConfig.headers;
+        const rows = reportConfig.rows;
+        const fileName = reportConfig.fileName;
         if (format === 'pdf') {
             const popup = window.open('', '_blank', 'width=1200,height=760');
             if (!popup) return;
@@ -1541,6 +1643,241 @@ function AdminDashboardPage({
         URL.revokeObjectURL(url);
     };
 
+    const exportActivityReport = (activityView, customRange = null) => {
+        const isStockView = activityView === 'stock';
+        const bounds = customRange ? getRangeBounds(customRange) : null;
+        const rows = (isStockView ? stockLogs : systemLogs)
+            .filter((log) => (!bounds || isWithinBounds(log.created_at || log.log_date, bounds)))
+            .map((log) => ({
+            created_at: log.created_at || log.log_date,
+            actor_name: log.actor_name || log.admin_name || log.full_name || log.username || 'ระบบ',
+            product_name: log.product_name || '-',
+            change_quantity: Number(log.change_quantity ?? log.amount ?? log.quantity ?? 0),
+            reason: log.reason || log.remark || '-',
+            action: log.action || '-',
+            role: log.role || '-',
+            username: log.username || '-',
+        }));
+        const title = isStockView ? 'รายงานประวัติสต็อก' : 'รายงานประวัติการเคลื่อนไหวแอดมิน';
+        const subtitle = `${rows.length.toLocaleString('th-TH')} รายการ · ${new Date().toLocaleString('th-TH')}`;
+        const headers = isStockView
+            ? ['วันที่/เวลา', 'ผู้ใช้งาน', 'สินค้า', 'จำนวนที่เปลี่ยน', 'เหตุผล']
+            : ['วันที่/เวลา', 'ผู้ใช้งาน', 'บัญชี', 'สิทธิ์', 'การทำงาน', 'หมายเหตุ'];
+        const tableRows = isStockView
+            ? rows.map((row) => [formatAuditDateTime(row.created_at), row.actor_name, row.product_name, row.change_quantity, row.reason])
+            : rows.map((row) => [formatAuditDateTime(row.created_at), row.actor_name, row.username, row.role, row.action, row.reason]);
+        const popup = window.open('', '_blank', 'width=1200,height=760');
+        if (!popup) return;
+        popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${title}</title>
+            <style>body{font-family:Arial,sans-serif;padding:24px;color:#17202e}h2{margin:0 0 4px}p{color:#667085}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:8px;border:1px solid #dfe4ea;text-align:left}th{background:#f2f4f7}@page{size:landscape;margin:10mm}</style>
+            </head><body><h2>${title}</h2><p>${subtitle}</p>
+            <table><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr>${tableRows.map((row) => `<tr>${row.map((item) => `<td>${renderReportCellHtml(item)}</td>`).join('')}</tr>`).join('')}</table>
+            <script>window.onload=()=>window.print();</script></body></html>`);
+        popup.document.close();
+    };
+
+    const printProductsReport = () => {
+        const rows = products.map((product) => ({
+            sku: product.sku || `PRD-${String(product.product_id || product.id || '').padStart(6, '0')}`,
+            name: product.product_name || product.name || '-',
+            category: product.category_name || 'ทั่วไป',
+            stock: Number(product.quantity ?? product.stock ?? 0),
+            price: Number(product.price || 0),
+            status: Number(product.product_status ?? 1) === 1 ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+            updatedAt: formatReportDate(product.updated_at || product.created_at),
+        }));
+
+        if (!rows.length) {
+            notify({ type: 'warning', title: 'ไม่มีข้อมูลสินค้า', message: 'ยังไม่มีสินค้าให้พิมพ์รายงาน' });
+            return;
+        }
+
+        const popup = window.open('', '_blank', 'width=1100,height=820');
+        if (!popup) {
+            notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+            return;
+        }
+
+        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const tableRows = rows.map((row) => `
+            <tr>
+                <td>${escapeHtml(row.sku)}</td>
+                <td>${escapeHtml(row.name)}</td>
+                <td>${escapeHtml(row.category)}</td>
+                <td>${escapeHtml(row.stock)}</td>
+                <td>${escapeHtml(formatMoney(row.price))}</td>
+                <td>${escapeHtml(row.status)}</td>
+                <td>${escapeHtml(row.updatedAt)}</td>
+            </tr>
+        `).join('');
+
+        popup.document.write(`
+            <!doctype html>
+            <html lang="th">
+                <head>
+                    <meta charset="utf-8" />
+                    <title>รายงานสินค้า</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                        h1 { margin: 0 0 8px; font-size: 24px; }
+                        p { margin: 0 0 18px; color: #4b5563; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                        th { background: #f3f4f6; }
+                        .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                        .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                        .primary { background: #111827; color: #fff; }
+                        .secondary { background: #e5e7eb; color: #111827; }
+                        @media print { .actions { display: none; } body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="actions">
+                        <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                        <button class="secondary" onclick="window.close()">ปิด</button>
+                    </div>
+                    <h1>รายงานสินค้า</h1>
+                    <p>จำนวน ${escapeHtml(rows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
+                    <table>
+                        <thead>
+                            <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+    };
+
+    const printCustomersReport = async () => {
+        try {
+            const limit = 100;
+            let page = 1;
+            let totalPages = 1;
+            const customers = [];
+
+            do {
+                const res = await adminApi.getCustomers({ page, limit });
+                customers.push(...(Array.isArray(res.data?.items) ? res.data.items : []));
+                totalPages = Number(res.data?.pagination?.total_pages || 1);
+                page += 1;
+            } while (page <= totalPages);
+
+            if (!customers.length) {
+                notify({ type: 'warning', title: 'ไม่มีข้อมูลผู้ใช้งาน', message: 'ยังไม่มีผู้ใช้งานให้พิมพ์รายงาน' });
+                return;
+            }
+
+            const popup = window.open('', '_blank', 'width=1200,height=820');
+            if (!popup) {
+                notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+                return;
+            }
+
+            const money = (value) => `฿${Number(value || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
+            const statusLabels = {
+                0: 'ระงับการใช้งาน',
+                1: 'ใช้งาน',
+                2: 'รอการยืนยัน',
+            };
+            const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+            const tableRows = customers.map((customer) => `
+                <tr>
+                    <td>${escapeHtml(customer.id)}</td>
+                    <td>${escapeHtml(customer.full_name || customer.username || '-')}</td>
+                    <td>${escapeHtml(customer.username || '-')}</td>
+                    <td>${escapeHtml(customer.email || '-')}</td>
+                    <td>${escapeHtml(customer.phone || '-')}</td>
+                    <td>${escapeHtml(customer.role === 'admin' ? 'Admin' : 'User')}</td>
+                    <td>${escapeHtml(statusLabels[Number(customer.status_user)] || '-')}</td>
+                    <td>${escapeHtml(Number(customer.total_orders || 0))}</td>
+                    <td>${escapeHtml(money(customer.total_spent))}</td>
+                    <td>${escapeHtml(formatReportDate(customer.created_at))}</td>
+                </tr>
+            `).join('');
+
+            popup.document.write(`
+                <!doctype html>
+                <html lang="th">
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>รายงานผู้ใช้งาน</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                            h1 { margin: 0 0 8px; font-size: 24px; }
+                            p { margin: 0 0 18px; color: #4b5563; }
+                            table { width: 100%; border-collapse: collapse; }
+                            th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                            th { background: #f3f4f6; }
+                            .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                            .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                            .primary { background: #111827; color: #fff; }
+                            .secondary { background: #e5e7eb; color: #111827; }
+                            @media print { .actions { display: none; } body { padding: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="actions">
+                            <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                            <button class="secondary" onclick="window.close()">ปิด</button>
+                        </div>
+                        <h1>รายงานผู้ใช้งาน</h1>
+                        <p>จำนวน ${escapeHtml(customers.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
+                        <table>
+                            <thead>
+                                <tr><th>ID</th><th>ชื่อ</th><th>Username</th><th>อีเมล</th><th>เบอร์โทร</th><th>สิทธิ์</th><th>สถานะ</th><th>ออเดอร์</th><th>ยอดสะสม</th><th>วันที่สมัคร</th></tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </body>
+                </html>
+            `);
+            popup.document.close();
+        } catch (error) {
+            notify({ type: 'error', title: 'พิมพ์รายงานผู้ใช้งานไม่สำเร็จ', message: error.response?.data?.error || error.message || 'เกิดข้อผิดพลาด' });
+        }
+    };
+    const closeQuickReportDateModal = () => {
+        setQuickReportRequest(null);
+        setQuickReportError('');
+    };
+    const submitQuickReportDateModal = () => {
+        const from = quickReportDateFrom.trim();
+        const to = quickReportDateTo.trim();
+        if (!quickReportRequest) return;
+        if (!from || !to) {
+            setQuickReportError('กรุณาเลือกวันที่เริ่มและวันที่สิ้นสุด');
+            return;
+        }
+        if (from > to) {
+            setQuickReportError('วันที่เริ่มต้องไม่มากกว่าวันที่สิ้นสุด');
+            return;
+        }
+        const customRange = { from, to };
+        const { type } = quickReportRequest;
+        closeQuickReportDateModal();
+        if (type === 'orders') {
+            exportOrders('pdf', 'orders', 'review', customRange);
+            return;
+        }
+        if (type === 'slip-history') {
+            exportOrders('pdf', 'slips', 'history', customRange);
+            return;
+        }
+        if (type === 'print') {
+            exportOrders('pdf', 'print', 'review', customRange);
+            return;
+        }
+        if (type === 'stock') {
+            exportActivityReport('stock', customRange);
+            return;
+        }
+        if (type === 'system') {
+            exportActivityReport('system', customRange);
+        }
+    };
+
     const runOrderStep = async (order, nextStatus) => {
         if (savingOrderId) return;
         const trackingNo = trackingInputs[order.id] || '';
@@ -1548,6 +1885,14 @@ function AdminDashboardPage({
 
         if (blockedFulfillmentStatuses.includes(nextStatus) && !isPaidOrder({ payment_status: paymentStatus })) {
             notify({ type: 'warning', title: 'ยังดำเนินการจัดส่งไม่ได้', message: 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง' });
+            return;
+        }
+
+        if (!isPickupOrder(order) && nextStatus === 'เสร็จสิ้น' && !trackingNo.trim()) {
+            setTrackingErrors((current) => ({
+                ...current,
+                [order.id]: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง',
+            }));
             return;
         }
 
@@ -1624,67 +1969,78 @@ function AdminDashboardPage({
 
             {dashboardError && <div className="commerce-error">{dashboardError}</div>}
 
-            <section className="commerce-signal-banner">
-                <div>
-                    <strong>{strongestSignal}</strong>
-                    <p>{revenueChange.label} และยอดขาย {revenueChange.value} เมื่อเทียบกับช่วงก่อนหน้า</p>
-                </div>
-                <div className="commerce-signal-chips">
-                    <span className={`tone-${revenueChange.tone}`}>ยอดขาย {revenueChange.value}</span>
-                    <span className={`tone-${orderChange.tone}`}>ออเดอร์ {orderChange.value}</span>
-                    <span>{pendingSlipReviewCount.toLocaleString('th-TH')} สลิปรอตรวจ</span>
-                </div>
+            <section className="commerce-action-row">
+                <button type="button" className="commerce-card commerce-action-card blue" onClick={() => setAdminPage?.('admin-orders')}>
+                    <span>TO DO</span>
+                    <strong>คำสั่งซื้อใหม่</strong>
+                    <b>{newOrdersCount.toLocaleString('th-TH')}</b>
+                    <small>รายการที่เข้ามาวันนี้</small>
+                </button>
+                <button type="button" className="commerce-card commerce-action-card purple" onClick={() => {
+                    setAdminPage?.('admin-orders');
+                    setOrderViewTab('slips');
+                    setSlipPageTab('review');
+                }}>
+                    <span>PAYMENT CHECK</span>
+                    <strong>รอตรวจสอบสลิป</strong>
+                    <b>{pendingSlipReviewCount.toLocaleString('th-TH')}</b>
+                    <small>ออเดอร์ที่ต้องตรวจหลักฐาน</small>
+                </button>
+                <button type="button" className="commerce-card commerce-action-card green" onClick={() => {
+                    setAdminPage?.('admin-orders');
+                    setOrderViewTab('print');
+                }}>
+                    <span>SHIPPING</span>
+                    <strong>พิมพ์ใบจัดส่ง</strong>
+                    <b>{readyToPrintCount.toLocaleString('th-TH')}</b>
+                    <small>รายการที่พร้อมดำเนินการต่อ</small>
+                </button>
             </section>
 
-            <section className="commerce-overview-grid">
-                <aside className="commerce-card commerce-priority-card">
-                    <header className="commerce-card-header">
-                        <div><span>ATTENTION NEEDED</span><h2>งานด่วนวันนี้</h2></div>
-                        <b>{totalAttentionCount.toLocaleString('th-TH')}</b>
-                    </header>
-                    <div className="commerce-priority-list">
-                        {attentionItems.map((item) => (
-                            <button type="button" key={item.key} onClick={item.action}>
-                                <i className={item.color} />
-                                <span>{item.label}</span>
-                                <strong>{item.total.toLocaleString('th-TH')}</strong>
-                                <em>›</em>
-                            </button>
-                        ))}
-                    </div>
-                </aside>
-            </section>
-
-            <section className="commerce-card commerce-task-inbox">
-                <header className="commerce-card-header">
-                    <div><span>TASK INBOX</span><h2>งานที่ต้องทำตอนนี้</h2></div>
-                    <button type="button" className="commerce-inline-link" onClick={() => setAdminPage?.('admin-orders')}>ดูออเดอร์ทั้งหมด</button>
-                </header>
-                <div className="commerce-task-grid">
-                    {taskInboxItems.length ? taskInboxItems.map((item) => (
-                        <article key={item.id} className={`commerce-task-card ${item.tone}`}>
-                            <span>{item.eyebrow}</span>
-                            <strong>{item.title}</strong>
-                            <p>{item.detail}</p>
-                            <footer>
-                                <small>{item.age}</small>
-                                <button type="button" onClick={item.onAction}>{item.actionLabel}</button>
-                            </footer>
-                        </article>
-                    )) : (
-                        <div className="commerce-task-empty">ยังไม่มีงานเร่งด่วนในตอนนี้</div>
-                    )}
-                </div>
-            </section>
-
-            <section className="commerce-main-grid">
+            <section className="commerce-sales-row">
                 <div className="commerce-card commerce-chart-card">
                     <header className="commerce-card-header">
-                        <div><span>SALES ANALYTICS</span><h2>แนวโน้มยอดขายและออเดอร์</h2></div>
-                        <div className="commerce-chart-tabs">
-                            {[['day', 'รายวัน'], ['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'รายปี']].map(([value, label]) => (
-                                <button key={value} type="button" className={chartInterval === value ? 'active' : ''} onClick={() => setChartInterval(value)}>{label}</button>
-                            ))}
+                        <div><span>SALES ANALYTICS</span><h2>ยอดขาย</h2></div>
+                        <div className="commerce-chart-controls">
+                            <div className="commerce-chart-tabs">
+                                {[['day', 'รายวัน'], ['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'ปี']].map(([value, label]) => (
+                                    <button key={value} type="button" className={chartInterval === value ? 'active' : ''} onClick={() => setChartInterval(value)}>{label}</button>
+                                ))}
+                                <button
+                                    type="button"
+                                    className={showChartDatePicker ? 'active custom-trigger' : 'custom-trigger'}
+                                    onClick={() => {
+                                        setDatePreset('custom');
+                                        setShowChartDatePicker((current) => !current);
+                                    }}
+                                >
+                                    กำหนดวัน
+                                </button>
+                            </div>
+                            {showChartDatePicker ? (
+                                <div className="commerce-chart-date-picker">
+                                    <span>กำหนดวัน</span>
+                                    <input
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(event) => {
+                                            setDatePreset('custom');
+                                            setDateFrom(event.target.value);
+                                            if (!dateTo) setDateTo(event.target.value);
+                                        }}
+                                    />
+                                    <small>ถึง</small>
+                                    <input
+                                        type="date"
+                                        value={dateTo}
+                                        onChange={(event) => {
+                                            setDatePreset('custom');
+                                            setDateTo(event.target.value);
+                                            if (!dateFrom) setDateFrom(event.target.value);
+                                        }}
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </header>
                     {dashboardLoading ? <div className="commerce-chart-skeleton"><i /><i /><i /><i /></div> : dashboardData.sales_series?.length ? (
@@ -1705,45 +2061,116 @@ function AdminDashboardPage({
                     ) : <div className="commerce-empty-chart">ยังไม่มียอดขายในช่วงเวลาที่เลือก</div>}
                 </div>
 
-                <aside className="commerce-card commerce-funnel-card">
+                <aside className="commerce-card commerce-sales-summary-card">
                     <header className="commerce-card-header">
-                        <div><span>ORDER FLOW</span><h2>Funnel สถานะออเดอร์</h2></div>
+                        <div><span>TOTAL SALES</span><h2>ยอดขาย</h2></div>
                     </header>
-                    <div className="commerce-funnel-list">
-                        {funnelSteps.map((step) => (
-                            <div key={step.key} className="commerce-funnel-row">
-                                <div>
-                                    <i className={step.tone} />
-                                    <span>{step.label}</span>
-                                </div>
-                                <strong>{step.total.toLocaleString('th-TH')}</strong>
+                    <div className="commerce-sales-summary">
+                        <strong>฿{formatMoney(currentRevenue)}</strong>
+                        <p>{selectedRange.from} ถึง {selectedRange.to}</p>
+                        <div className="commerce-signal-chips">
+                            <span className={`tone-${revenueChange.tone}`}>ยอดขาย {revenueChange.value}</span>
+                            <span className={`tone-${orderChange.tone}`}>ออเดอร์ {orderChange.value}</span>
+                        </div>
+                    </div>
+                    <div className="commerce-sales-summary-list">
+                        {salesBreakdown.map((item) => (
+                            <div key={item.label}>
+                                <span>{item.label}</span>
+                                <strong>฿{formatMoney(item.total)}</strong>
                             </div>
                         ))}
-                    </div>
-                    <div className="commerce-funnel-footer">
-                        <p>ใช้ funnel นี้ดูคอขวดของร้าน ว่างานค้างอยู่ตรงชำระเงิน การเตรียมสินค้า หรือการจัดส่ง</p>
                     </div>
                 </aside>
             </section>
 
+            <section className="commerce-overview-grid">
+                <aside className="commerce-card commerce-priority-card">
+                    <header className="commerce-card-header">
+                        <div><span>ATTENTION NEEDED</span><h2>งานด่วน</h2></div>
+                        <b>{totalAttentionCount.toLocaleString('th-TH')}</b>
+                    </header>
+                    <div className="commerce-priority-list">
+                        {attentionItems.map((item) => (
+                            <button type="button" key={item.key} onClick={item.action}>
+                                <i className={item.color} />
+                                <span>{item.label}</span>
+                                <strong>{item.total.toLocaleString('th-TH')}</strong>
+                                <em>›</em>
+                            </button>
+                        ))}
+                    </div>
+                </aside>
+                <section className="commerce-card commerce-task-inbox">
+                    <header className="commerce-card-header">
+                        <div><span>TASK INBOX</span><h2>งานที่ต้องทำตอนนี้</h2></div>
+                        <button type="button" className="commerce-inline-link" onClick={() => setAdminPage?.('admin-orders')}>ดูออเดอร์ทั้งหมด</button>
+                    </header>
+                    <div className="commerce-task-grid">
+                        {taskInboxItems.length ? taskInboxItems.map((item) => (
+                            <article key={item.id} className={`commerce-task-card ${item.tone}`}>
+                                <span>{item.eyebrow}</span>
+                                <strong>{item.title}</strong>
+                                <p>{item.detail}</p>
+                                <footer>
+                                    <small>{item.age}</small>
+                                    <button type="button" onClick={item.onAction}>{item.actionLabel}</button>
+                                </footer>
+                            </article>
+                        )) : (
+                            <div className="commerce-task-empty">ยังไม่มีงานเร่งด่วนในตอนนี้</div>
+                        )}
+                    </div>
+                </section>
+            </section>
+
+            <section className="commerce-card commerce-report-card">
+                <header className="commerce-card-header">
+                    <div><span>QUICK REPORTS</span><h2>พิมพ์รายงานด่วน</h2></div>
+                </header>
+                <div className="commerce-report-actions">
+                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'orders', title: 'รายงานคำสั่งซื้อ' })}>
+                        <strong>รายงานคำสั่งซื้อ</strong>
+                    </button>
+                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'slip-history', title: 'รายงานประวัติการตรวจสลิป' })}>
+                        <strong>รายงานประวัติการตรวจสลิป</strong>
+                    </button>
+                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'print', title: 'รายงานพิมพ์ใบจัดส่ง' })}>
+                        <strong>รายงานพิมพ์ใบจัดส่ง</strong>
+                    </button>
+                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'stock', title: 'รายงานประวัติสต็อก' })}>
+                        <strong>รายงานประวัติสต็อก</strong>
+                    </button>
+                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'system', title: 'รายงานประวัติการเคลื่อนไหวแอดมิน' })}>
+                        <strong>รายงานประวัติการเคลื่อนไหวแอดมิน</strong>
+                    </button>
+                    <button type="button" onClick={printProductsReport}>
+                        <strong>พิมพ์รายการสินค้า</strong>
+                    </button>
+                    <button type="button" onClick={printCustomersReport}>
+                        <strong>พิมพ์รายชื่อผู้ใช้งาน</strong>
+                    </button>
+                </div>
+            </section>
+
             <section className="commerce-top-grid">
                 <div className="commerce-card commerce-ranking">
-                    <header className="commerce-card-header"><div><span>TOP PRODUCTS</span><h2>สินค้าขายดีที่สุด</h2></div></header>
+                    <header className="commerce-card-header"><div><span>POPULAR PRODUCTS</span><h2>สินค้ายอดนิยม</h2></div></header>
                     {(dashboardData.top_products || []).length ? dashboardData.top_products.map((item, index) => (
                         <div className="commerce-rank-row" key={item.product_id}><b>{index + 1}</b><div><strong>{item.product_name}</strong><small>{Number(item.units_sold || 0).toLocaleString('th-TH')} ชิ้น</small></div><span>฿{formatMoney(item.revenue)}</span></div>
                     )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลสินค้า</p>}
                 </div>
                 <div className="commerce-card commerce-ranking">
-                    <header className="commerce-card-header"><div><span>TOP CATEGORIES</span><h2>หมวดหมู่ขายดีที่สุด</h2></div></header>
+                    <header className="commerce-card-header"><div><span>POPULAR CATEGORIES</span><h2>หมวดหมู่ยอดนิยม</h2></div></header>
                     {(dashboardData.top_categories || []).length ? dashboardData.top_categories.map((item, index) => (
                         <div className="commerce-rank-row" key={item.category_id}><b>{index + 1}</b><div><strong>{item.category_name}</strong><small>{Number(item.units_sold || 0).toLocaleString('th-TH')} ชิ้น</small></div><span>฿{formatMoney(item.revenue)}</span></div>
                     )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลหมวดหมู่</p>}
                 </div>
                 <div className="commerce-card commerce-ranking">
-                    <header className="commerce-card-header"><div><span>TOP CUSTOMERS</span><h2>ลูกค้ายอดซื้อสูงสุด</h2></div></header>
+                    <header className="commerce-card-header"><div><span>TOP CUSTOMERS</span><h2>ผู้ใช้ที่ซื้อเยอะ</h2></div></header>
                     {(dashboardData.top_customers || []).length ? dashboardData.top_customers.map((item, index) => (
                         <div className="commerce-rank-row" key={item.user_id}><b>{index + 1}</b><div><strong>{item.full_name || item.username}</strong><small>{Number(item.order_count || 0).toLocaleString('th-TH')} ออเดอร์</small></div><span>฿{formatMoney(item.total_spent)}</span></div>
-                    )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลผู้ใช้งาน</p>}
+                    )) : <p className="commerce-mini-empty">ยังไม่มีข้อมูลผู้ใช้</p>}
                 </div>
             </section>
 
@@ -1841,8 +2268,7 @@ function AdminDashboardPage({
                         </div>
                     ) : (
                         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                            <option value={DEFAULT_ORDER_STATUS_FILTER}>ทั้งหมดไม่รวมยกเลิก</option>
-                            {orderStatuses.filter((status) => status !== 'ทั้งหมด').map((status) => <option key={status} value={status}>{status}</option>)}
+                            {orderStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
                         </select>
                     )}
                     <select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)}>
@@ -1850,14 +2276,14 @@ function AdminDashboardPage({
                             <>
                                 <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
                                 <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
-                                <option value="รับหน้าร้าน">รับเองที่ร้าน</option>
+                                <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
                             </>
                         ) : (
                             <>
                                 <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
-                                <option value="ส่งสินค้า">ส่งสินค้า</option>
-                                <option value="รับหน้าร้าน">รับหน้าร้าน</option>
-                                <option value="ขายหน้าร้าน">ขายหน้าร้าน (POS)</option>
+                                <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
+                                <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
+                                <option value="ขายหน้าร้าน">แอดมินขายหน้าร้าน</option>
                             </>
                         )}
                     </select>
@@ -2208,6 +2634,72 @@ function AdminDashboardPage({
                 </footer>
             </section>
 
+            {quickReportRequest && typeof document !== 'undefined' && createPortal(
+                <div className="reject-review-backdrop" role="presentation" onMouseDown={closeQuickReportDateModal}>
+                    <section
+                        className="reject-review-dialog quick-report-dialog"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="quick-report-dialog-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <header>
+                            <div>
+                                <span>QUICK REPORT</span>
+                                <h2 id="quick-report-dialog-title">{quickReportRequest.title}</h2>
+                            </div>
+                            <button type="button" aria-label="ปิด" onClick={closeQuickReportDateModal}>×</button>
+                        </header>
+                        <div className="reject-review-body quick-report-body">
+                            <div className="commerce-chart-tabs quick-report-tabs">
+                                {[['day', 'รายวัน'], ['week', 'รายสัปดาห์'], ['month', 'รายเดือน'], ['year', 'ปี'], ['custom', 'กำหนดวัน']].map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        className={quickReportPreset === value ? 'active' : ''}
+                                        onClick={() => applyQuickReportPreset(value)}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="quick-report-date-grid">
+                                <label>
+                                    <span>วันที่เริ่ม</span>
+                                    <input
+                                        type="date"
+                                        value={quickReportDateFrom}
+                                        disabled={quickReportPreset !== 'custom'}
+                                        onChange={(event) => {
+                                            setQuickReportPreset('custom');
+                                            setQuickReportDateFrom(event.target.value);
+                                        }}
+                                    />
+                                </label>
+                                <label>
+                                    <span>วันที่สิ้นสุด</span>
+                                    <input
+                                        type="date"
+                                        value={quickReportDateTo}
+                                        disabled={quickReportPreset !== 'custom'}
+                                        onChange={(event) => {
+                                            setQuickReportPreset('custom');
+                                            setQuickReportDateTo(event.target.value);
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                            {quickReportError && <div className="reject-review-error">{quickReportError}</div>}
+                        </div>
+                        <div className="reject-review-actions">
+                            <button type="button" className="secondary" onClick={closeQuickReportDateModal}>ยกเลิก</button>
+                            <button type="button" className="danger" onClick={submitQuickReportDateModal}>พิมพ์รายงาน</button>
+                        </div>
+                    </section>
+                </div>,
+                document.body,
+            )}
+
             {selectedOrder && (
                 <div className="order-modal-backdrop" role="presentation" onMouseDown={closeOrderDetailModal}>
                     <div className="order-modal" role="dialog" aria-modal="true" aria-labelledby="order-detail-modal-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -2314,7 +2806,7 @@ function AdminDashboardPage({
                                 </div>
 
                                 <section className="order-modal-actions">
-                                    {!isPickupOrder(selectedOrder) && selectedOrder.status === 'เตรียมสินค้า' && (
+                                    {!isPickupOrder(selectedOrder) && ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrder.status) && (
                                         <label>เลขพัสดุ<input value={trackingInputs[selectedOrder.id] || ''} onChange={(event) => updateTrackingInput(selectedOrder.id, event.target.value)} placeholder="กรอกเลขพัสดุ" />{trackingErrors[selectedOrder.id] && <small>{trackingErrors[selectedOrder.id]}</small>}</label>
                                     )}
                                     {!detailOrderIsPaid && (
@@ -2324,10 +2816,8 @@ function AdminDashboardPage({
                                     )}
                                     <div>
                                         {selectedOrder.status === 'รอจัดการ' && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เตรียมสินค้า')}>เตรียมสินค้า</button>}
-                                        {selectedOrder.status === 'เตรียมสินค้า' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'กำลังจัดส่ง')}>เริ่มจัดส่ง</button>}
+                                        {['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrder.status) && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>บันทึกเลขพัสดุและเสร็จสิ้น</button>}
                                         {selectedOrder.status === 'เตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
-                                        {selectedOrder.status === 'กำลังจัดส่ง' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'จัดส่งแล้ว')}>จัดส่งแล้ว</button>}
-                                        {selectedOrder.status === 'จัดส่งแล้ว' && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
                                         {selectedOrder.status === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
                                         {!isPaidOrder(detailOrder) && !isCancelledOrder(detailOrder || selectedOrder) && (
                                             <button type="button" className="danger" onClick={() => onDeleteOrder(selectedOrder.id, { onDeleted: closeOrderDetailModal })}>ลบออเดอร์</button>

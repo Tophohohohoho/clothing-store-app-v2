@@ -103,6 +103,14 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
     const [pageSize, setPageSize] = useState(10);
     const [selectedLog, setSelectedLog] = useState(null);
 
+    useEffect(() => {
+        const storedView = sessionStorage.getItem('adminStockLogsView');
+        if (storedView && ['stock', 'system'].includes(storedView)) {
+            setActivityView(storedView);
+            sessionStorage.removeItem('adminStockLogsView');
+        }
+    }, []);
+
     const rows = useMemo(() => (
         (activityView === 'stock' ? stockLogs : systemLogs).map((log) => ({
             ...log,

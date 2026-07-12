@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import * as adminApi from '../api/adminApi';
+import { notify } from '../components/AppNotification';
 
 const EMPTY_EDIT = { id: null, username: '', password: '', full_name: '', email: '', phone: '' };
 const STATUS = {
@@ -16,6 +18,26 @@ const SORT_LABELS = {
     id: 'ID',
     name: 'ชื่อ',
     created_at: 'วันที่สมัคร',
+};
+
+const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const escapeHtml = (value) => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const downloadFile = (content, fileName, type) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 };
 
 function AdminCustomersPage({
@@ -130,6 +152,162 @@ function AdminCustomersPage({
         await loadRef.current(currentQuery);
     };
 
+    const exportCustomersReport = async (format) => {
+        try {
+            const response = await adminApi.getCustomers({
+                ...currentQuery,
+                page: 1,
+                limit: 100,
+            });
+            const payload = response.data || {};
+            const rows = Array.isArray(payload.items) ? payload.items : [];
+            const total = Number(payload.pagination?.total || rows.length || 0);
+
+            if (!rows.length) {
+                notify({ type: 'warning', title: 'ไม่มีข้อมูล', message: 'ยังไม่มีผู้ใช้งานตามตัวกรองสำหรับพิมพ์รายงาน' });
+                return;
+            }
+
+            if (total > rows.length) {
+                notify({
+                    type: 'warning',
+                    title: 'รายงานบางส่วน',
+                    message: `ระบบส่งออกรายงานสูงสุด ${rows.length} รายการต่อครั้ง จากทั้งหมด ${total.toLocaleString('th-TH')} รายการ`,
+                });
+            }
+
+            const preparedRows = rows.map((customer) => {
+                const status = STATUS[Number(customer.status_user)] || STATUS[2];
+                return {
+                    id: customer.id,
+                    name: customer.full_name || customer.username || '-',
+                    username: customer.username || '-',
+                    email: customer.email || '-',
+                    phone: customer.phone || '-',
+                    role: customer.role === 'admin' ? 'Admin' : 'User',
+                    status: status[0],
+                    orders: Number(customer.total_orders || 0),
+                    spent: Number(customer.total_spent || 0),
+                    createdAt: shortDate(customer.created_at),
+                };
+            });
+
+            const fileBase = `customers-report-${new Date().toISOString().slice(0, 10)}`;
+
+            if (format === 'csv') {
+                const csv = [
+                    ['ID', 'ชื่อ', 'Username', 'อีเมล', 'เบอร์โทร', 'สิทธิ์', 'สถานะ', 'ออเดอร์', 'ยอดสะสม', 'วันที่สมัคร'],
+                    ...preparedRows.map((row) => [
+                        row.id,
+                        row.name,
+                        row.username,
+                        row.email,
+                        row.phone,
+                        row.role,
+                        row.status,
+                        row.orders,
+                        row.spent,
+                        row.createdAt,
+                    ]),
+                ].map((line) => line.map(escapeCsv).join(',')).join('\n');
+                downloadFile(`\uFEFF${csv}`, `${fileBase}.csv`, 'text/csv;charset=utf-8;');
+                return;
+            }
+
+            if (format === 'excel') {
+                const tableRows = preparedRows.map((row) => `
+                    <tr>
+                        <td>${escapeHtml(row.id)}</td>
+                        <td>${escapeHtml(row.name)}</td>
+                        <td>${escapeHtml(row.username)}</td>
+                        <td>${escapeHtml(row.email)}</td>
+                        <td>${escapeHtml(row.phone)}</td>
+                        <td>${escapeHtml(row.role)}</td>
+                        <td>${escapeHtml(row.status)}</td>
+                        <td>${escapeHtml(row.orders)}</td>
+                        <td>${escapeHtml(money(row.spent))}</td>
+                        <td>${escapeHtml(row.createdAt)}</td>
+                    </tr>
+                `).join('');
+                const html = `
+                    <html>
+                        <head><meta charset="utf-8" /></head>
+                        <body>
+                            <table border="1">
+                                <thead>
+                                    <tr><th>ID</th><th>ชื่อ</th><th>Username</th><th>อีเมล</th><th>เบอร์โทร</th><th>สิทธิ์</th><th>สถานะ</th><th>ออเดอร์</th><th>ยอดสะสม</th><th>วันที่สมัคร</th></tr>
+                                </thead>
+                                <tbody>${tableRows}</tbody>
+                            </table>
+                        </body>
+                    </html>
+                `;
+                downloadFile(`\uFEFF${html}`, `${fileBase}.xls`, 'application/vnd.ms-excel;charset=utf-8;');
+                return;
+            }
+
+            const popup = window.open('', '_blank', 'width=1200,height=820');
+            if (!popup) {
+                notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+                return;
+            }
+            const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+            const tableRows = preparedRows.map((row) => `
+                <tr>
+                    <td>${escapeHtml(row.id)}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(row.username)}</td>
+                    <td>${escapeHtml(row.email)}</td>
+                    <td>${escapeHtml(row.phone)}</td>
+                    <td>${escapeHtml(row.role)}</td>
+                    <td>${escapeHtml(row.status)}</td>
+                    <td>${escapeHtml(row.orders)}</td>
+                    <td>${escapeHtml(money(row.spent))}</td>
+                    <td>${escapeHtml(row.createdAt)}</td>
+                </tr>
+            `).join('');
+            popup.document.write(`
+                <!doctype html>
+                <html lang="th">
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>รายงานผู้ใช้งาน</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                            h1 { margin: 0 0 8px; font-size: 24px; }
+                            p { margin: 0 0 18px; color: #4b5563; }
+                            table { width: 100%; border-collapse: collapse; }
+                            th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                            th { background: #f3f4f6; }
+                            .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                            .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                            .primary { background: #111827; color: #fff; }
+                            .secondary { background: #e5e7eb; color: #111827; }
+                            @media print { .actions { display: none; } body { padding: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="actions">
+                            <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                            <button class="secondary" onclick="window.close()">ปิด</button>
+                        </div>
+                        <h1>รายงานผู้ใช้งาน</h1>
+                        <p>จำนวน ${escapeHtml(preparedRows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
+                        <table>
+                            <thead>
+                                <tr><th>ID</th><th>ชื่อ</th><th>Username</th><th>อีเมล</th><th>เบอร์โทร</th><th>สิทธิ์</th><th>สถานะ</th><th>ออเดอร์</th><th>ยอดสะสม</th><th>วันที่สมัคร</th></tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                    </body>
+                </html>
+            `);
+            popup.document.close();
+        } catch (error) {
+            notify({ type: 'error', title: 'ส่งออกรายงานไม่สำเร็จ', message: error.response?.data?.error || error.message || 'เกิดข้อผิดพลาด' });
+        }
+    };
+
     return (
         <section className="member-dashboard">
             <header className="member-heading">
@@ -137,6 +315,11 @@ function AdminCustomersPage({
                     <span>MEMBER MANAGEMENT</span>
                     <h4>จัดการผู้ใช้งาน</h4>
                     <p>ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
+                </div>
+                <div className="panel-export-buttons">
+                    <button type="button" onClick={() => exportCustomersReport('csv')}>CSV</button>
+                    <button type="button" onClick={() => exportCustomersReport('excel')}>Excel</button>
+                    <button type="button" className="primary" onClick={() => exportCustomersReport('pdf')}>PDF</button>
                 </div>
             </header>
 
