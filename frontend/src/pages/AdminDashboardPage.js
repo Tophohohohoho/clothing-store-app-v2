@@ -71,14 +71,6 @@ const getDateRange = (preset, customFrom, customTo) => {
     };
 };
 
-const dashboardPresetToQuickReportPreset = (preset) => {
-    if (preset === 'today') return 'day';
-    if (preset === '7') return 'week';
-    if (preset === 'month') return 'month';
-    if (preset === 'year') return 'year';
-    return 'custom';
-};
-
 const quickReportPresetToDashboardPreset = (preset) => {
     if (preset === 'day') return 'today';
     if (preset === 'week') return '7';
@@ -210,6 +202,17 @@ const formatReportDate = (value) => {
         month: 'short',
         year: 'numeric',
     });
+};
+
+const getPaymentReceivedAt = (order = {}) => order.reviewed_at || order.payment_date || order.created_at || order.order_date;
+const getPaymentReceivedAmount = (order = {}) => {
+    if (order.verified_amount !== undefined && order.verified_amount !== null && String(order.verified_amount).trim() !== '') {
+        return Number(order.verified_amount) || 0;
+    }
+    if (order.payment_amount !== undefined && order.payment_amount !== null && String(order.payment_amount).trim() !== '') {
+        return Number(order.payment_amount) || 0;
+    }
+    return Number(order.final_price ?? order.total_price ?? 0) || 0;
 };
 
 const renderReportCellHtml = (value) => {
@@ -513,6 +516,7 @@ function AdminDashboardPage({
     const [rejectReviewReason, setRejectReviewReason] = useState('');
     const [rejectReviewError, setRejectReviewError] = useState('');
     const [quickReportRequest, setQuickReportRequest] = useState(null);
+    const [quickReportDatePreset, setQuickReportDatePreset] = useState('30');
     const [quickReportPreset, setQuickReportPreset] = useState('custom');
     const [quickReportDateFrom, setQuickReportDateFrom] = useState('');
     const [quickReportDateTo, setQuickReportDateTo] = useState('');
@@ -529,18 +533,25 @@ function AdminDashboardPage({
         if (view) sessionStorage.setItem('adminProductView', view);
         setAdminPage?.(target);
     }, [setAdminPage, setIsAdminView]);
-    const openQuickReportDateModal = useCallback((request) => {
-        const currentRange = getDateRange(datePreset, dateFrom, dateTo);
-        setQuickReportRequest(request);
-        setQuickReportPreset(dashboardPresetToQuickReportPreset(datePreset));
-        setQuickReportDateFrom(currentRange.from);
-        setQuickReportDateTo(currentRange.to);
-        setQuickReportError('');
-    }, [dateFrom, datePreset, dateTo]);
     const applyQuickReportPreset = (preset) => {
         setQuickReportPreset(preset);
         if (preset === 'custom') return;
         const range = getDateRange(quickReportPresetToDashboardPreset(preset), '', '');
+        setQuickReportDateFrom(range.from);
+        setQuickReportDateTo(range.to);
+        setQuickReportError('');
+    };
+    const applyQuickReportDatePreset = (preset) => {
+        setQuickReportDatePreset(preset);
+        if (preset === 'custom') {
+            if (!quickReportDateFrom || !quickReportDateTo) {
+                const range = getDateRange('30', '', '');
+                setQuickReportDateFrom(range.from);
+                setQuickReportDateTo(range.to);
+            }
+            return;
+        }
+        const range = getDateRange(preset, '', '');
         setQuickReportDateFrom(range.from);
         setQuickReportDateTo(range.to);
         setQuickReportError('');
@@ -1838,6 +1849,130 @@ function AdminDashboardPage({
             notify({ type: 'error', title: 'พิมพ์รายงานผู้ใช้งานไม่สำเร็จ', message: error.response?.data?.error || error.message || 'เกิดข้อผิดพลาด' });
         }
     };
+
+    const printPaymentReceiveReport = (customRange = null) => {
+        const bounds = customRange ? getRangeBounds(customRange) : null;
+        const rows = orders
+            .filter((order) => isPaidOrder(order))
+            .filter((order) => {
+                if (!bounds) return true;
+                return isWithinBounds(getPaymentReceivedAt(order), bounds);
+            })
+            .sort((a, b) => new Date(getPaymentReceivedAt(b) || 0) - new Date(getPaymentReceivedAt(a) || 0))
+            .map((order) => {
+                const receivedAmount = getPaymentReceivedAmount(order);
+                return {
+                    id: order.id,
+                    receivedAt: getPaymentReceivedAt(order),
+                    customerName: order.full_name || order.receiver_name || order.username || 'ผู้ใช้งานทั่วไป',
+                    paymentMethod: order.payment_method || order.payment_type || '-',
+                    orderAmount: Number(order.final_price ?? order.total_price ?? 0) || 0,
+                    receivedAmount,
+                    paymentStatus: formatPaymentStatus(order.payment_status) || '-',
+                    shippingMethod: order.shipping_method || '-',
+                };
+            });
+
+        if (!rows.length) {
+            notify({ type: 'warning', title: 'ไม่มีข้อมูลการรับเงิน', message: 'ไม่พบรายการรับเงินในช่วงวันที่ที่เลือก' });
+            return;
+        }
+
+        const popup = window.open('', '_blank', 'width=1200,height=820');
+        if (!popup) {
+            notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
+            return;
+        }
+
+        const totalReceived = rows.reduce((sum, row) => sum + row.receivedAmount, 0);
+        const dateLabel = customRange
+            ? `${customRange.from} ถึง ${customRange.to}`
+            : `พิมพ์เมื่อ ${new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+        const tableRows = rows.map((row) => `
+            <tr>
+                <td>#${escapeHtml(row.id)}</td>
+                <td>${escapeHtml(formatDateTime(row.receivedAt))}</td>
+                <td>${escapeHtml(row.customerName)}</td>
+                <td>${escapeHtml(row.paymentMethod)}</td>
+                <td>${escapeHtml(row.shippingMethod)}</td>
+                <td>${escapeHtml(`฿${formatMoney(row.orderAmount)}`)}</td>
+                <td>${escapeHtml(`฿${formatMoney(row.receivedAmount)}`)}</td>
+                <td>${escapeHtml(row.paymentStatus)}</td>
+            </tr>
+        `).join('');
+
+        popup.document.write(`
+            <!doctype html>
+            <html lang="th">
+                <head>
+                    <meta charset="utf-8" />
+                    <title>รายงานการรับเงิน</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+                        h1 { margin: 0 0 8px; font-size: 24px; }
+                        p { margin: 0 0 18px; color: #4b5563; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { border: 1px solid #d1d5db; padding: 10px; text-align: left; font-size: 12px; }
+                        th { background: #f3f4f6; }
+                        .actions { margin-bottom: 18px; display: flex; gap: 10px; }
+                        .actions button { padding: 10px 14px; border: 0; border-radius: 8px; cursor: pointer; }
+                        .primary { background: #111827; color: #fff; }
+                        .secondary { background: #e5e7eb; color: #111827; }
+                        .summary { display: flex; gap: 18px; margin: 0 0 18px; flex-wrap: wrap; }
+                        .summary strong { display: block; font-size: 18px; color: #111827; }
+                        .summary span { color: #6b7280; font-size: 12px; }
+                        @media print { .actions { display: none; } body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="actions">
+                        <button class="primary" onclick="window.print()">สร้าง PDF / พิมพ์</button>
+                        <button class="secondary" onclick="window.close()">ปิด</button>
+                    </div>
+                    <h1>รายงานการรับเงิน</h1>
+                    <p>${escapeHtml(dateLabel)}</p>
+                    <div class="summary">
+                        <div><strong>${escapeHtml(rows.length.toLocaleString('th-TH'))}</strong><span>จำนวนรายการรับเงิน</span></div>
+                        <div><strong>${escapeHtml(`฿${formatMoney(totalReceived)}`)}</strong><span>ยอดรับรวม</span></div>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr><th>เลขออเดอร์</th><th>วันที่รับเงิน</th><th>ลูกค้า/ผู้รับ</th><th>ช่องทางชำระ</th><th>วิธีรับสินค้า</th><th>ยอดออเดอร์</th><th>ยอดรับชำระ</th><th>สถานะ</th></tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+    };
+    const runQuickReportRequest = (request, customRange) => {
+        if (!request) return;
+        const { type } = request;
+        if (type === 'orders') {
+            exportOrders('pdf', 'orders', 'review', customRange);
+            return;
+        }
+        if (type === 'slip-history') {
+            exportOrders('pdf', 'slips', 'history', customRange);
+            return;
+        }
+        if (type === 'print') {
+            exportOrders('pdf', 'print', 'review', customRange);
+            return;
+        }
+        if (type === 'payments') {
+            printPaymentReceiveReport(customRange);
+            return;
+        }
+        if (type === 'stock') {
+            exportActivityReport('stock', customRange);
+            return;
+        }
+        if (type === 'system') {
+            exportActivityReport('system', customRange);
+        }
+    };
     const closeQuickReportDateModal = () => {
         setQuickReportRequest(null);
         setQuickReportError('');
@@ -1855,27 +1990,27 @@ function AdminDashboardPage({
             return;
         }
         const customRange = { from, to };
-        const { type } = quickReportRequest;
         closeQuickReportDateModal();
-        if (type === 'orders') {
-            exportOrders('pdf', 'orders', 'review', customRange);
+        runQuickReportRequest(quickReportRequest, customRange);
+    };
+    const handleQuickReportAction = (request) => {
+        const preset = quickReportDatePreset;
+        if (preset === 'custom') {
+            const from = quickReportDateFrom.trim();
+            const to = quickReportDateTo.trim();
+            if (!from || !to) {
+                setQuickReportError('กรุณาเลือกวันที่เริ่มและวันที่สิ้นสุด');
+                return;
+            }
+            if (from > to) {
+                setQuickReportError('วันที่เริ่มต้องไม่มากกว่าวันที่สิ้นสุด');
+                return;
+            }
+            runQuickReportRequest(request, { from, to });
             return;
         }
-        if (type === 'slip-history') {
-            exportOrders('pdf', 'slips', 'history', customRange);
-            return;
-        }
-        if (type === 'print') {
-            exportOrders('pdf', 'print', 'review', customRange);
-            return;
-        }
-        if (type === 'stock') {
-            exportActivityReport('stock', customRange);
-            return;
-        }
-        if (type === 'system') {
-            exportActivityReport('system', customRange);
-        }
+        setQuickReportError('');
+        runQuickReportRequest(request, getDateRange(preset, '', ''));
     };
 
     const runOrderStep = async (order, nextStatus) => {
@@ -2127,21 +2262,50 @@ function AdminDashboardPage({
             <section className="commerce-card commerce-report-card">
                 <header className="commerce-card-header">
                     <div><span>QUICK REPORTS</span><h2>พิมพ์รายงานด่วน</h2></div>
+                    <div className="commerce-date-filter commerce-report-date-filter">
+                        <select value={quickReportDatePreset} onChange={(event) => applyQuickReportDatePreset(event.target.value)}>
+                            {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                        {quickReportDatePreset === 'custom' && (
+                            <>
+                                <input
+                                    type="date"
+                                    value={quickReportDateFrom}
+                                    onChange={(event) => {
+                                        setQuickReportDateFrom(event.target.value);
+                                        setQuickReportError('');
+                                    }}
+                                />
+                                <input
+                                    type="date"
+                                    value={quickReportDateTo}
+                                    onChange={(event) => {
+                                        setQuickReportDateTo(event.target.value);
+                                        setQuickReportError('');
+                                    }}
+                                />
+                            </>
+                        )}
+                    </div>
                 </header>
+                {quickReportError ? <div className="commerce-report-error">{quickReportError}</div> : null}
                 <div className="commerce-report-actions">
-                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'orders', title: 'รายงานคำสั่งซื้อ' })}>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'orders', title: 'รายงานคำสั่งซื้อ' })}>
                         <strong>รายงานคำสั่งซื้อ</strong>
                     </button>
-                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'slip-history', title: 'รายงานประวัติการตรวจสลิป' })}>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'slip-history', title: 'รายงานประวัติการตรวจสลิป' })}>
                         <strong>รายงานประวัติการตรวจสลิป</strong>
                     </button>
-                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'print', title: 'รายงานพิมพ์ใบจัดส่ง' })}>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'print', title: 'รายงานพิมพ์ใบจัดส่ง' })}>
                         <strong>รายงานพิมพ์ใบจัดส่ง</strong>
                     </button>
-                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'stock', title: 'รายงานประวัติสต็อก' })}>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'payments', title: 'รายงานการรับเงิน' })}>
+                        <strong>พิมพ์รายงานการรับเงิน</strong>
+                    </button>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'stock', title: 'รายงานประวัติสต็อก' })}>
                         <strong>รายงานประวัติสต็อก</strong>
                     </button>
-                    <button type="button" onClick={() => openQuickReportDateModal({ type: 'system', title: 'รายงานประวัติการเคลื่อนไหวแอดมิน' })}>
+                    <button type="button" onClick={() => handleQuickReportAction({ type: 'system', title: 'รายงานประวัติการเคลื่อนไหวแอดมิน' })}>
                         <strong>รายงานประวัติการเคลื่อนไหวแอดมิน</strong>
                     </button>
                     <button type="button" onClick={printProductsReport}>

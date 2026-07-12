@@ -1328,6 +1328,19 @@
     padding: 16px;
 }
 
+.commerce-report-date-filter {
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.commerce-report-error {
+    color: #b42318;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 10px 16px 0;
+}
+
 .commerce-report-actions > button {
     display: grid;
     gap: 5px;
