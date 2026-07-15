@@ -230,10 +230,10 @@ function AppNavbar({
             <div className="app-navbar-inner">
                 <div className="app-navbar-toprow">
                     <button type="button" className="app-brand" onClick={onOpenStore} aria-label="กลับไปหน้าร้าน">
-                        <span className="app-brand-mark" aria-hidden="true">C</span>
+                        <span className="app-brand-mark" aria-hidden="true">SL</span>
                         <span className="app-brand-copy">
-                            <strong>CLOTHING STORE</strong>
-                            <small>{isAdmin ? (isAdminView ? 'Admin control center' : 'Storefront mode') : 'Modern fashion commerce'}</small>
+                            <strong>SHOP LRU</strong>
+                            <small>ร้านค้าตราสัญลักษณ์</small>
                         </span>
                     </button>
 

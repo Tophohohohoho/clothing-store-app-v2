@@ -2625,16 +2625,7 @@ app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
             });
         }
 
-        const [stockLogUsage] = await query(
-            'SELECT COUNT(*) AS usage_count FROM stock_logs WHERE product_id = ?',
-            [id],
-        );
-        if (Number(stockLogUsage[0]?.usage_count) > 0) {
-            return res.status(409).json({
-                error: 'ไม่สามารถลบสินค้าที่มีประวัติ stock log ได้ กรุณาปิดใช้งานสินค้าแทน',
-            });
-        }
-
+        await query('DELETE FROM stock_logs WHERE product_id = ?', [id]);
         await query('DELETE FROM product WHERE product_id = ?', [id]);
         res.json({ success: true, message: 'ลบสินค้าออกจากระบบแล้ว' });
     } catch (err) {
@@ -3405,11 +3396,12 @@ app.put('/api/admin/orders/payment-review/bulk', requireAdmin, async (req, res) 
 app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { user_id, username } = req.authUser;
+        const { id: actorId, role } = req.authUser;
+        const isAdmin = role === 'admin';
         const cancelableStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า'];
 
         const [orders] = await query(`
-            SELECT o.order_id, o.user_id, o.order_status, u.username
+            SELECT o.order_id, o.user_id, o.order_status, o.payment_status, u.username
             FROM orders o
             JOIN \`user\` u ON o.user_id = u.user_id
             WHERE o.order_id = ?
@@ -3420,19 +3412,17 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
         }
 
         const order = orders[0];
-        const isOwnerById = user_id && Number(user_id) === Number(order.user_id);
-        const isOwnerByUsername = username && String(username).toLowerCase() === String(order.username).toLowerCase();
-
-        if (!isOwnerById && !isOwnerByUsername) {
-            return res.status(403).json({ error: 'ไม่สามารถยกเลิกคำสั่งซื้อของบัญชีอื่นได้' });
-        }
 
         if (order.order_status === 'ยกเลิก') {
             return res.json({ success: true, message: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว' });
         }
 
+        if (['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status)) {
+            return res.status(400).json({ error: 'ไม่สามารถยกเลิกคำสั่งซื้อที่ชำระเงินแล้วได้' });
+        }
+
         if (!cancelableStatuses.includes(order.order_status)) {
-            return res.status(400).json({ error: 'คำสั่งซื้อนี้เริ่มดำเนินการแล้ว ไม่สามารถยกเลิกเองได้' });
+            return res.status(400).json({ error: isAdmin ? 'คำสั่งซื้อนี้เริ่มดำเนินการแล้ว ไม่สามารถยกเลิกได้' : 'คำสั่งซื้อนี้เริ่มดำเนินการแล้ว ไม่สามารถยกเลิกเองได้' });
         }
 
         const [items] = await query(
@@ -3446,7 +3436,7 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
                 changeType: 'คืนสินค้า',
                 changeQuantity: item.quantity,
                 reason: `ยกเลิกคำสั่งซื้อ #${id}`,
-                userId: order.user_id,
+                userId: isAdmin ? actorId : order.user_id,
                 orderDetailId: item.order_detail_id,
             });
         }
@@ -3455,13 +3445,14 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
             'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
             ['ยกเลิก', 'ยกเลิก', id],
         );
-        await writeOrderStatusHistory(id, 'ยกเลิก', order.user_id, 'ลูกค้ายกเลิกคำสั่งซื้อ');
-        await writeSystemLog(order.user_id, 'ยกเลิกคำสั่งซื้อ', `ลูกค้ายกเลิกคำสั่งซื้อ #${id}`, {
+        await writeOrderStatusHistory(id, 'ยกเลิก', isAdmin ? actorId : order.user_id, isAdmin ? 'แอดมินยกเลิกคำสั่งซื้อ' : 'ลูกค้ายกเลิกคำสั่งซื้อ');
+        await writeSystemLog(isAdmin ? actorId : order.user_id, 'ยกเลิกคำสั่งซื้อ', `${isAdmin ? 'แอดมิน' : 'ลูกค้า'}ยกเลิกคำสั่งซื้อ #${id}`, {
             beforeData: snapshotOrder(order),
             afterData: {
                 ...snapshotOrder(order),
                 order_status: 'ยกเลิก',
                 payment_status: 'ยกเลิก',
+                cancelled_by: isAdmin ? 'admin' : 'customer',
             },
         });
 

@@ -957,6 +957,17 @@ function OrderHistoryModal({
                             </header>
 
                             <div className="order-detail-popup-body">
+                                {!!detailOrder.tracking_no && (
+                                    <section className="order-detail-popup-section">
+                                        <div className="order-detail-popup-meta">
+                                            <div>
+                                                <span>รหัสพัสดุ</span>
+                                                <strong>{detailOrder.tracking_no}</strong>
+                                            </div>
+                                        </div>
+                                    </section>
+                                )}
+
                                 <section className="order-detail-popup-section">
                                     <div className="order-detail-popup-table">
                                         <div className="order-detail-popup-row is-head">
@@ -1206,7 +1217,7 @@ function OrderHistoryModal({
                         >
                             <div className="sales-receipt-print">
                                 <header>
-                                    <span>CLOTHING STORE</span>
+                                    <span>SHOP LRU</span>
                                     <h2 id="sales-receipt-title">ใบเสร็จรับเงิน</h2>
                                     <p>เลขที่คำสั่งซื้อ #{receiptOrder.id}</p>
                                 </header>

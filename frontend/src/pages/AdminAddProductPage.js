@@ -415,15 +415,27 @@ function AdminAddProductPage({
         if (!productToDelete) return;
         setProductError('');
         setProductActionId(productToDelete.id);
+        const deletedProductName = productToDelete.name;
         const result = await onDeleteProduct?.(productToDelete);
         setProductActionId(null);
 
         if (result?.success) {
             setProductToDelete(null);
+            notify({
+                type: 'success',
+                title: 'ลบสินค้าสำเร็จ',
+                message: `ลบสินค้า ${deletedProductName} ออกจากคลังเรียบร้อยแล้ว`,
+            });
             return;
         }
-        setProductError(result?.message || 'ลบสินค้าไม่สำเร็จ');
+        const errorMessage = result?.message || 'ลบสินค้าไม่สำเร็จ';
+        setProductError(errorMessage);
         setProductToDelete(null);
+        notify({
+            type: 'error',
+            title: 'ลบสินค้าไม่สำเร็จ',
+            message: errorMessage,
+        });
     };
 
     const exportProductsReport = (format) => {
@@ -450,7 +462,7 @@ function AdminAddProductPage({
 
         if (format === 'csv') {
             const csv = [
-                ['SKU', 'ชื่อสินค้า', 'หมวดหมู่', 'สต็อก', 'ราคา', 'สถานะ', 'แก้ไขล่าสุด'],
+                ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'สต็อก', 'ราคา', 'สถานะ', 'แก้ไขล่าสุด'],
                 ...rows.map((row) => [row.sku, row.name, row.category, row.stock, row.price, row.status, row.updatedAt]),
             ].map((line) => line.map(escapeCsv).join(',')).join('\n');
             downloadFile(`\uFEFF${csv}`, `${fileBase}.csv`, 'text/csv;charset=utf-8;');
@@ -475,7 +487,7 @@ function AdminAddProductPage({
                     <body>
                         <table border="1">
                             <thead>
-                                <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                                <tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
                             </thead>
                             <tbody>${tableRows}</tbody>
                         </table>
@@ -532,7 +544,7 @@ function AdminAddProductPage({
                     <p>จำนวน ${escapeHtml(rows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
                     <table>
                         <thead>
-                            <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                            <tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
                     </table>
@@ -797,7 +809,7 @@ function AdminAddProductPage({
                                 <input
                                     value={productSearch}
                                     onChange={(event) => setProductSearch(event.target.value)}
-                                    placeholder="ค้นหาชื่อสินค้า หมวดหมู่ หรือ SKU..."
+                                    placeholder="ค้นหาชื่อสินค้า หมวดหมู่ หรือรหัสสินค้า..."
                                     aria-label="ค้นหาสินค้า"
                                 />
                             </label>
@@ -842,7 +854,7 @@ function AdminAddProductPage({
                                 <thead>
                                     <tr>
                                         <th>{productSortHeader('name')}</th>
-                                        <th>SKU</th>
+                                        <th>รหัสสินค้า</th>
                                         <th>{productSortHeader('stock')}</th>
                                         <th>{productSortHeader('price')}</th>
                                         <th>สถานะ</th>
@@ -1197,10 +1209,10 @@ function AdminAddProductPage({
                                 <h4>ยืนยันการลบสินค้า</h4>
                                 <p>
                                     คุณกำลังจะลบ <strong>“{productToDelete.name}”</strong> ออกจากคลังอย่างถาวร
-                                    หากสินค้านี้มีประวัติคำสั่งซื้อ ระบบจะไม่อนุญาตให้ลบและควรปิดใช้งานแทน
+                                    สินค้าที่ไม่มีประวัติคำสั่งซื้อสามารถลบได้ทันที แต่หากเคยถูกสั่งซื้อแล้ว ระบบจะไม่อนุญาตให้ลบและควรปิดใช้งานแทน
                                 </p>
                                 <div className="product-delete-summary">
-                                    <span>SKU: PRD-{String(productToDelete.id).padStart(6, '0')}</span>
+                                    <span>รหัสสินค้า: PRD-{String(productToDelete.id).padStart(6, '0')}</span>
                                     <span>คงเหลือ: {Number(productToDelete.stock) || 0} ชิ้น</span>
                                 </div>
                                 <div className="category-delete-actions">

@@ -219,7 +219,7 @@ function SiteFooter({ contact, onOpenStore }) {
                 </div>
 
                 <div className="site-footer-bottom">
-                    © 2026 LRU SHOP All rights reserved.
+                    © 2026 SHOP LRU All rights reserved.
                 </div>
             </div>
         </footer>
@@ -326,7 +326,7 @@ function CancelOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) 
     );
 }
 
-function DeleteOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) {
+function AdminCancelOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) {
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
@@ -354,10 +354,10 @@ function DeleteOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) 
             >
                 <div className="cancel-order-icon delete-order-icon" aria-hidden="true">!</div>
                 <div>
-                    <span className="cancel-order-eyebrow delete-order-eyebrow">Delete order</span>
-                    <h2 id="delete-order-title">ยืนยันการลบคำสั่งซื้อ</h2>
+                    <span className="cancel-order-eyebrow delete-order-eyebrow">Cancel order</span>
+                    <h2 id="delete-order-title">ยืนยันการยกเลิกคำสั่งซื้อ</h2>
                     <p id="delete-order-description">
-                        คุณต้องการลบคำสั่งซื้อ #{orderId} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+                        คุณต้องการยกเลิกคำสั่งซื้อ #{orderId} ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
                     </p>
                 </div>
                 <div className="cancel-order-actions delete-order-actions">
@@ -365,7 +365,7 @@ function DeleteOrderConfirmModal({ orderId, isSubmitting, onClose, onConfirm }) 
                         ยกเลิก
                     </button>
                     <button type="button" className="cancel-order-danger" onClick={onConfirm} disabled={isSubmitting}>
-                        {isSubmitting ? 'กำลังลบ...' : 'ลบคำสั่งซื้อ'}
+                        {isSubmitting ? 'กำลังยกเลิก...' : 'ยกเลิกคำสั่งซื้อ'}
                     </button>
                 </div>
             </section>
@@ -517,8 +517,8 @@ function App() {
     const [successOrderId, setSuccessOrderId] = useState(null);
     const [cancelOrderRequest, setCancelOrderRequest] = useState(null);
     const [isCancellingOrder, setIsCancellingOrder] = useState(false);
-    const [deleteOrderRequest, setDeleteOrderRequest] = useState(null);
-    const [isDeletingOrder, setIsDeletingOrder] = useState(false);
+    const [adminCancelOrderRequest, setAdminCancelOrderRequest] = useState(null);
+    const [isAdminCancellingOrder, setIsAdminCancellingOrder] = useState(false);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [pendingOrderId, setPendingOrderId] = useState(null);
     const [pendingStatus, setPendingStatus] = useState('');
@@ -1339,31 +1339,32 @@ function App() {
         }
     };
 
-    const handleDeleteOrder = (orderId, options = {}) => {
-        setDeleteOrderRequest({ orderId, onDeleted: options.onDeleted });
+    const handleAdminCancelOrder = (orderId, options = {}) => {
+        setAdminCancelOrderRequest({ orderId, onCancelled: options.onCancelled });
     };
 
-    const closeDeleteOrderModal = () => {
-        if (isDeletingOrder) return;
-        setDeleteOrderRequest(null);
+    const closeAdminCancelOrderModal = () => {
+        if (isAdminCancellingOrder) return;
+        setAdminCancelOrderRequest(null);
     };
 
-    const confirmDeleteOrder = async () => {
-        const orderId = deleteOrderRequest?.orderId;
-        if (!orderId || isDeletingOrder) return;
+    const confirmAdminCancelOrder = async () => {
+        const orderId = adminCancelOrderRequest?.orderId;
+        if (!orderId || isAdminCancellingOrder) return;
 
-        setIsDeletingOrder(true);
+        setIsAdminCancellingOrder(true);
         try {
-            await adminApi.deleteAdminOrder(orderId, user?.id);
-            setDeleteOrderRequest(null);
-            deleteOrderRequest?.onDeleted?.();
+            await adminApi.cancelAdminOrder(orderId);
+            setAdminCancelOrderRequest(null);
+            adminCancelOrderRequest?.onCancelled?.();
             await fetchAdminOrders();
+            await fetchProducts(isAdminView);
             await fetchSystemLogs();
-            showOrderToast('success', 'ลบคำสั่งซื้อสำเร็จ');
+            showOrderToast('success', 'ยกเลิกคำสั่งซื้อสำเร็จ');
         } catch (err) {
-            showOrderToast('error', err.response?.data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+            showOrderToast('error', err.response?.data?.error || 'ยกเลิกคำสั่งซื้อไม่สำเร็จ');
         } finally {
-            setIsDeletingOrder(false);
+            setIsAdminCancellingOrder(false);
         }
     };
 
@@ -1848,7 +1849,7 @@ function App() {
                         onAddCategory={handleAddCategory}
                         onUpdateCategory={handleUpdateCategory}
                         onDeleteCategory={handleDeleteCategory}
-                        onDeleteOrder={handleDeleteOrder}
+                        onCancelOrder={handleAdminCancelOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}
                         onReviewOrderPayment={handleReviewOrderPayment}
                         onBulkReviewOrderPayments={handleBulkReviewOrderPayments}
@@ -1943,12 +1944,12 @@ function App() {
                 />
             )}
 
-            {deleteOrderRequest && (
-                <DeleteOrderConfirmModal
-                    orderId={deleteOrderRequest.orderId}
-                    isSubmitting={isDeletingOrder}
-                    onClose={closeDeleteOrderModal}
-                    onConfirm={confirmDeleteOrder}
+            {adminCancelOrderRequest && (
+                <AdminCancelOrderConfirmModal
+                    orderId={adminCancelOrderRequest.orderId}
+                    isSubmitting={isAdminCancellingOrder}
+                    onClose={closeAdminCancelOrderModal}
+                    onConfirm={confirmAdminCancelOrder}
                 />
             )}
 

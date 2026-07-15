@@ -6,10 +6,7 @@ export const getOrderDetails = (orderId) => apiClient.get(`/api/admin/orders/${o
 
 export const getDashboardStats = (params = {}) => apiClient.get('/api/admin/dashboard', { params });
 
-export const deleteAdminOrder = (orderId, userId) => apiClient.post('/api/admin/orders/delete', {
-    order_id: orderId,
-    user_id: userId,
-});
+export const cancelAdminOrder = (orderId) => apiClient.put(`/api/orders/${orderId}/cancel`);
 
 export const updateOrderStatus = (orderId, status, trackingNo = '', userId = null) => apiClient.put(`/api/orders/${orderId}/status`, {
     status,

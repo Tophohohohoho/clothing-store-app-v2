@@ -321,11 +321,11 @@ function AuthPage({
             <section className="auth-shell">
                 <div className="auth-visual">
                     <div className="auth-visual-top">
-                        <div className="auth-brand-mark" aria-hidden="true">LRU</div>
-                        <span>LRU SHOP</span>
+                        <div className="auth-brand-mark" aria-hidden="true">SL</div>
+                        <span>SHOP LRU</span>
                     </div>
                     <div className="auth-hero-copy">
-                        <p className="auth-kicker">LRU SHOP</p>
+                        <p className="auth-kicker">SHOP LRU</p>
                         <h1>แฟชั่นที่เลือกง่าย จัดการร้านได้ครบ</h1>
                         <p className="auth-hero-description">
                             เลือกช้อปเสื้อผ้าดีไซน์ทันสมัย พร้อมระบบสั่งซื้อที่รวดเร็วและติดตามสถานะได้ในที่เดียว

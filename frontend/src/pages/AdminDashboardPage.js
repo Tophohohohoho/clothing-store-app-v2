@@ -450,7 +450,7 @@ function AdminDashboardPage({
     products = [],
     stockLogs = [],
     systemLogs = [],
-    onDeleteOrder,
+    onCancelOrder,
     onUpdateOrderStatus,
     onReviewOrderPayment,
     onBulkReviewOrderPayments,
@@ -1751,7 +1751,7 @@ function AdminDashboardPage({
                     <p>จำนวน ${escapeHtml(rows.length)} รายการ • พิมพ์เมื่อ ${escapeHtml(printedAt)}</p>
                     <table>
                         <thead>
-                            <tr><th>SKU</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
+                            <tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หมวดหมู่</th><th>สต็อก</th><th>ราคา</th><th>สถานะ</th><th>แก้ไขล่าสุด</th></tr>
                         </thead>
                         <tbody>${tableRows}</tbody>
                     </table>
@@ -2984,7 +2984,7 @@ function AdminDashboardPage({
                                         {selectedOrder.status === 'เตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
                                         {selectedOrder.status === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
                                         {!isPaidOrder(detailOrder) && !isCancelledOrder(detailOrder || selectedOrder) && (
-                                            <button type="button" className="danger" onClick={() => onDeleteOrder(selectedOrder.id, { onDeleted: closeOrderDetailModal })}>ลบออเดอร์</button>
+                                            <button type="button" className="danger" onClick={() => onCancelOrder(selectedOrder.id, { onCancelled: closeOrderDetailModal })}>ยกเลิกคำสั่งซื้อ</button>
                                         )}
                                     </div>
                                 </section>

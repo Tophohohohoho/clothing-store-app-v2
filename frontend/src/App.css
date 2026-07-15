@@ -4580,6 +4580,37 @@
     gap: 12px;
 }
 
+.order-detail-popup-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.order-detail-popup-meta > div {
+    min-width: 0;
+    padding: 13px 14px;
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
+}
+
+.order-detail-popup-meta span {
+    display: block;
+    color: #667085;
+    font-size: .72rem;
+    font-weight: 900;
+}
+
+.order-detail-popup-meta strong {
+    display: block;
+    margin-top: 4px;
+    color: #101828;
+    font-size: .96rem;
+    font-weight: 900;
+    letter-spacing: .02em;
+    overflow-wrap: anywhere;
+}
+
 .order-detail-popup-table {
     overflow: hidden;
     border: 1px solid #e5e7eb;

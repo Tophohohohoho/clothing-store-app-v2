@@ -394,8 +394,8 @@ function AdminCustomersPage({
             {userEdit.id && <div className="member-modal-backdrop"><div className="member-edit-modal">
                 <header><div><span>แก้ไขสมาชิก</span><h5>{userEdit.full_name || userEdit.username}</h5></div><button onClick={() => setUserEdit(EMPTY_EDIT)}>×</button></header>
                 <div className="member-form">
-                    <label><span>Username</span><input value={userEdit.username} onChange={(e) => setUserEdit({ ...userEdit, username: e.target.value })} /></label>
-                    <label><span>ชื่อ-นามสกุล</span><input value={userEdit.full_name} onChange={(e) => setUserEdit({ ...userEdit, full_name: e.target.value })} /></label>
+                    <label><span>Username</span><input value={userEdit.username} disabled readOnly /></label>
+                    <label><span>ชื่อ-นามสกุล</span><input value={userEdit.full_name} disabled readOnly /></label>
                     <label><span>อีเมล</span><input type="email" value={userEdit.email} onChange={(e) => setUserEdit({ ...userEdit, email: e.target.value })} /></label>
                     <label><span>เบอร์โทร</span><input value={userEdit.phone} onChange={(e) => setUserEdit({ ...userEdit, phone: e.target.value })} /></label>
                     <label className="wide"><span>รหัสผ่านใหม่</span><input type="password" placeholder="เว้นว่างหากไม่ต้องการเปลี่ยน" value={userEdit.password} onChange={(e) => setUserEdit({ ...userEdit, password: e.target.value })} /></label>
@@ -414,7 +414,7 @@ function AdminCustomersPage({
                     ? <>บัญชี <strong>{confirmAction.customer.username}</strong> จะไม่สามารถเข้าสู่ระบบได้</>
                     : confirmAction.type === 'reactivate'
                         ? <>บัญชี <strong>{confirmAction.customer.username}</strong> จะกลับมาเข้าสู่ระบบและใช้งานได้ตามปกติ</>
-                        : <>เปลี่ยน <strong>{confirmAction.customer.username}</strong> เป็น {confirmAction.customer.role === 'admin' ? 'User' : 'Admin'}</>}</p>
+                        : <>User <strong>{confirmAction.customer.full_name || confirmAction.customer.username}</strong> จาก {confirmAction.customer.role === 'admin' ? 'Admin' : 'User'} เป็น {confirmAction.customer.role === 'admin' ? 'User' : 'Admin'}</>}</p>
                 {actionError && <div className="member-action-error">{actionError}</div>}
                 <footer><button disabled={actionLoading} onClick={() => setConfirmAction(null)}>ยกเลิก</button><button disabled={actionLoading} className={confirmAction.type} onClick={runAction}>{actionLoading ? 'กำลังดำเนินการ...' : 'ยืนยันดำเนินการ'}</button></footer>
             </div></div>}

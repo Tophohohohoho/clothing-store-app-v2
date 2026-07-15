@@ -110,7 +110,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                 <section className="pos-receipt-dialog">
                     <div className="pos-receipt-print">
                         <header>
-                            <span>CLOTHING STORE</span>
+                            <span>SHOP LRU</span>
                             <h2>ใบเสร็จรับเงิน</h2>
                             <p>เลขที่ #{receipt.order_id}</p>
                         </header>
