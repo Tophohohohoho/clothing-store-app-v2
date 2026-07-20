@@ -18,6 +18,7 @@ export const reviewOrderPayment = (orderId, payload) => apiClient.put(`/api/admi
 export const reviewBulkOrderPayments = (payload) => apiClient.put('/api/admin/orders/payment-review/bulk', payload);
 
 export const getCustomers = (params = {}) => apiClient.get('/api/admin/customers', { params });
+export const createUser = (payload) => apiClient.post('/api/admin/users', payload);
 
 export const changeUserRole = (userId, newRole, actorId) => apiClient.post('/api/admin/change-role', {
     user_id: userId,

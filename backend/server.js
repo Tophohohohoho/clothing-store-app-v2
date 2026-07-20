@@ -2144,6 +2144,69 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+    try {
+        const {
+            username,
+            password,
+            confirm_password,
+            full_name,
+            email,
+            phone,
+            role,
+        } = req.body;
+
+        const validationMessage = getFirstRegisterValidationMessage({
+            username,
+            full_name,
+            email,
+            phone,
+            password,
+            confirm_password: confirm_password ?? req.body.confirmPassword,
+        });
+        if (validationMessage) {
+            return res.status(400).json({ success: false, error: validationMessage });
+        }
+
+        const normalizedUsername = cleanText(username);
+        const normalizedFullName = cleanText(full_name) || normalizedUsername;
+        const normalizedEmail = cleanText(email) || null;
+        const normalizedPhone = cleanText(phone) ? cleanPhone(phone) : null;
+        const normalizedRole = role === 'admin' ? 'admin' : 'user';
+        const passwordHash = await hashPassword(password);
+
+        const [result] = await query(
+            `INSERT INTO \`user\`
+                (username, password, full_name, email, phone, privacy_notice_acknowledged, privacy_notice_acknowledged_at, consent_analytics, consent_analytics_at, role, status_user)
+             VALUES (?, ?, ?, ?, ?, 1, NOW(), 0, NULL, ?, 1)`,
+            [
+                normalizedUsername,
+                passwordHash,
+                normalizedFullName,
+                normalizedEmail,
+                normalizedPhone,
+                normalizedRole,
+            ],
+        );
+
+        const [createdUsers] = await query(
+            'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
+            [result.insertId],
+        );
+        await writeSystemLog(req.authUser.id, 'เพิ่มสมาชิก', `เพิ่มสมาชิก ${normalizedUsername}`, {
+            afterData: snapshotUser(createdUsers[0]),
+        });
+
+        res.status(201).json({ success: true, message: 'เพิ่มสมาชิกสำเร็จ', user: createdUsers[0] });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, error: 'ชื่อผู้ใช้นี้มีคนใช้งานแล้ว กรุณาใช้ชื่ออื่น' });
+        }
+
+        respondError(res, err, 'เพิ่มสมาชิกไม่สำเร็จ');
+    }
+});
+
 app.put('/api/users/:id/profile', requireSelfOrAdmin('id'), async (req, res) => {
     try {
         const { id } = req.params;

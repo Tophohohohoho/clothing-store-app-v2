@@ -17,6 +17,7 @@ function StorePage({
     showStockCounts = false,
     searchText: externalSearchText,
     onSearchTextChange,
+    onOpenAddMember,
 }) {
     const [internalSearchText, setInternalSearchText] = useState('');
     const searchText = externalSearchText ?? internalSearchText;
@@ -98,6 +99,11 @@ function StorePage({
                         <span><b aria-hidden="true">✓</b> สั่งซื้อง่ายและปลอดภัย</span>
                         <span><b aria-hidden="true">✓</b> ติดตามสถานะได้ทุกขั้นตอน</span>
                     </div>
+                    {showStockCounts && onOpenAddMember && (
+                        <button type="button" className="store-admin-member-button" onClick={onOpenAddMember}>
+                            เพิ่มสมาชิก
+                        </button>
+                    )}
                 </div>
                 {showStockCounts && (
                     <div className="store-stats">

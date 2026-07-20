@@ -586,7 +586,14 @@ function OrderHistoryModal({
                                                 </small>
                                             )}
                                         </div>
-                                        <span className="order-history-status">{isCompactCustomerPage ? formatPaymentStatus(item.payment_status || item.status || 'รอชำระ') : (item.status || 'สำเร็จ')}</span>
+                                        <div className="order-history-card-header-side">
+                                            <span className="order-history-status">{isCompactCustomerPage ? formatPaymentStatus(item.payment_status || item.status || 'รอชำระ') : (item.status || 'สำเร็จ')}</span>
+                                            {item.tracking_no && (
+                                                <small className="order-history-tracking-code">
+                                                    เลขพัสดุ {item.tracking_no}
+                                                </small>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className={`order-history-product ${isCompactCustomerPage ? 'is-compact' : ''}`}>
@@ -607,6 +614,12 @@ function OrderHistoryModal({
                                                 {!isCompactCustomerPage && <span>จำนวน {itemCount || Number(item.qty || item.quantity || 1)} ชิ้น</span>}
                                             </div>
                                         </div>
+                                        {isCompactCustomerPage && item.tracking_no && (
+                                            <div className="order-history-inline-meta is-side">
+                                                <span>เลขพัสดุ</span>
+                                                <strong>{item.tracking_no}</strong>
+                                            </div>
+                                        )}
                                         {isSalesMode && !isCompactCustomerPage && (
                                             <div className="order-history-price">
                                                 <span>ยอดขาย</span>

@@ -3,6 +3,7 @@ import * as adminApi from '../api/adminApi';
 import { notify } from '../components/AppNotification';
 
 const EMPTY_EDIT = { id: null, username: '', password: '', full_name: '', email: '', phone: '' };
+const EMPTY_CREATE = { username: '', password: '', confirmPassword: '', full_name: '', email: '', phone: '', role: 'user' };
 const STATUS = {
     0: ['ระงับการใช้งาน', 'suspended'],
     1: ['ใช้งาน', 'active'],
@@ -45,8 +46,13 @@ function AdminCustomersPage({
     customersLoading,
     customersMeta,
     currentUser,
+    adminUserCreate,
+    setAdminUserCreate,
     userEdit,
     setUserEdit,
+    onCreateUser,
+    onOpenCreateUser,
+    onCloseCreateUser,
     onUpdateUser,
     onDeleteUser,
     onReactivateUser,
@@ -333,7 +339,8 @@ function AdminCustomersPage({
             <div className="member-panel">
                 <div className="member-toolbar">
                     <label className="member-search"><span>⌕</span><input type="search" value={searchText} onChange={(e) => setSearchText(e.target.value)} placeholder="ค้นหาชื่อ Username Email หรือเบอร์โทร" /></label>
-                    <div>
+                    <div className="member-toolbar-actions">
+                        <button type="button" className="member-add-button" onClick={onOpenCreateUser}>เพิ่มสมาชิก</button>
                         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                             <option value="all">สิทธิ์ทั้งหมด</option><option value="admin">Admin</option><option value="user">User</option>
                         </select>
@@ -401,6 +408,20 @@ function AdminCustomersPage({
                     <label className="wide"><span>รหัสผ่านใหม่</span><input type="password" placeholder="เว้นว่างหากไม่ต้องการเปลี่ยน" value={userEdit.password} onChange={(e) => setUserEdit({ ...userEdit, password: e.target.value })} /></label>
                 </div>
                 <footer><button onClick={() => setUserEdit(EMPTY_EDIT)}>ยกเลิก</button><button className="primary" onClick={saveEdit}>บันทึกการเปลี่ยนแปลง</button></footer>
+            </div></div>}
+
+            {adminUserCreate?.isOpen && <div className="member-modal-backdrop"><div className="member-edit-modal">
+                <header><div><span>เพิ่มสมาชิกใหม่</span><h5>สร้างบัญชีผู้ใช้งานจากแอดมิน</h5></div><button onClick={onCloseCreateUser}>×</button></header>
+                <div className="member-form">
+                    <label><span>Username</span><input value={adminUserCreate.form?.username || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), username: e.target.value } }))} /></label>
+                    <label><span>ชื่อ-นามสกุล</span><input value={adminUserCreate.form?.full_name || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), full_name: e.target.value } }))} /></label>
+                    <label><span>อีเมล</span><input type="email" value={adminUserCreate.form?.email || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), email: e.target.value } }))} /></label>
+                    <label><span>เบอร์โทร</span><input value={adminUserCreate.form?.phone || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), phone: e.target.value } }))} /></label>
+                    <label><span>รหัสผ่าน</span><input type="password" value={adminUserCreate.form?.password || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), password: e.target.value } }))} /></label>
+                    <label><span>ยืนยันรหัสผ่าน</span><input type="password" value={adminUserCreate.form?.confirmPassword || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), confirmPassword: e.target.value } }))} /></label>
+                    <label className="wide"><span>สิทธิ์การใช้งาน</span><select value={adminUserCreate.form?.role || 'user'} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), role: e.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
+                </div>
+                <footer><button onClick={onCloseCreateUser}>ยกเลิก</button><button className="primary" onClick={onCreateUser}>เพิ่มสมาชิก</button></footer>
             </div></div>}
 
             {confirmAction && <div className="member-modal-backdrop"><div className="member-confirm-modal">

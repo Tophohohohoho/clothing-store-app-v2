@@ -109,6 +109,15 @@ const PUBLIC_PAGES = ['home', 'products', 'product-detail', 'cart', 'login', 're
 const MEMBER_PAGES = ['checkout', 'payment', 'orders', 'order-detail', 'profile'];
 const ADMIN_PAGES = ['admin-dashboard', 'admin-products', 'admin-categories', 'admin-stock', 'admin-orders', 'pos', 'sales-report', 'admin-users', 'admin-logs'];
 const MEMBER_ROLES = ['member', 'customer', 'user'];
+const emptyAdminUserForm = {
+    username: '',
+    password: '',
+    confirmPassword: '',
+    full_name: '',
+    email: '',
+    phone: '',
+    role: 'user',
+};
 
 const isAdminUser = (currentUser) => currentUser?.role === 'admin';
 const isMemberUser = (currentUser) => MEMBER_ROLES.includes(currentUser?.role);
@@ -491,6 +500,7 @@ function App() {
         pagination: { page: 1, limit: 10, total: 0, total_pages: 1 },
         summary: { total_members: 0, total_admins: 0, total_users: 0, total_spent: 0 },
     });
+    const [adminUserCreate, setAdminUserCreate] = useState({ isOpen: false, form: emptyAdminUserForm });
     const [stockLogs, setStockLogs] = useState([]);
     const [systemLogs, setSystemLogs] = useState([]);
     const [activityLogsLoading, setActivityLogsLoading] = useState(false);
@@ -1540,6 +1550,51 @@ function App() {
         }
     };
 
+    const openAdminCreateUser = useCallback(() => {
+        setAdminUserCreate({
+            isOpen: true,
+            form: { ...emptyAdminUserForm },
+        });
+    }, []);
+
+    const closeAdminCreateUser = useCallback(() => {
+        setAdminUserCreate({
+            isOpen: false,
+            form: { ...emptyAdminUserForm },
+        });
+    }, []);
+
+    const handleCreateUser = async () => {
+        const form = adminUserCreate.form;
+        const validationErrors = getRegisterValidationErrors(form);
+        if (Object.keys(validationErrors).length > 0) {
+            const firstError = Object.values(validationErrors)[0];
+            notify({ type: 'warning', title: 'ข้อมูลสมาชิกยังไม่ครบ', message: firstError });
+            return { success: false, error: firstError };
+        }
+
+        try {
+            await adminApi.createUser({
+                username: form.username,
+                password: form.password,
+                confirm_password: form.confirmPassword,
+                full_name: form.full_name,
+                email: form.email,
+                phone: form.phone,
+                role: form.role,
+            });
+
+            closeAdminCreateUser();
+            notify({ type: 'success', title: 'เพิ่มสมาชิกสำเร็จ', message: 'สร้างบัญชีสมาชิกใหม่เรียบร้อยแล้ว' });
+            await fetchCustomers();
+            return { success: true };
+        } catch (err) {
+            const errorMessage = err.response?.data?.error || err.response?.data?.message || 'ไม่สามารถเพิ่มสมาชิกได้';
+            notify({ type: 'error', title: 'เพิ่มสมาชิกไม่สำเร็จ', message: errorMessage });
+            return { success: false, error: errorMessage };
+        }
+    };
+
     const handleChangeRole = async (customer) => {
         try {
             const newRole = customer.role === 'admin' ? 'user' : 'admin';
@@ -1831,6 +1886,8 @@ function App() {
                         customers={customers}
                         customersLoading={customersLoading}
                         customersMeta={customersMeta}
+                        adminUserCreate={adminUserCreate}
+                        setAdminUserCreate={setAdminUserCreate}
                         currentUser={user}
                         onLoadCustomers={fetchCustomers}
                         stockLogs={stockLogs}
@@ -1842,6 +1899,9 @@ function App() {
                         setEditProduct={setEditProduct}
                         userEdit={userEdit}
                         setUserEdit={setUserEdit}
+                        onCreateUser={handleCreateUser}
+                        onOpenCreateUser={openAdminCreateUser}
+                        onCloseCreateUser={closeAdminCreateUser}
                         onSubmit={handleAddProduct}
                         onSaveEditProduct={handleSaveEditProduct}
                         onDeleteProduct={handleDeleteProduct}
@@ -1877,6 +1937,11 @@ function App() {
                         showStockCounts={isAdminUser(user)}
                         searchText={storeSearchText}
                         onSearchTextChange={setStoreSearchText}
+                        onOpenAddMember={() => {
+                            setIsAdminView(true);
+                            setAdminPage('customers');
+                            openAdminCreateUser();
+                        }}
                     />
                 )}
             </div>
