@@ -667,7 +667,6 @@ function AdminAddProductPage({
 
     return (
         <>
-            <div className="card border-0 shadow-sm rounded-4 p-5 mb-4">
                 <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
                     <div>
                         <h3 className="fw-bold mb-1">{productAdminView === 'products' ? 'จัดการสินค้า' : 'จัดการหมวดหมู่สินค้า'}</h3>
@@ -677,31 +676,32 @@ function AdminAddProductPage({
                                 : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานหมวดหมู่สินค้า'}
                         </p>
                     </div>
-                    <div className="admin-subtabs-wrap">
-                        <div className="panel-export-buttons">
-                            <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
-                            <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
-                            <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
-                        </div>
-                        <div className="admin-subtabs">
-                            <button
-                                type="button"
-                                className={productAdminView === 'products' ? 'active' : ''}
-                                onClick={() => setProductAdminView('products')}
-                            >
-                                จัดการสินค้า
-                            </button>
-                            <button
-                                type="button"
-                                className={productAdminView === 'categories' ? 'active' : ''}
-                                onClick={() => setProductAdminView('categories')}
-                            >
-                                จัดการหมวดหมู่
-                            </button>
-                        </div>
+                    <div className="panel-export-buttons">
+                        <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
+                        <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
+                        <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
                     </div>
                 </div>
-
+                <div className="admin-subtabs-panel">
+                    <p className="admin-subtabs-help mb-0">
+                        เลือก <strong>จัดการสินค้า</strong> เพื่อเพิ่มหรือแก้ไขสินค้า และเลือก <strong>จัดการหมวดหมู่</strong> เพื่อดูแลหมวดหมู่สินค้า
+                    </p>
+                    <div className="admin-subtabs">
+                        <button
+                            type="button"
+                            className={productAdminView === 'products' ? 'active' : ''}
+                            onClick={() => setProductAdminView('products')}
+                        >
+                            จัดการสินค้า
+                        </button>
+                        <button
+                            type="button"
+                            className={productAdminView === 'categories' ? 'active' : ''}
+                            onClick={() => setProductAdminView('categories')}
+                        >
+                            จัดการหมวดหมู่
+                        </button>
+                    </div>
                 {productAdminView === 'products' && showAddForm && (
                     <form
                         onSubmit={async (event) => {
