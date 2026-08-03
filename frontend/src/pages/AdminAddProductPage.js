@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { notify } from '../components/AppNotification';
+import { formatThaiDateTime } from '../utils/date';
 
 const AdminIcon = ({ name, size = 16 }) => {
     const paths = {
@@ -604,7 +605,7 @@ function AdminAddProductPage({
             notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
             return;
         }
-        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const printedAt = formatThaiDateTime(new Date());
         const tableRows = rows.map((row) => `
             <tr>
                 <td>${escapeHtml(row.sku)}</td>
@@ -710,7 +711,7 @@ function AdminAddProductPage({
             notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
             return;
         }
-        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const printedAt = formatThaiDateTime(new Date());
         const tableRows = rows.map((row) => `
             <tr>
                 <td>${escapeHtml(row.id)}</td>

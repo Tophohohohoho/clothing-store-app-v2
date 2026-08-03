@@ -4,6 +4,7 @@ import * as adminApi from '../api/adminApi';
 import { notify } from '../components/AppNotification';
 import { extractPaymentReviewData, extractTextFromImage } from '../utils/imageText';
 import { resolveMediaUrl } from '../utils/media';
+import { formatThaiDate, formatThaiDateTime, formatThaiShortDateTime } from '../utils/date';
 
 const formatMoney = (value) => {
     const amount = Number(value) || 0;
@@ -97,11 +98,7 @@ const escapeHtml = (value) => String(value ?? '')
     .replace(/'/g, '&#39;');
 
 const formatDateTime = (value) => {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    });
+    return formatThaiDateTime(value, '-');
 };
 
 const getOrderDate = (order = {}) => new Date(order.created_at || order.order_date || order.payment_date || 0);
@@ -188,20 +185,10 @@ const formatOrderContactSummary = (order = {}) => {
     return phone || '-';
 };
 
-const formatAuditDateTime = (value) => (value ? new Date(value).toLocaleString('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-}) : '-');
+const formatAuditDateTime = (value) => formatThaiDateTime(value, '-');
 
 const formatReportDate = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('th-TH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
+    return formatThaiDate(value, '-');
 };
 
 const getPaymentReceivedAt = (order = {}) => order.reviewed_at || order.payment_date || order.created_at || order.order_date;
@@ -572,7 +559,7 @@ function AdminDashboardPage({
                 order.full_name,
                 order.tracking_no,
                 order.transaction_ref,
-                order.payment_date ? new Date(order.payment_date).toLocaleString('th-TH') : '',
+                order.payment_date ? formatThaiDateTime(order.payment_date) : '',
                 order.payment_status,
             ].join(' ').toLowerCase();
             return (!keyword || searchable.includes(keyword))
@@ -1046,7 +1033,7 @@ function AdminDashboardPage({
             if (unpaidOrder) {
                 throw new Error(`ออเดอร์ #${unpaidOrder.order?.id || '-'} ยังไม่ชำระเงิน ไม่สามารถพิมพ์ใบจัดส่งได้`);
             }
-            const printTimestamp = new Date().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            const printTimestamp = formatThaiShortDateTime(new Date());
             writeShippingPrintDocument(
                 popup,
                 payloads.map((payload, index) => renderShippingSheetHtml(payload, idsToPrint[index], printTimestamp)).join(''),
@@ -1670,7 +1657,7 @@ function AdminDashboardPage({
             username: log.username || '-',
         }));
         const title = isStockView ? 'รายงานประวัติสต็อก' : 'รายงานประวัติการเคลื่อนไหวแอดมิน';
-        const subtitle = `${rows.length.toLocaleString('th-TH')} รายการ · ${new Date().toLocaleString('th-TH')}`;
+        const subtitle = `${rows.length.toLocaleString('th-TH')} รายการ · ${formatThaiDateTime(new Date())}`;
         const headers = isStockView
             ? ['วันที่/เวลา', 'ผู้ใช้งาน', 'สินค้า', 'จำนวนที่เปลี่ยน', 'เหตุผล']
             : ['วันที่/เวลา', 'ผู้ใช้งาน', 'บัญชี', 'สิทธิ์', 'การทำงาน', 'หมายเหตุ'];
@@ -1709,7 +1696,7 @@ function AdminDashboardPage({
             return;
         }
 
-        const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+        const printedAt = formatThaiDateTime(new Date());
         const tableRows = rows.map((row) => `
             <tr>
                 <td>${escapeHtml(row.sku)}</td>
@@ -1792,7 +1779,7 @@ function AdminDashboardPage({
                 1: 'ใช้งาน',
                 2: 'รอการยืนยัน',
             };
-            const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+            const printedAt = formatThaiDateTime(new Date());
             const tableRows = customers.map((customer) => `
                 <tr>
                     <td>${escapeHtml(customer.id)}</td>
@@ -1887,7 +1874,7 @@ function AdminDashboardPage({
         const totalReceived = rows.reduce((sum, row) => sum + row.receivedAmount, 0);
         const dateLabel = customRange
             ? `${customRange.from} ถึง ${customRange.to}`
-            : `พิมพ์เมื่อ ${new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+            : `พิมพ์เมื่อ ${formatThaiDateTime(new Date())}`;
         const tableRows = rows.map((row) => `
             <tr>
                 <td>#${escapeHtml(row.id)}</td>
@@ -2575,7 +2562,7 @@ function AdminDashboardPage({
                                                 onClick={orderViewTab === 'slips' ? undefined : () => loadOrderDetails(order)}
                                             >
                                                 <td data-label="ออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                                <td data-label="วันที่ส่งสลิป"><span className="order-date">{order.payment_date ? new Date(order.payment_date).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</span></td>
+                                                <td data-label="วันที่ส่งสลิป"><span className="order-date">{order.payment_date ? formatThaiDateTime(order.payment_date) : '-'}</span></td>
                                             <td data-label="ผู้ใช้งาน"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
                                                 <td data-label="ยอดเงิน" className="order-total">฿{formatMoney(order.final_price ?? order.total_price)}</td>
                                                 <td data-label="สลิป">
@@ -2669,7 +2656,7 @@ function AdminDashboardPage({
                                         return (
                                             <tr key={`slip-history-${order.id}`} onClick={() => loadOrderDetails(order)}>
                                                 <td data-label="ออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                                <td data-label="วันที่ตรวจ"><span className="order-date">{order.reviewed_at ? new Date(order.reviewed_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : (order.payment_date ? new Date(order.payment_date).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' }) : '-')}</span></td>
+                                                <td data-label="วันที่ตรวจ"><span className="order-date">{order.reviewed_at ? formatThaiDateTime(order.reviewed_at) : (order.payment_date ? formatThaiDateTime(order.payment_date) : '-')}</span></td>
                                                 <td data-label="ผู้ใช้งาน"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
                                                 <td data-label="รูปสลิป">
                                                     <button type="button" className="slip-review-thumb" onClick={(event) => openReceiptLightbox(order, event)} aria-label={`ดูสลิปออเดอร์ #${order.id}`}>
@@ -2741,7 +2728,7 @@ function AdminDashboardPage({
                                                 </td>
                                             )}
                                             <td data-label="เลขออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                            <td data-label="วันที่สั่งซื้อ"><span className="order-date">{new Date(order.created_at).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</span></td>
+                                            <td data-label="วันที่สั่งซื้อ"><span className="order-date">{formatThaiDateTime(order.created_at)}</span></td>
                                             <td data-label="ลูกค้า"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
                                             <td data-label="สลิปการชำระเงิน">
                                                 {order.receipt_image ? (
@@ -2873,7 +2860,7 @@ function AdminDashboardPage({
                             <div>
                                 <span>ORDER DETAILS</span>
                                 <h2 id="order-detail-modal-title">รายละเอียดคำสั่งซื้อ #{selectedOrder.id}</h2>
-                                <p>{selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString('th-TH') : 'ไม่ระบุวันที่สั่งซื้อ'}</p>
+                                <p>{selectedOrder.created_at ? formatThaiDateTime(selectedOrder.created_at) : 'ไม่ระบุวันที่สั่งซื้อ'}</p>
                             </div>
                             <button type="button" onClick={closeOrderDetailModal} aria-label="ปิดหน้าต่างรายละเอียดคำสั่งซื้อ">×</button>
                         </header>
@@ -2898,7 +2885,7 @@ function AdminDashboardPage({
                             <div className="order-modal-body">
                                 <section className="order-detail-summary">
                                     <div><span>ผู้ใช้งาน</span><strong>{detailOrder.full_name || detailOrder.username || 'ผู้ใช้งานทั่วไป'}</strong><small>{detailOrder.email || '-'} · {detailOrder.customer_phone || '-'}</small></div>
-                                    <div><span>วิธีชำระเงิน</span><strong>{detailOrder.payment_method || '-'}</strong><small>{detailOrder.payment_date ? `ส่งสลิป ${new Date(detailOrder.payment_date).toLocaleString('th-TH')}` : 'ยังไม่มีสลิป'}</small></div>
+                                    <div><span>วิธีชำระเงิน</span><strong>{detailOrder.payment_method || '-'}</strong><small>{detailOrder.payment_date ? `ส่งสลิป ${formatThaiDateTime(detailOrder.payment_date)}` : 'ยังไม่มีสลิป'}</small></div>
                                     <div><span>ยอดสุทธิ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong><small>สินค้า ฿{formatMoney(detailOrder.total_price)} · ค่าส่ง ฿{formatMoney(detailOrder.shipping_fee)}</small></div>
                                     <div><span>สถานะออเดอร์</span><strong>{detailOrder.status || '-'}</strong><small>{isPickupOrder(detailOrder || selectedOrder) ? 'เลขพัสดุ N/A' : (detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ')}</small></div>
                                 </section>
@@ -2947,11 +2934,11 @@ function AdminDashboardPage({
                                         <div className="payment-review-box">
                                             <div className="payment-review-meta">
                                                 <div><span>ยอดที่ต้องชำระ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong></div>
-                                                <div><span>วันที่ส่งสลิป</span><strong>{detailOrder.payment_date ? new Date(detailOrder.payment_date).toLocaleString('th-TH') : '-'}</strong></div>
+                                                <div><span>วันที่ส่งสลิป</span><strong>{detailOrder.payment_date ? formatThaiDateTime(detailOrder.payment_date) : '-'}</strong></div>
                                                 <label>ยอดที่ตรวจพบ<input type="number" min="0" step="0.01" value={paymentReviewForm.verified_amount} onChange={(event) => updatePaymentReviewForm('verified_amount', event.target.value)} placeholder="0.00" disabled={paymentReviewDisabled} /></label>
                                                 <label>เลขอ้างอิงรายการ<input value={paymentReviewForm.transaction_ref} onChange={(event) => updatePaymentReviewForm('transaction_ref', event.target.value)} placeholder="เช่น Ref / Transaction ID" disabled={paymentReviewDisabled} /></label>
                                                 <div><span>ผู้ตรวจสอบ</span><strong>{detailOrder.reviewer_full_name || detailOrder.reviewer_username || '-'}</strong></div>
-                                                <div><span>เวลาตรวจสอบ</span><strong>{detailOrder.reviewed_at ? new Date(detailOrder.reviewed_at).toLocaleString('th-TH') : '-'}</strong></div>
+                                                <div><span>เวลาตรวจสอบ</span><strong>{detailOrder.reviewed_at ? formatThaiDateTime(detailOrder.reviewed_at) : '-'}</strong></div>
                                             </div>
                                             {paymentReviewError && <div className="payment-review-error">{paymentReviewError}</div>}
                                             <div className="payment-review-actions">
@@ -2966,7 +2953,7 @@ function AdminDashboardPage({
                                     <section className="order-detail-card">
                                         <h3>ประวัติสถานะ</h3>
                                         <div className="order-timeline">
-                                            {detailHistory.length ? detailHistory.map((item) => <div key={item.history_id}><i /><div><strong>{item.status}</strong><span>{new Date(item.created_at).toLocaleString('th-TH')}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>) : <div className="order-empty-inline">ยังไม่มีประวัติสถานะ</div>}
+                                            {detailHistory.length ? detailHistory.map((item) => <div key={item.history_id}><i /><div><strong>{item.status}</strong><span>{formatThaiDateTime(item.created_at)}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>) : <div className="order-empty-inline">ยังไม่มีประวัติสถานะ</div>}
                                         </div>
                                     </section>
                                 </div>

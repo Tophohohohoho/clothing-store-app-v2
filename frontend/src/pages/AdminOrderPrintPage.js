@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
+import { formatThaiDateTime, formatThaiShortDateTime } from '../utils/date';
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
     minimumFractionDigits: 2,
@@ -8,15 +9,10 @@ const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
 
 const formatDate = (value) => {
     if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    return formatThaiDateTime(value, '-');
 };
 
-const formatPrintTimestamp = () => new Date().toLocaleString('th-TH', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-});
+const formatPrintTimestamp = () => formatThaiShortDateTime(new Date(), '-');
 
 const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order?.payment_status);
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);

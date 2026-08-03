@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { notify } from './AppNotification';
 import { copyTextToClipboard, extractTextFromImage } from '../utils/imageText';
 import { resolveMediaUrl } from '../utils/media';
+import { formatThaiDateTime } from '../utils/date';
 
 const BANK_ACCOUNT = '123-4-56789-0';
 const BANK_ACCOUNT_DIGITS = '1234567890';
@@ -129,14 +130,7 @@ function OrderHistoryModal({
     const formatFileSize = (bytes) => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
 
     const formatDateTime = (value) => {
-        if (!value) return 'ไม่ระบุวันที่ขาย';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return 'ไม่ระบุวันที่ขาย';
-
-        return date.toLocaleString('th-TH', {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-        });
+        return formatThaiDateTime(value, 'ไม่ระบุวันที่ขาย');
     };
 
     const getSellerName = (order) => (

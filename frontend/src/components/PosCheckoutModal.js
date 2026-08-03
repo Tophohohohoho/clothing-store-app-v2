@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCartCount, getCartTotal, getItemPrice, getItemQuantity } from '../utils/cart';
+import { formatThaiDateTime } from '../utils/date';
 
 const PROMPTPAY_ID = '1234567890';
 
@@ -103,7 +104,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                             <p>เลขที่ #{receipt.order_id}</p>
                         </header>
                         <div className="pos-receipt-meta">
-                            <span>วันที่</span><strong>{new Date(receipt.order_date).toLocaleString('th-TH')}</strong>
+                            <span>วันที่</span><strong>{formatThaiDateTime(receipt.order_date)}</strong>
                             <span>พนักงาน</span><strong>{cashier?.full_name || cashier?.username || '-'}</strong>
                             <span>รหัสผู้ใช้งาน</span><strong>{receipt.receiver_name || '-'}</strong>
                             <span>ชำระโดย</span><strong>{receipt.payment_method}</strong>

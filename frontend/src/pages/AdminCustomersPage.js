@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
 import { notify } from '../components/AppNotification';
+import { formatThaiDateTime } from '../utils/date';
 
 const EMPTY_EDIT = { id: null, username: '', password: '', full_name: '', email: '', phone: '' };
 const EMPTY_CREATE = { username: '', password: '', confirmPassword: '', full_name: '', email: '', phone: '', role: 'user' };
@@ -77,6 +78,11 @@ function AdminCustomersPage({
         setSortConfig({ key: '', direction: 'asc' });
         setPage(1);
     };
+    const applyQuickFilter = ({ role = 'all', status = 'all' }) => {
+        setRoleFilter(role);
+        setStatusFilter(status);
+        setPage(1);
+    };
 
     useEffect(() => { loadRef.current = onLoadCustomers; }, [onLoadCustomers]);
     useEffect(() => {
@@ -105,6 +111,48 @@ function AdminCustomersPage({
         sort: sortConfig.key || undefined,
         order: sortConfig.key ? sortConfig.direction : undefined,
     };
+    const summaryCards = [
+        {
+            key: 'all',
+            iconClass: 'blue',
+            icon: '👥',
+            label: 'สมาชิกทั้งหมด',
+            value: Number(summary.total_members || 0).toLocaleString(),
+            role: 'all',
+            status: 'all',
+            active: roleFilter === 'all' && statusFilter === 'all',
+        },
+        {
+            key: 'admin',
+            iconClass: 'red',
+            icon: 'A',
+            label: 'Admin',
+            value: Number(summary.total_admins || 0).toLocaleString(),
+            role: 'admin',
+            status: 'all',
+            active: roleFilter === 'admin' && statusFilter === 'all',
+        },
+        {
+            key: 'user',
+            iconClass: 'cyan',
+            icon: 'U',
+            label: 'User',
+            value: Number(summary.total_users || 0).toLocaleString(),
+            role: 'user',
+            status: 'all',
+            active: roleFilter === 'user' && statusFilter === 'all',
+        },
+        {
+            key: 'suspended',
+            iconClass: 'green',
+            icon: '!',
+            label: 'ผู้ใช้ที่ถูกระงับ',
+            value: Number(summary.total_suspended || 0).toLocaleString(),
+            role: 'all',
+            status: '0',
+            active: roleFilter === 'all' && statusFilter === '0',
+        },
+    ];
     const toggleSort = (key) => {
         setSortConfig((current) => ({
             key,
@@ -264,7 +312,7 @@ function AdminCustomersPage({
                 notify({ type: 'warning', title: 'เปิดหน้าพิมพ์ไม่สำเร็จ', message: 'กรุณาอนุญาตป๊อปอัปสำหรับเบราว์เซอร์นี้' });
                 return;
             }
-            const printedAt = new Date().toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+            const printedAt = formatThaiDateTime(new Date());
             const tableRows = preparedRows.map((row) => `
                 <tr>
                     <td>${escapeHtml(row.id)}</td>
@@ -337,10 +385,21 @@ function AdminCustomersPage({
             </header>
 
             <div className="member-summary-grid">
-                <article><b className="blue">👥</b><div><span>สมาชิกทั้งหมด</span><strong>{Number(summary.total_members || 0).toLocaleString()}</strong></div></article>
-                <article><b className="red">A</b><div><span>Admin</span><strong>{Number(summary.total_admins || 0).toLocaleString()}</strong></div></article>
-                <article><b className="cyan">U</b><div><span>User</span><strong>{Number(summary.total_users || 0).toLocaleString()}</strong></div></article>
-                <article><b className="green">!</b><div><span>ผู้ใช้ที่ถูกระงับ</span><strong>{Number(summary.total_suspended || 0).toLocaleString()}</strong></div></article>
+                {summaryCards.map((card) => (
+                    <button
+                        key={card.key}
+                        type="button"
+                        className={`member-summary-card ${card.active ? 'active' : ''}`}
+                        onClick={() => applyQuickFilter({ role: card.role, status: card.status })}
+                        aria-pressed={card.active}
+                    >
+                        <b className={card.iconClass}>{card.icon}</b>
+                        <div>
+                            <span>{card.label}</span>
+                            <strong>{card.value}</strong>
+                        </div>
+                    </button>
+                ))}
             </div>
 
             <div className="member-panel">

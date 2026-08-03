@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatThaiDateTime } from '../utils/date';
 
 const PAGE_SIZES = [10, 20, 50, 100];
 const DATE_PRESETS = [
@@ -35,20 +36,19 @@ const getActivityType = (log, view) => {
 };
 
 const ACTIVITY_LABELS = {
-    login: 'Login',
-    logout: 'Logout',
-    create: 'Create',
-    update: 'Update',
-    delete: 'Delete',
-    'stock-in': 'Stock In',
-    'stock-out': 'Stock Out',
+    login: 'เข้าสู่ระบบ',
+    logout: 'ออกจากระบบ',
+    create: 'เพิ่ม',
+    update: 'แก้ไข',
+    delete: 'ลบ',
+    'stock-in': 'รับเข้า',
+    'stock-out': 'ขายออก',
     general: 'ทั่วไป',
 };
+const STOCK_ACTIVITY_ORDER = ['stock-in', 'stock-out'];
+const SYSTEM_ACTIVITY_ORDER = ['general', 'create', 'update', 'delete', 'login', 'logout'];
 
-const formatDate = (value) => (value ? new Date(value).toLocaleString('th-TH', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-}) : '-');
+const formatDate = (value) => formatThaiDateTime(value, '-');
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
@@ -124,7 +124,11 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
     ), [activityView, stockLogs, systemLogs]);
 
     const users = useMemo(() => [...new Set(rows.map((row) => row.auditUser))].sort((a, b) => a.localeCompare(b, 'th')), [rows]);
-    const availableTypes = useMemo(() => [...new Set(rows.map((row) => row.auditType))], [rows]);
+    const availableTypes = useMemo(() => {
+        const types = [...new Set(rows.map((row) => row.auditType))];
+        const preferredOrder = activityView === 'stock' ? STOCK_ACTIVITY_ORDER : SYSTEM_ACTIVITY_ORDER;
+        return preferredOrder.filter((type) => types.includes(type));
+    }, [activityView, rows]);
 
     const filteredRows = useMemo(() => {
         const { search, datePreset, dateFrom, dateTo, userFilter, typeFilter } = filters;
@@ -202,10 +206,29 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             total: rows.length,
             stockIn: rows.filter((row) => row.auditType === 'stock-in').length,
             stockOut: rows.filter((row) => row.auditType === 'stock-out').length,
+            login: rows.filter((row) => row.auditType === 'login').length,
+            logout: rows.filter((row) => row.auditType === 'logout').length,
+            create: rows.filter((row) => row.auditType === 'create').length,
+            delete: rows.filter((row) => row.auditType === 'delete').length,
+            update: rows.filter((row) => row.auditType === 'update').length,
+            general: rows.filter((row) => row.auditType === 'general').length,
             users: new Set(rows.map((row) => row.auditUser)).size,
             today: rows.filter((row) => row.auditDate && new Date(row.auditDate).toDateString() === today).length,
         };
     }, [rows]);
+    const summaryCards = activityView === 'stock'
+        ? [
+            { key: 'total', iconClass: 'purple', icon: 'Σ', label: 'กิจกรรมทั้งหมด', value: summary.total },
+            { key: 'stock-in', iconClass: 'green', icon: '↓', label: 'การรับเข้า', value: summary.stockIn },
+            { key: 'stock-out', iconClass: 'red', icon: '↑', label: 'การขายออก', value: summary.stockOut },
+        ]
+        : [
+            { key: 'total', iconClass: 'purple', icon: 'Σ', label: 'กิจกรรมทั้งหมด', value: summary.total },
+            { key: 'general', iconClass: 'blue', icon: '•', label: 'ทั่วไป', value: summary.general },
+            { key: 'create', iconClass: 'green', icon: '+', label: 'เพิ่ม', value: summary.create },
+            { key: 'delete', iconClass: 'red', icon: '−', label: 'ลบ', value: summary.delete },
+            { key: 'update', iconClass: 'amber', icon: '✎', label: 'แก้ไข', value: summary.update },
+        ];
 
     const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
     const paginatedRows = filteredRows.slice((page - 1) * pageSize, page * pageSize);
@@ -238,7 +261,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             if (!popup) return;
             popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${filename}</title>
                 <style>body{font-family:Arial,sans-serif;padding:28px;color:#17202e}h2{margin:0 0 6px}p{color:#667085}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px;border:1px solid #dfe4ea;text-align:left}th{background:#f2f4f7}@page{size:landscape;margin:12mm}</style>
-                </head><body><h2>Audit Log Report</h2><p>จำนวน ${data.length.toLocaleString('th-TH')} รายการ · ${new Date().toLocaleString('th-TH')}</p>
+                </head><body><h2>Audit Log Report</h2><p>จำนวน ${data.length.toLocaleString('th-TH')} รายการ · ${formatThaiDateTime(new Date())}</p>
                 <table><thead><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr></thead><tbody>
                 ${data.map((row) => `<tr>${row.map((item) => `<td>${String(item ?? '-').replace(/</g, '&lt;')}</td>`).join('')}</tr>`).join('')}
                 </tbody></table></body></html>`);
@@ -278,6 +301,32 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             ...(key === 'datePreset' && value !== 'custom' ? { dateFrom: '', dateTo: '' } : {}),
         }));
     };
+    const isSummaryCardActive = (cardKey) => {
+        if (activityView === 'system') {
+            return filters.typeFilter === (cardKey === 'total' ? 'all' : cardKey);
+        }
+
+        if (cardKey === 'total') return filters.typeFilter === 'all';
+        if (cardKey === 'stock-in' || cardKey === 'stock-out') return filters.typeFilter === cardKey;
+        if (cardKey === 'today') return filters.datePreset === 'today';
+        return false;
+    };
+
+    const applyQuickFilter = (cardKey) => {
+        if (activityView === 'system') {
+            updateFilter('typeFilter', cardKey === 'total' ? 'all' : cardKey);
+            return;
+        }
+
+        if (cardKey === 'today') {
+            updateFilter('datePreset', 'today');
+            return;
+        }
+
+        if (cardKey === 'total' || cardKey === 'stock-in' || cardKey === 'stock-out') {
+            updateFilter('typeFilter', cardKey === 'total' ? 'all' : cardKey);
+        }
+    };
 
     return (
         <section className="audit-dashboard">
@@ -285,7 +334,11 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 <div className="admin-hero-copy">
                     <span className="audit-eyebrow admin-hero-eyebrow">AUDIT & COMPLIANCE</span>
                     <h4 className="admin-hero-title">ประวัติการเคลื่อนไหว</h4>
-                    <p className="admin-hero-description">ตรวจสอบประวัติการเปลี่ยนแปลงสต๊อกแบบถาวร พร้อมข้อมูลผู้ดำเนินการ ประเภทการเคลื่อนไหว เหตุผล วันที่เวลา และยอดก่อน-หลังการแก้ไข</p>
+                    <p className="admin-hero-description">
+                        {activityView === 'stock'
+                            ? 'ตรวจสอบประวัติการเปลี่ยนแปลงสินค้าในสต็อก เช่น รับเข้า ตัดออก ขายออก และปรับจำนวน พร้อมข้อมูลผู้ดำเนินการ เหตุผล วันที่เวลา และยอดก่อน-หลังการแก้ไข'
+                            : 'ตรวจสอบบันทึกการกระทำของผู้ดูแลระบบ เช่น เข้าสู่ระบบ ออกจากระบบ เพิ่ม แก้ไข ลบ หรืออัปเดตข้อมูล พร้อมวันเวลาและรายละเอียดการดำเนินการ'}
+                    </p>
                 </div>
                 <div className="audit-export admin-hero-export">
                     <button type="button" onClick={() => exportRows('csv')}>CSV</button>
@@ -294,12 +347,22 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 </div>
             </header>
 
-            <div className="audit-summary-grid">
-                <article><b className="purple">Σ</b><div><span>กิจกรรมทั้งหมด</span><strong>{summary.total.toLocaleString('th-TH')}</strong></div></article>
-                <article><b className="green">↓</b><div><span>การรับเข้า</span><strong>{summary.stockIn.toLocaleString('th-TH')}</strong></div></article>
-                <article><b className="red">↑</b><div><span>การขายออก</span><strong>{summary.stockOut.toLocaleString('th-TH')}</strong></div></article>
-                <article><b className="blue">♙</b><div><span>ผู้ใช้งานที่เคลื่อนไหว</span><strong>{summary.users.toLocaleString('th-TH')}</strong></div></article>
-                <article><b className="amber">◷</b><div><span>กิจกรรมวันนี้</span><strong>{summary.today.toLocaleString('th-TH')}</strong></div></article>
+            <div className={`audit-summary-grid ${activityView === 'stock' ? 'stock-summary-grid' : 'system-summary-grid'}`}>
+                {summaryCards.map((card) => (
+                    <button
+                        key={card.key}
+                        type="button"
+                        className={`audit-summary-card ${isSummaryCardActive(card.key) ? 'active' : ''}`}
+                        onClick={() => applyQuickFilter(card.key)}
+                        aria-pressed={isSummaryCardActive(card.key)}
+                    >
+                        <b className={card.iconClass}>{card.icon}</b>
+                        <div>
+                            <span>{card.label}</span>
+                            <strong>{card.value.toLocaleString('th-TH')}</strong>
+                        </div>
+                    </button>
+                ))}
             </div>
 
             <div className="audit-panel">

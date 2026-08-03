@@ -1,3 +1,9 @@
+const sanitizeAmountInput = (value) => String(value || '').replace(/[^\d]/g, '');
+const formatAmountInput = (value) => {
+    const sanitized = sanitizeAmountInput(value);
+    return sanitized ? Number(sanitized).toLocaleString('th-TH') : '';
+};
+
 function StockEditModal({ stockEdit, setStockEdit, onSave }) {
     if (!stockEdit?.id) return null;
 
@@ -12,13 +18,15 @@ function StockEditModal({ stockEdit, setStockEdit, onSave }) {
     });
 
     const isAdjustment = stockEdit.changeType === 'ปรับยอด';
+    const isDecreaseMode = ['สินค้าชำรุด', 'สูญหาย'].includes(stockEdit.changeType)
+        || (isAdjustment && stockEdit.adjustmentMode === 'decrease');
     const stockPreview = Number(stockEdit.amount) || 0;
-    const signedPreview = stockEdit.changeType === 'สินค้าชำรุด'
+    const signedPreview = isDecreaseMode
         ? -stockPreview
-        : isAdjustment && stockEdit.adjustmentMode === 'decrease'
-            ? -stockPreview
-            : stockPreview;
+        : stockPreview;
     const projectedStock = Math.max(0, (Number(stockEdit.currentStock) || 0) + signedPreview);
+    const maxDecreaseAmount = Math.max(0, Number(stockEdit.currentStock) || 0);
+    const exceedsAvailableStock = isDecreaseMode && stockPreview > maxDecreaseAmount;
 
     return (
         <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1100 }}>
@@ -39,6 +47,7 @@ function StockEditModal({ stockEdit, setStockEdit, onSave }) {
                                 <option value="รับสินค้าเข้า">รับสินค้าเข้า</option>
                                 <option value="คืนสินค้า">คืนสินค้า</option>
                                 <option value="สินค้าชำรุด">สินค้าชำรุด</option>
+                                <option value="สูญหาย">สูญหาย</option>
                                 <option value="ปรับยอด">ปรับยอด</option>
                             </select>
                         </div>
@@ -71,18 +80,32 @@ function StockEditModal({ stockEdit, setStockEdit, onSave }) {
                         </div>
                         <label className="small fw-bold">จำนวนที่เปลี่ยน</label>
                         <input
-                            type="number"
+                            type="text"
                             className="form-control mb-3"
-                            min="1"
-                            step="1"
-                            value={stockEdit.amount || ''}
-                            onChange={(e) => setStockEdit({ ...stockEdit, amount: e.target.value })}
-                            onKeyDown={(e) => ['-', '+', '.', 'e', 'E'].includes(e.key) && e.preventDefault()}
-                            placeholder="กรอกจำนวนเต็มตั้งแต่ 1 ขึ้นไป"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={formatAmountInput(stockEdit.amount)}
+                            onChange={(e) => {
+                                const nextAmount = sanitizeAmountInput(e.target.value);
+                                if (isDecreaseMode && Number(nextAmount || 0) > maxDecreaseAmount) {
+                                    return;
+                                }
+                                setStockEdit({ ...stockEdit, amount: nextAmount });
+                            }}
+                            onKeyDown={(e) => ['-', '+', '.', ',', 'e', 'E', ' '].includes(e.key) && e.preventDefault()}
+                            placeholder={isDecreaseMode ? `กรอกจำนวนได้สูงสุด ${maxDecreaseAmount.toLocaleString('th-TH')}` : 'กรอกจำนวนเต็มตั้งแต่ 1 ขึ้นไป'}
+                            aria-label="จำนวนที่เปลี่ยน"
                         />
+                        {isDecreaseMode && (
+                            <small className={`d-block mb-3 ${exceedsAvailableStock ? 'text-danger' : 'text-muted'}`}>
+                                {exceedsAvailableStock
+                                    ? `จำนวนที่ลดต้องไม่เกินสต็อกคงเหลือ ${maxDecreaseAmount.toLocaleString('th-TH')} ชิ้น`
+                                    : `ลดได้ไม่เกิน ${maxDecreaseAmount.toLocaleString('th-TH')} ชิ้น`}
+                            </small>
+                        )}
                     </div>
                     <div className="modal-footer border-0">
-                        <button className="btn btn-primary w-100 fw-bold py-2 rounded-pill" onClick={onSave}>บันทึกการปรับปรุง</button>
+                        <button className="btn btn-primary w-100 fw-bold py-2 rounded-pill" disabled={exceedsAvailableStock} onClick={onSave}>บันทึกการปรับปรุง</button>
                     </div>
                 </div>
             </div>

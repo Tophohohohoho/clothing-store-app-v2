@@ -476,7 +476,7 @@ const writeOrderStatusHistory = async (orderId, status, userId = null, note = ''
     );
 };
 
-const MANUAL_STOCK_CHANGE_TYPES = new Set(['รับสินค้าเข้า', 'คืนสินค้า', 'สินค้าชำรุด', 'ปรับยอด']);
+const MANUAL_STOCK_CHANGE_TYPES = new Set(['รับสินค้าเข้า', 'คืนสินค้า', 'สินค้าชำรุด', 'สูญหาย', 'ปรับยอด']);
 
 const getUserSnapshot = async (userId, executor = dbp) => {
     if (!userId) {
@@ -946,12 +946,12 @@ const initializeDatabase = async () => {
         SET
             change_quantity = CASE
                 WHEN change_quantity IS NOT NULL THEN change_quantity
-                WHEN change_type IN ('ขายออก', 'ขายสินค้า', 'ขายหน้าร้าน', 'สินค้าชำรุด') THEN -quantity
+                WHEN change_type IN ('ขายออก', 'ขายสินค้า', 'ขายหน้าร้าน', 'สินค้าชำรุด', 'สูญหาย') THEN -quantity
                 ELSE quantity
             END,
             reason = CASE
                 WHEN reason IS NOT NULL AND TRIM(reason) <> '' THEN reason
-                WHEN change_type IN ('รับสินค้าเข้า', 'ขายสินค้า', 'คืนสินค้า', 'สินค้าชำรุด', 'ปรับยอด') THEN reason
+                WHEN change_type IN ('รับสินค้าเข้า', 'ขายสินค้า', 'คืนสินค้า', 'สินค้าชำรุด', 'สูญหาย', 'ปรับยอด') THEN reason
                 ELSE change_type
             END
         WHERE change_quantity IS NULL OR reason IS NULL
@@ -2576,7 +2576,7 @@ app.post('/api/products/update-stock', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'ประเภทการเปลี่ยนแปลงสต๊อกไม่ถูกต้อง' });
         }
         let changeQuantity = stockAmount;
-        if (normalizedType === 'สินค้าชำรุด') {
+        if (normalizedType === 'สินค้าชำรุด' || normalizedType === 'สูญหาย') {
             changeQuantity = -stockAmount;
         } else if (normalizedType === 'ปรับยอด') {
             changeQuantity = cleanText(operation) === 'decrease' ? -stockAmount : stockAmount;
