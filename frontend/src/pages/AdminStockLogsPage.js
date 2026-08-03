@@ -281,13 +281,13 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
 
     return (
         <section className="audit-dashboard">
-            <header className="audit-heading">
-                <div>
-                    <span className="audit-eyebrow">AUDIT & COMPLIANCE</span>
-                    <h4>ประวัติการเคลื่อนไหว</h4>
-                    <p>ตรวจสอบประวัติการเปลี่ยนแปลงสต๊อกแบบถาวร พร้อมข้อมูลผู้ดำเนินการ ประเภทการเคลื่อนไหว เหตุผล วันที่เวลา และยอดก่อน-หลังการแก้ไข</p>
+            <header className="audit-heading admin-hero">
+                <div className="admin-hero-copy">
+                    <span className="audit-eyebrow admin-hero-eyebrow">AUDIT & COMPLIANCE</span>
+                    <h4 className="admin-hero-title">ประวัติการเคลื่อนไหว</h4>
+                    <p className="admin-hero-description">ตรวจสอบประวัติการเปลี่ยนแปลงสต๊อกแบบถาวร พร้อมข้อมูลผู้ดำเนินการ ประเภทการเคลื่อนไหว เหตุผล วันที่เวลา และยอดก่อน-หลังการแก้ไข</p>
                 </div>
-                <div className="audit-export">
+                <div className="audit-export admin-hero-export">
                     <button type="button" onClick={() => exportRows('csv')}>CSV</button>
                     <button type="button" onClick={() => exportRows('excel')}>Excel</button>
                     <button type="button" className="primary" onClick={() => exportRows('pdf')}>PDF</button>
@@ -304,11 +304,14 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
 
             <div className="audit-panel">
                 <div className="audit-panel-top">
+                    <div className="audit-panel-intro">
+                        <strong>เลือกมุมมองข้อมูล</strong>
+                        <span>สลับดูประวัติสต็อกหรือบันทึกแอดมิน แล้วใช้ตัวกรองด้านล่างเพื่อค้นหารายการที่ต้องการ</span>
+                    </div>
                     <div className="admin-subtabs">
                         <button type="button" className={activityView === 'stock' ? 'active' : ''} onClick={() => setActivityView('stock')}>ประวัติสต็อก</button>
                         <button type="button" className={activityView === 'system' ? 'active' : ''} onClick={() => setActivityView('system')}>บันทึกแอดมิน</button>
                     </div>
-                    <span className="audit-result-count">พบ {filteredRows.length.toLocaleString('th-TH')} รายการ</span>
                 </div>
 
                 <div className="audit-filters">
@@ -334,7 +337,8 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                         {availableTypes.map((type) => <option key={type} value={type}>{ACTIVITY_LABELS[type]}</option>)}
                     </select>
                     <div className="audit-filter-actions">
-                        <button type="button" className="audit-clear" onClick={clearFilters}>ล้างค่า</button>
+                        <button type="button" className="audit-clear" onClick={clearFilters}>ล้างตัวกรอง</button>
+                        <span className="audit-result-count">พบ {filteredRows.length.toLocaleString('th-TH')} รายการ</span>
                     </div>
                 </div>
 
@@ -383,7 +387,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                                             <b>⌕</b>
                                             <strong>ไม่พบประวัติการเคลื่อนไหวในช่วงวันที่นี้</strong>
                                             <span>ลองเปลี่ยนคำค้นหา ช่วงวันที่ หรือตัวกรองกิจกรรม</span>
-                                            <button type="button" onClick={clearFilters}>ล้างค่า</button>
+                                            <button type="button" className="audit-clear" onClick={clearFilters}>ล้างตัวกรอง</button>
                                         </div>
                                     </td>
                                 </tr>

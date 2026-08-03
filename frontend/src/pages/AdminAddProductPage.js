@@ -13,6 +13,8 @@ const AdminIcon = ({ name, size = 16 }) => {
         status: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
         menu: <><circle cx="5" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="19" cy="12" r="1" fill="currentColor" /></>,
         stock: <><path d="M3 7h18v13H3Z" /><path d="m3 7 3-4h12l3 4M9 11h6" /></>,
+        move: <><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></>,
+        list: <><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></>,
     };
 
     return (
@@ -89,6 +91,7 @@ function AdminAddProductPage({
     onSaveEditProduct,
     onDeleteProduct,
     onToggleProductStatus,
+    onMoveProductsCategory,
     onOpenStockEdit,
     categories = [],
     onAddCategory,
@@ -123,6 +126,24 @@ function AdminAddProductPage({
     const [categoryError, setCategoryError] = useState('');
     const [categoryToDelete, setCategoryToDelete] = useState(null);
     const [categoryActionId, setCategoryActionId] = useState(null);
+    const [categoryProductsModal, setCategoryProductsModal] = useState(null);
+    const [categoryProductSelection, setCategoryProductSelection] = useState([]);
+    const [categoryMoveTargetId, setCategoryMoveTargetId] = useState('');
+    const [isMovingCategoryProducts, setIsMovingCategoryProducts] = useState(false);
+    const clearProductFilters = () => {
+        setProductSearch('');
+        setCategoryFilter('all');
+        setStatusFilter('all');
+        setStockFilter('all');
+        setProductSort({ key: 'name', direction: 'asc' });
+        setProductPage(1);
+    };
+    const clearCategoryFilters = () => {
+        setCategorySearch('');
+        setCategoryStatusFilter('all');
+        setCategorySort({ key: 'created_at', direction: 'desc' });
+        setCategoryPage(1);
+    };
     const activeCategories = categories.filter((category) => Number(category.status_category ?? 1) === 1);
     const filteredCategories = useMemo(() => {
         const keyword = categorySearch.trim().toLocaleLowerCase('th');
@@ -227,6 +248,11 @@ function AdminAddProductPage({
             category_name: selectedCategory?.category_name || '',
         };
     };
+    const getProductsInCategory = (category) => products.filter((product) => {
+        const sameCategoryId = category.category_id && String(product.category_id || '') === String(category.category_id);
+        const sameCategoryName = String(product.category_name || '').trim() === String(category.category_name || '').trim();
+        return sameCategoryId || sameCategoryName;
+    });
 
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
@@ -293,6 +319,34 @@ function AdminAddProductPage({
         });
     };
 
+    const viewSwitchPanel = (
+        <div className="inventory-history-switch audit-panel-top inventory-history-switch">
+            <div className="audit-panel-intro inventory-history-intro">
+                <strong>เลือกมุมมองการจัดการ</strong>
+                <span>
+                    เลือก <strong>จัดการสินค้า</strong> เพื่อดูรายการสินค้าในคลัง
+                    {' '}หรือเลือก <strong>จัดการหมวดหมู่</strong> เพื่อดูแลหมวดหมู่สินค้า
+                </span>
+            </div>
+            <div className="admin-subtabs inventory-history-subtabs">
+                <button
+                    type="button"
+                    className={productAdminView === 'products' ? 'active' : ''}
+                    onClick={() => setProductAdminView('products')}
+                >
+                    จัดการสินค้า
+                </button>
+                <button
+                    type="button"
+                    className={productAdminView === 'categories' ? 'active' : ''}
+                    onClick={() => setProductAdminView('categories')}
+                >
+                    จัดการหมวดหมู่
+                </button>
+            </div>
+        </div>
+    );
+
     const submitNewCategory = async () => {
         setCategoryError('');
         const result = await onAddCategory?.(newCategoryName);
@@ -354,15 +408,62 @@ function AdminAddProductPage({
         if (!categoryToDelete) return;
         setCategoryError('');
         setCategoryActionId(categoryToDelete.category_id);
+        const deletedCategoryName = categoryToDelete.category_name;
         const result = await onDeleteCategory?.(categoryToDelete.category_id);
         setCategoryActionId(null);
 
         if (result?.success) {
             setCategoryToDelete(null);
+            notify({
+                type: 'success',
+                title: 'ลบหมวดหมู่สำเร็จ',
+                message: `ลบหมวดหมู่ ${deletedCategoryName} ออกจากระบบเรียบร้อยแล้ว`,
+            });
             return;
         }
         setCategoryError(result?.message || 'ลบหมวดหมู่สินค้าไม่สำเร็จ');
         setCategoryToDelete(null);
+    };
+
+    const openCategoryProducts = (category) => {
+        const categoryProducts = getProductsInCategory(category);
+        const firstTargetCategory = productCategoryOptions.find((option) => String(option.category_id) !== String(category.category_id));
+        setCategoryError('');
+        setCategoryProductsModal(category);
+        setCategoryProductSelection(categoryProducts.map((product) => String(product.id)));
+        setCategoryMoveTargetId(firstTargetCategory?.category_id || '');
+    };
+
+    const closeCategoryProducts = () => {
+        if (isMovingCategoryProducts) return;
+        setCategoryProductsModal(null);
+        setCategoryProductSelection([]);
+        setCategoryMoveTargetId('');
+    };
+
+    const toggleCategoryProductSelection = (productId) => {
+        const normalizedId = String(productId);
+        setCategoryProductSelection((current) => (
+            current.includes(normalizedId)
+                ? current.filter((id) => id !== normalizedId)
+                : [...current, normalizedId]
+        ));
+    };
+
+    const moveSelectedCategoryProducts = async () => {
+        if (!categoryProductsModal || isMovingCategoryProducts) return;
+        setCategoryError('');
+        setIsMovingCategoryProducts(true);
+        const result = await onMoveProductsCategory?.(categoryProductSelection, categoryMoveTargetId);
+        setIsMovingCategoryProducts(false);
+
+        if (result?.success) {
+            setCategoryProductsModal(null);
+            setCategoryProductSelection([]);
+            setCategoryMoveTargetId('');
+            return;
+        }
+        setCategoryError(result?.message || 'ย้ายสินค้าไปหมวดหมู่ใหม่ไม่สำเร็จ');
     };
 
     const requestProductSort = (key) => {
@@ -667,139 +768,37 @@ function AdminAddProductPage({
 
     return (
         <>
-                <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-                    <div>
-                        <h3 className="fw-bold mb-1">{productAdminView === 'products' ? 'จัดการสินค้า' : 'จัดการหมวดหมู่สินค้า'}</h3>
-                        <p className="text-muted mb-0">
+                <div className="admin-hero admin-hero-inline">
+                    <div className="admin-hero-copy">
+                        <span className="admin-hero-eyebrow">INVENTORY MANAGEMENT</span>
+                        <h3 className="admin-hero-title">{productAdminView === 'products' ? 'จัดการสินค้า' : 'จัดการหมวดหมู่สินค้า'}</h3>
+                        <p className="admin-hero-description">
                             {productAdminView === 'products'
                                 ? 'เพิ่มสินค้า ปรับข้อมูล และดูรายการสินค้าในคลัง'
                                 : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานหมวดหมู่สินค้า'}
                         </p>
                     </div>
-                    <div className="panel-export-buttons">
+                    <div className="panel-export-buttons admin-hero-export">
                         <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
                         <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
                         <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
                     </div>
                 </div>
-                <div className="admin-subtabs-panel">
-                    <p className="admin-subtabs-help mb-0">
-                        เลือก <strong>จัดการสินค้า</strong> เพื่อเพิ่มหรือแก้ไขสินค้า และเลือก <strong>จัดการหมวดหมู่</strong> เพื่อดูแลหมวดหมู่สินค้า
-                    </p>
-                    <div className="admin-subtabs">
-                        <button
-                            type="button"
-                            className={productAdminView === 'products' ? 'active' : ''}
-                            onClick={() => setProductAdminView('products')}
-                        >
-                            จัดการสินค้า
-                        </button>
-                        <button
-                            type="button"
-                            className={productAdminView === 'categories' ? 'active' : ''}
-                            onClick={() => setProductAdminView('categories')}
-                        >
-                            จัดการหมวดหมู่
-                        </button>
-                    </div>
-                {productAdminView === 'products' && showAddForm && (
-                    <form
-                        onSubmit={async (event) => {
-                            const isSaved = await onSubmit(event);
-                            if (isSaved) setShowAddForm(false);
-                        }}
-                        className="row g-4 mt-1"
-                    >
-                        <div className="col-md-8">
-                            <label className="small fw-bold">ชื่อสินค้า</label>
-                            <input type="text" className="form-control" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required />
-                        </div>
-                        <div className="col-md-4">
-                            <label className="small fw-bold">ราคา (฿)</label>
-                            <input type="number" className="form-control" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} required />
-                        </div>
-                        <div className="col-md-6">
-                            <label className="small fw-bold">สต็อกเริ่มต้น</label>
-                            <input
-                                type="number"
-                                className="form-control"
-                                min="1"
-                                step="1"
-                                value={newProduct.stock}
-                                onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                                onKeyDown={(e) => ['-', '+', '.', 'e', 'E'].includes(e.key) && e.preventDefault()}
-                                required
-                            />
-                        </div>
-                        <div className="col-md-6">
-                            <label className="small fw-bold">หมวดหมู่สินค้า</label>
-                            <select
-                                className="form-control"
-                                value={selectedNewCategoryId}
-                                onChange={(e) => setNewProduct({ ...newProduct, ...getCategorySelection(e.target.value) })}
-                                required
-                                disabled={productCategoryOptions.length === 0}
-                            >
-                                <option value="">เลือกหมวดหมู่สินค้า</option>
-                                {productCategoryOptions.map((category) => (
-                                    <option key={category.category_id} value={category.category_id}>
-                                        {category.category_name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="col-md-12">
-                            <label className="small fw-bold">รูปภาพสินค้า</label>
-                            <div className="product-upload">
-                                <div className="product-upload-preview">
-                                    {newProduct.image_preview ? (
-                                        <img src={newProduct.image_preview} alt="ตัวอย่างรูปสินค้า" />
-                                    ) : (
-                                        <div className="product-upload-empty">
-                                            <span>เลือกรูปภาพสินค้า</span>
-                                            <small>รองรับ PNG, JPG, WEBP หรือ GIF</small>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="product-upload-control">
-                                    <input
-                                        type="file"
-                                        className="form-control"
-                                        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
-                                        onChange={handleImageChange}
-                                        required={!newProduct.image_preview}
-                                    />
-                                    {newProduct.image_name && <div className="small text-muted mt-2">{newProduct.image_name}</div>}
-                                    {newProduct.image_preview && (
-                                        <button type="button" className="btn btn-outline-danger btn-sm mt-3" onClick={removeImage}>
-                                            ลบรูป
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="col-md-12">
-                            <label className="small fw-bold">รายละเอียดสินค้า</label>
-                            <textarea className="form-control" rows="3" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
-                        </div>
-                        <div className="col-12 text-end">
-                            <button className="btn btn-primary btn-lg px-5 rounded-pill fw-bold mt-3">บันทึกสินค้า</button>
-                        </div>
-                    </form>
-                )}
-            </div>
-
             {productAdminView === 'products' && (
                 <section className="admin-panel inventory-admin-panel">
                     <div className="admin-panel-header inventory-panel-header">
-                        <div>
-                            <h2>จัดการคลังสินค้า</h2>
-                            <p>ดูภาพรวมสินค้า สต็อก ราคา และสถานะการขายในที่เดียว</p>
+                        <div className="inventory-panel-heading">
+                            {viewSwitchPanel}
+                            <div className="inventory-panel-actions">
+                                <p className="inventory-panel-actions-label">
+                                    เพิ่มสินค้าใหม่เพื่ออัปเดตรายการในคลังและแสดงขายในหน้าร้านได้ทันที
+                                </p>
+                                <button type="button" className="admin-action primary inventory-add-button" onClick={() => setShowAddForm(true)}>
+                                    <AdminIcon name="add" />
+                                    เพิ่มสินค้า
+                                </button>
+                            </div>
                         </div>
-                        <button type="button" className="admin-action primary inventory-add-button" onClick={() => setShowAddForm((current) => !current)}>
-                            <AdminIcon name={showAddForm ? 'close' : 'add'} />
-                            {showAddForm ? 'ซ่อนฟอร์ม' : 'เพิ่มสินค้า'}
-                        </button>
                     </div>
 
                     <div className="inventory-panel-body">
@@ -830,6 +829,7 @@ function AdminAddProductPage({
                                     <option value="low">ใกล้หมด (&lt; 10)</option>
                                     <option value="out">สินค้าหมด</option>
                                 </select>
+                                <button type="button" className="inventory-clear-button" onClick={clearProductFilters}>ล้างตัวกรอง</button>
                                 <span className="inventory-count-badge">{filteredProducts.length} สินค้า</span>
                             </div>
                         </div>
@@ -966,6 +966,7 @@ function AdminAddProductPage({
                                                     <div><AdminIcon name="stock" size={30} /></div>
                                                     <strong>ไม่พบสินค้า</strong>
                                                     <p>ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วตรวจสอบอีกครั้ง</p>
+                                                    <button type="button" className="inventory-clear-button" onClick={clearProductFilters}>ล้างตัวกรอง</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1004,24 +1005,26 @@ function AdminAddProductPage({
             {productAdminView === 'categories' && (
                 <section className="admin-panel category-admin-panel">
                     <div className="admin-panel-header category-panel-header">
-                        <div>
-                            <h2>จัดการหมวดหมู่สินค้า</h2>
-                            <p>จัดระเบียบหมวดหมู่ สถานะ และข้อมูลสินค้าภายในระบบ</p>
-                        </div>
-                        <div className="category-header-tools">
-                            <div className="category-create-row">
-                                <input
-                                    className="form-control category-create-input"
-                                    value={newCategoryName}
-                                    onChange={(event) => {
-                                        setCategoryError('');
-                                        setNewCategoryName(event.target.value);
-                                    }}
-                                    placeholder="ชื่อหมวดหมู่สินค้าใหม่"
-                                />
-                                <button type="button" className="admin-action success" onClick={submitNewCategory}>
-                                    <AdminIcon name="add" /> เพิ่มหมวดหมู่
-                                </button>
+                        <div className="inventory-panel-heading">
+                            {viewSwitchPanel}
+                            <div className="category-header-tools">
+                                <p className="category-header-tools-label">
+                                    เพิ่มหมวดหมู่ใหม่เพื่อจัดระเบียบสินค้าและช่วยแยกการแสดงผลในคลังให้ชัดเจนขึ้น
+                                </p>
+                                <div className="category-create-row">
+                                    <input
+                                        className="form-control category-create-input"
+                                        value={newCategoryName}
+                                        onChange={(event) => {
+                                            setCategoryError('');
+                                            setNewCategoryName(event.target.value);
+                                        }}
+                                        placeholder="ชื่อหมวดหมู่สินค้าใหม่"
+                                    />
+                                    <button type="button" className="admin-action primary inventory-add-button" onClick={submitNewCategory}>
+                                        <AdminIcon name="add" /> เพิ่มหมวดหมู่
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1046,6 +1049,7 @@ function AdminAddProductPage({
                                     <option value="active">เปิดใช้งาน</option>
                                     <option value="inactive">ปิดใช้งาน</option>
                                 </select>
+                                <button type="button" className="inventory-clear-button" onClick={clearCategoryFilters}>ล้างตัวกรอง</button>
                                 <span className="category-count-badge">{filteredCategories.length} หมวดหมู่</span>
                             </div>
                         </div>
@@ -1110,7 +1114,13 @@ function AdminAddProductPage({
                                                         )}
                                                     </td>
                                                     <td>
-                                                        <span className="category-product-count">{Number(category.product_count) || 0}</span>
+                                                        <button
+                                                            type="button"
+                                                            className="category-product-count"
+                                                            onClick={() => openCategoryProducts(category)}
+                                                        >
+                                                            {Number(category.product_count) || 0}
+                                                        </button>
                                                     </td>
                                                     <td>
                                                         <div className="category-toggle-wrap">
@@ -1146,6 +1156,9 @@ function AdminAddProductPage({
                                                                 </>
                                                             ) : (
                                                                 <>
+                                                                    <button type="button" className="admin-action primary" onClick={() => openCategoryProducts(category)}>
+                                                                        <AdminIcon name="list" /> ดูสินค้า
+                                                                    </button>
                                                                     <button type="button" className="admin-action warning" onClick={() => startEditCategory(category)}>
                                                                         <AdminIcon name="edit" /> แก้ไข
                                                                     </button>
@@ -1199,6 +1212,225 @@ function AdminAddProductPage({
                     </div>
                 </section>
             )}
+
+            {productAdminView === 'products' && showAddForm && (
+                <div className="modal d-block admin-modal-backdrop product-add-modal" role="dialog" aria-modal="true">
+                    <div className="modal-dialog modal-dialog-centered modal-lg">
+                        <div className="modal-content border-0 rounded-4 shadow-lg">
+                            <form
+                                onSubmit={async (event) => {
+                                    const isSaved = await onSubmit(event);
+                                    if (isSaved) setShowAddForm(false);
+                                }}
+                                className="product-add-content"
+                            >
+                                <header className="product-add-header">
+                                    <div>
+                                        <span>สินค้าใหม่</span>
+                                        <h4>เพิ่มสินค้า</h4>
+                                        <p>กรอกข้อมูลสินค้า เลือกหมวดหมู่ และเพิ่มรูปภาพสำหรับแสดงในหน้าร้าน</p>
+                                    </div>
+                                    <button type="button" className="category-products-close" onClick={() => setShowAddForm(false)} aria-label="ปิดหน้าต่างเพิ่มสินค้า">
+                                        <AdminIcon name="close" size={18} />
+                                    </button>
+                                </header>
+
+                                <div className="row g-4 product-add-form">
+                                    <div className="col-md-8">
+                                        <label className="small fw-bold">ชื่อสินค้า</label>
+                                        <input type="text" className="form-control" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required />
+                                    </div>
+                                    <div className="col-md-4">
+                                        <label className="small fw-bold">ราคา (฿)</label>
+                                        <input type="number" className="form-control" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} required />
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="small fw-bold">สต็อกเริ่มต้น</label>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            min="1"
+                                            step="1"
+                                            value={newProduct.stock}
+                                            onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                            onKeyDown={(e) => ['-', '+', '.', 'e', 'E'].includes(e.key) && e.preventDefault()}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="col-md-6">
+                                        <label className="small fw-bold">หมวดหมู่สินค้า</label>
+                                        <select
+                                            className="form-control"
+                                            value={selectedNewCategoryId}
+                                            onChange={(e) => setNewProduct({ ...newProduct, ...getCategorySelection(e.target.value) })}
+                                            required
+                                            disabled={productCategoryOptions.length === 0}
+                                        >
+                                            <option value="">เลือกหมวดหมู่สินค้า</option>
+                                            {productCategoryOptions.map((category) => (
+                                                <option key={category.category_id} value={category.category_id}>
+                                                    {category.category_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-md-12">
+                                        <label className="small fw-bold">รูปภาพสินค้า</label>
+                                        <div className="product-upload">
+                                            <div className="product-upload-preview">
+                                                {newProduct.image_preview ? (
+                                                    <img src={newProduct.image_preview} alt="ตัวอย่างรูปสินค้า" />
+                                                ) : (
+                                                    <div className="product-upload-empty">
+                                                        <span>เลือกรูปภาพสินค้า</span>
+                                                        <small>รองรับ PNG, JPG, WEBP หรือ GIF</small>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="product-upload-control">
+                                                <input
+                                                    type="file"
+                                                    className="form-control"
+                                                    accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                                                    onChange={handleImageChange}
+                                                    required={!newProduct.image_preview}
+                                                />
+                                                {newProduct.image_name && <div className="small text-muted mt-2">{newProduct.image_name}</div>}
+                                                {newProduct.image_preview && (
+                                                    <button type="button" className="btn btn-outline-danger btn-sm mt-3" onClick={removeImage}>
+                                                        ลบรูป
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="col-md-12">
+                                        <label className="small fw-bold">รายละเอียดสินค้า</label>
+                                        <textarea className="form-control" rows="3" value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}></textarea>
+                                    </div>
+                                </div>
+
+                                <footer className="product-add-actions">
+                                    <button type="button" className="admin-action" onClick={() => setShowAddForm(false)}>
+                                        ยกเลิก
+                                    </button>
+                                    <button type="submit" className="admin-action primary inventory-add-button">
+                                        <AdminIcon name="save" /> บันทึกสินค้า
+                                    </button>
+                                </footer>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {categoryProductsModal && (() => {
+                const categoryProducts = getProductsInCategory(categoryProductsModal);
+                const targetCategoryOptions = productCategoryOptions.filter((category) => (
+                    String(category.category_id) !== String(categoryProductsModal.category_id)
+                ));
+                const selectedCount = categoryProductSelection.length;
+                const allSelected = categoryProducts.length > 0 && selectedCount === categoryProducts.length;
+
+                return (
+                    <div className="modal d-block admin-modal-backdrop category-products-modal" role="dialog" aria-modal="true">
+                        <div className="modal-dialog modal-dialog-centered modal-xl">
+                            <div className="modal-content border-0 rounded-4 shadow-lg">
+                                <div className="category-products-content">
+                                    <header className="category-products-header">
+                                        <div>
+                                            <span>สินค้าในหมวดหมู่</span>
+                                            <h4>{categoryProductsModal.category_name}</h4>
+                                            <p>ดูรายการสินค้าที่อยู่ในหมวดหมู่นี้ และเลือกย้ายไปหมวดหมู่อื่นได้ทันที</p>
+                                        </div>
+                                        <button type="button" className="category-products-close" onClick={closeCategoryProducts} aria-label="ปิดหน้าต่างสินค้าในหมวดหมู่">
+                                            <AdminIcon name="close" size={18} />
+                                        </button>
+                                    </header>
+
+                                    <div className="category-products-toolbar">
+                                        <label className="category-products-select-all">
+                                            <input
+                                                type="checkbox"
+                                                checked={allSelected}
+                                                disabled={categoryProducts.length === 0}
+                                                onChange={() => {
+                                                    setCategoryProductSelection(allSelected
+                                                        ? []
+                                                        : categoryProducts.map((product) => String(product.id)));
+                                                }}
+                                            />
+                                            <span>เลือกทั้งหมด</span>
+                                        </label>
+                                        <div className="category-products-move">
+                                            <select
+                                                value={categoryMoveTargetId}
+                                                onChange={(event) => setCategoryMoveTargetId(event.target.value)}
+                                                disabled={targetCategoryOptions.length === 0 || categoryProducts.length === 0}
+                                                aria-label="เลือกหมวดหมู่ปลายทาง"
+                                            >
+                                                {targetCategoryOptions.length === 0 ? (
+                                                    <option value="">ไม่มีหมวดหมู่อื่นให้ย้าย</option>
+                                                ) : (
+                                                    targetCategoryOptions.map((category) => (
+                                                        <option key={category.category_id} value={category.category_id}>
+                                                            {category.category_name}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="admin-action primary inventory-add-button"
+                                                disabled={selectedCount === 0 || !categoryMoveTargetId || isMovingCategoryProducts}
+                                                onClick={moveSelectedCategoryProducts}
+                                            >
+                                                <AdminIcon name="move" /> {isMovingCategoryProducts ? 'กำลังย้าย...' : `ย้าย ${selectedCount} รายการ`}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="category-products-list">
+                                        {categoryProducts.length > 0 ? (
+                                            categoryProducts.map((product) => {
+                                                const productId = String(product.id);
+                                                const isSelected = categoryProductSelection.includes(productId);
+
+                                                return (
+                                                    <label key={product.id} className={`category-product-card ${isSelected ? 'selected' : ''}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => toggleCategoryProductSelection(product.id)}
+                                                        />
+                                                        <div className="category-product-card-thumb">
+                                                            {product.image_url ? <img src={product.image_url} alt={product.name} /> : <span>{String(product.name || 'P').charAt(0)}</span>}
+                                                        </div>
+                                                        <div className="category-product-card-copy">
+                                                            <strong>{product.name}</strong>
+                                                            <span>PRD-{String(product.id).padStart(6, '0')}</span>
+                                                        </div>
+                                                        <div className="category-product-card-meta">
+                                                            <span>{Number(product.stock) || 0} ชิ้น</span>
+                                                            <strong>฿{formatMoney(product.price)}</strong>
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="category-products-empty">
+                                                <AdminIcon name="stock" size={28} />
+                                                <strong>ยังไม่มีสินค้าในหมวดหมู่นี้</strong>
+                                                <span>เมื่อเพิ่มหรือย้ายสินค้าเข้ามา รายการจะแสดงที่นี่</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {productToDelete && (
                 <div className="modal d-block admin-modal-backdrop product-delete-modal" role="dialog" aria-modal="true">

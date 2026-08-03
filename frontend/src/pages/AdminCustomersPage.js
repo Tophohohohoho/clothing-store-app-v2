@@ -70,6 +70,13 @@ function AdminCustomersPage({
     const [actionError, setActionError] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
     const loadRef = useRef(onLoadCustomers);
+    const clearFilters = () => {
+        setSearchText('');
+        setRoleFilter('all');
+        setStatusFilter('all');
+        setSortConfig({ key: '', direction: 'asc' });
+        setPage(1);
+    };
 
     useEffect(() => { loadRef.current = onLoadCustomers; }, [onLoadCustomers]);
     useEffect(() => {
@@ -316,13 +323,13 @@ function AdminCustomersPage({
 
     return (
         <section className="member-dashboard">
-            <header className="member-heading">
-                <div>
-                    <span>MEMBER MANAGEMENT</span>
-                    <h4>จัดการผู้ใช้งาน</h4>
-                    <p>ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
+            <header className="member-heading admin-hero">
+                <div className="admin-hero-copy">
+                    <span className="admin-hero-eyebrow">MEMBER MANAGEMENT</span>
+                    <h4 className="admin-hero-title">จัดการผู้ใช้งาน</h4>
+                    <p className="admin-hero-description">ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
                 </div>
-                <div className="panel-export-buttons">
+                <div className="panel-export-buttons admin-hero-export">
                     <button type="button" onClick={() => exportCustomersReport('csv')}>CSV</button>
                     <button type="button" onClick={() => exportCustomersReport('excel')}>Excel</button>
                     <button type="button" className="primary" onClick={() => exportCustomersReport('pdf')}>PDF</button>
@@ -333,7 +340,7 @@ function AdminCustomersPage({
                 <article><b className="blue">👥</b><div><span>สมาชิกทั้งหมด</span><strong>{Number(summary.total_members || 0).toLocaleString()}</strong></div></article>
                 <article><b className="red">A</b><div><span>Admin</span><strong>{Number(summary.total_admins || 0).toLocaleString()}</strong></div></article>
                 <article><b className="cyan">U</b><div><span>User</span><strong>{Number(summary.total_users || 0).toLocaleString()}</strong></div></article>
-                <article><b className="green">฿</b><div><span>ยอดซื้อรวมทั้งหมด</span><strong>{money(summary.total_spent)}</strong></div></article>
+                <article><b className="green">!</b><div><span>ผู้ใช้ที่ถูกระงับ</span><strong>{Number(summary.total_suspended || 0).toLocaleString()}</strong></div></article>
             </div>
 
             <div className="member-panel">
@@ -347,6 +354,7 @@ function AdminCustomersPage({
                         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                             <option value="all">สถานะทั้งหมด</option><option value="1">ใช้งาน</option><option value="0">ระงับการใช้งาน</option>
                         </select>
+                        <button type="button" className="member-clear-button" onClick={clearFilters}>ล้างตัวกรอง</button>
                     </div>
                 </div>
 
@@ -387,7 +395,7 @@ function AdminCustomersPage({
                                         </div></td>
                                     </tr>
                                 );
-                            }) : <tr><td colSpan="8"><div className="member-empty"><b>◎</b><h5>ไม่พบข้อมูลสมาชิก</h5><p>ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p><button onClick={() => { setSearchText(''); setRoleFilter('all'); setStatusFilter('all'); }}>ล้างตัวกรอง</button></div></td></tr>}
+                            }) : <tr><td colSpan="8"><div className="member-empty"><b>◎</b><h5>ไม่พบข้อมูลสมาชิก</h5><p>ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p><button type="button" className="member-clear-button" onClick={clearFilters}>ล้างตัวกรอง</button></div></td></tr>}
                         </tbody>
                     </table>
                 </div>

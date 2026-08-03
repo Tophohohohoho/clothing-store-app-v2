@@ -1947,7 +1947,8 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
             SELECT
                 COUNT(*) AS total_members,
                 SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) AS total_admins,
-                SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) AS total_users
+                SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) AS total_users,
+                SUM(CASE WHEN status_user = 0 THEN 1 ELSE 0 END) AS total_suspended
             FROM \`user\`
         `);
         const [spentRows] = await query(`
@@ -1989,6 +1990,7 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
                 total_members: Number(summaryRows[0]?.total_members || 0),
                 total_admins: Number(summaryRows[0]?.total_admins || 0),
                 total_users: Number(summaryRows[0]?.total_users || 0),
+                total_suspended: Number(summaryRows[0]?.total_suspended || 0),
                 total_spent: Number(spentRows[0]?.total_spent || 0),
             },
         });
@@ -2728,6 +2730,7 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
     let transactionStarted = false;
     try {
         const {
+            user_code,
             receiver_name,
             phone,
             payment_method,
@@ -2735,8 +2738,9 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
             cart_items,
         } = req.body;
         const user_id = req.authUser.id;
-        const receiverName = cleanText(receiver_name) || req.authUser.full_name || req.authUser.username || 'ลูกค้าหน้าร้าน';
-        const shippingPhone = cleanPhone(phone);
+        const userCode = cleanText(user_code);
+        const receiverName = userCode || cleanText(receiver_name) || req.authUser.full_name || req.authUser.username || 'ลูกค้าหน้าร้าน';
+        const shippingPhone = userCode ? '' : cleanPhone(phone);
 
         if (!Array.isArray(cart_items) || cart_items.length === 0) {
             return res.status(400).json({ error: 'ไม่มีสินค้าในรายการขาย' });
@@ -2745,12 +2749,9 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'รองรับการชำระเงินสดหรือ QR เท่านั้น' });
         }
         if (!receiverName) {
-            return res.status(400).json({ error: 'กรุณากรอกชื่อผู้รับ' });
+            return res.status(400).json({ error: 'กรุณากรอกรหัสผู้ใช้งาน' });
         }
-        if (!shippingPhone) {
-            return res.status(400).json({ error: 'กรุณากรอกเบอร์โทรผู้รับ' });
-        }
-        if (!PHONE_REGEX.test(shippingPhone)) {
+        if (shippingPhone && !PHONE_REGEX.test(shippingPhone)) {
             return res.status(400).json({ error: 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' });
         }
 

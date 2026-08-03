@@ -2076,13 +2076,13 @@ function AdminDashboardPage({
         <div className="commerce-dashboard">
             {showDashboard && (
                 <>
-            <section className="commerce-heading">
-                <div>
-                    <span>STORE PERFORMANCE</span>
-                    <h1>ภาพรวมร้านค้า</h1>
-                    <p>เปิดมาแล้วรู้ทันทีว่าอะไรต้องทำก่อน พร้อมดูยอดขาย ออเดอร์ และสต๊อกในหน้าเดียว</p>
+            <section className="commerce-heading admin-hero">
+                <div className="admin-hero-copy">
+                    <span className="admin-hero-eyebrow">STORE PERFORMANCE</span>
+                    <h1 className="admin-hero-title">ภาพรวมร้านค้า</h1>
+                    <p className="admin-hero-description">เปิดมาแล้วรู้ทันทีว่าอะไรต้องทำก่อน พร้อมดูยอดขาย ออเดอร์ และสต๊อกในหน้าเดียว</p>
                 </div>
-                <div className="commerce-heading-actions">
+                <div className="commerce-heading-actions admin-hero-actions">
                     <div className="commerce-date-filter">
                         <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
                             {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -2094,7 +2094,7 @@ function AdminDashboardPage({
                             </>
                         )}
                     </div>
-                    <div className="commerce-export">
+                    <div className="commerce-export admin-hero-export">
                         <button type="button" onClick={() => exportReport('csv')}>CSV</button>
                         <button type="button" onClick={() => exportReport('excel')}>Excel</button>
                         <button type="button" className="primary" onClick={() => exportReport('pdf')}>PDF</button>
@@ -2341,11 +2341,11 @@ function AdminDashboardPage({
             <section className="commerce-card commerce-quick-actions">
                 <header className="commerce-card-header"><div><span>SHORTCUTS</span><h2>เมนูใช้งานด่วน</h2></div></header>
                 <div>
-                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="blue">＋</b><span>เพิ่มสินค้า<small>สร้างสินค้าใหม่</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="blue">▤</b><span>จัดการสินค้า<small>เพิ่ม แก้ไข และดูสินค้า</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('add-product', 'categories')}><b className="purple">▦</b><span>เพิ่มหมวดหมู่<small>จัดระเบียบสินค้า</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('store')}><b className="green">▣</b><span>สร้างออเดอร์<small>ไปยังหน้าร้าน</small></span></button>
                     <button type="button" onClick={() => navigateQuickAction('customers')}><b className="amber">♙</b><span>จัดการผู้ใช้งาน<small>ดูข้อมูลผู้ใช้งาน</small></span></button>
-                    <button type="button" onClick={() => navigateQuickAction('add-product', 'products')}><b className="red">▤</b><span>จัดการสต๊อก<small>ตรวจจำนวนคงเหลือ</small></span></button>
+                    <button type="button" onClick={() => navigateQuickAction('stock-logs')}><b className="red">◷</b><span>ประวัติการเคลื่อนไหว<small>ดูรายการเปลี่ยนแปลงทั้งหมด</small></span></button>
                 </div>
             </section>
                 </>
@@ -2354,115 +2354,116 @@ function AdminDashboardPage({
             {showOrderManagement && (
                 <>
             <section ref={orderManagementRef} className="order-management">
-                <header className="order-management-heading">
-                    <div>
-                        <span>REPORT PRINT</span>
-                        <h2>{orderReportConfig.title}</h2>
-                        <p>
+                <header className="order-management-heading admin-hero">
+                    <div className="admin-hero-copy">
+                        <span className="admin-hero-eyebrow">REPORT PRINT</span>
+                        <h2 className="admin-hero-title">{orderReportConfig.title}</h2>
+                        <p className="admin-hero-description">
                             {orderViewTab === 'orders' && 'ดูข้อมูลออเดอร์ทั้งหมด เลือกช่วงที่ต้องการ แล้วส่งออกเป็น CSV, Excel หรือ PDF'}
                             {orderViewTab === 'slips' && (slipPageTab === 'history' ? 'ดูรายการที่ตรวจแล้วทั้งหมด เพื่อย้อนดูผลการอนุมัติและส่งออกเป็นรายงานประวัติ' : 'ดูเฉพาะออเดอร์ที่แนบสลิป เพื่อส่งออกเป็นรายงานตรวจสลิป')}
                             {orderViewTab === 'print' && 'ดูเฉพาะออเดอร์ที่พร้อมจัดส่ง เพื่อส่งออกเป็นรายงานใบจัดส่ง'}
                         </p>
                     </div>
-                    <div className="order-export">
+                    <div className="order-export admin-hero-export">
                         <button type="button" onClick={() => exportOrders('csv')}>CSV</button>
                         <button type="button" onClick={() => exportOrders('excel')}>Excel</button>
                         <button type="button" className="primary" onClick={() => exportOrders('pdf')}>PDF</button>
                     </div>
                 </header>
 
-                <div className="admin-tabs-bar order-view-tabs" role="tablist" aria-label="เมนูหน้าจัดออเดอร์">
-                    <button type="button" className={orderViewTab === 'orders' ? 'active' : ''} onClick={() => setOrderViewTab('orders')}>หน้าออเดอร์หลัก</button>
-                    <button type="button" className={orderViewTab === 'slips' ? 'active' : ''} onClick={() => setOrderViewTab('slips')}>หน้าตรวจสลิป</button>
-                    <button type="button" className={orderViewTab === 'print' ? 'active' : ''} onClick={() => setOrderViewTab('print')}>หน้าพิมพ์ใบจัดส่ง</button>
-                </div>
-
-                {orderViewTab === 'slips' && (
-                    <div className="admin-tabs-bar slip-review-tabs" role="tablist" aria-label="เมนูหน้าตรวจสลิป">
-                        <button type="button" className={slipPageTab === 'review' ? 'active' : ''} onClick={() => setSlipPageTab('review')}>หน้าอนุมัติ</button>
-                        <button type="button" className={slipPageTab === 'history' ? 'active' : ''} onClick={() => setSlipPageTab('history')}>หน้าประวัติอนุมัติ</button>
+                <div className="order-management-content">
+                    <div className="admin-tabs-bar order-view-tabs" role="tablist" aria-label="เมนูหน้าจัดออเดอร์">
+                        <button type="button" className={orderViewTab === 'orders' ? 'active' : ''} onClick={() => setOrderViewTab('orders')}>หน้าออเดอร์หลัก</button>
+                        <button type="button" className={orderViewTab === 'slips' ? 'active' : ''} onClick={() => setOrderViewTab('slips')}>หน้าตรวจสลิป</button>
+                        <button type="button" className={orderViewTab === 'print' ? 'active' : ''} onClick={() => setOrderViewTab('print')}>หน้าพิมพ์ใบจัดส่ง</button>
                     </div>
-                )}
 
-                {orderViewTab === 'slips' && slipPageTab === 'review' && pendingSlipReviewCount > 0 && (
-                    <div className="payment-review-admin-alert">
-                        <strong>มีหลักฐานการชำระเงินใหม่รอตรวจสอบ {pendingSlipReviewCount.toLocaleString('th-TH')} รายการ</strong>
-                    </div>
-                )}
-
-                <div className="order-view-banner">
-                    {orderViewTab === 'orders' && (
-                        <>
-                            <strong>หน้าออเดอร์หลัก</strong>
-                            <span>แสดงคำสั่งซื้อทั้งหมดตามตัวกรองปัจจุบัน เพื่อเช็กสถานะและเปิดรายละเอียดออเดอร์ได้จากหน้าหลักเดียว</span>
-                        </>
-                    )}
                     {orderViewTab === 'slips' && (
-                        <>
-                            <strong>{slipPageTab === 'history' ? 'หน้าประวัติอนุมัติ' : 'หน้าตรวจสลิป'}</strong>
-                            <span>
-                                {slipPageTab === 'history'
-                                    ? 'แสดงรายการที่ตรวจสอบแล้วทั้งหมด เพื่อย้อนดูผลการอนุมัติ หมายเหตุ และวันที่ตรวจ'
-                                    : 'แสดงเฉพาะออเดอร์ที่มีการแนบสลิป เพื่อให้ตรวจสอบหลักฐานการชำระเงินได้เร็วขึ้น'}
-                            </span>
-                        </>
+                        <div className="admin-tabs-bar slip-review-tabs" role="tablist" aria-label="เมนูหน้าตรวจสลิป">
+                            <button type="button" className={slipPageTab === 'review' ? 'active' : ''} onClick={() => setSlipPageTab('review')}>หน้าอนุมัติ</button>
+                            <button type="button" className={slipPageTab === 'history' ? 'active' : ''} onClick={() => setSlipPageTab('history')}>หน้าประวัติอนุมัติ</button>
+                        </div>
                     )}
-                    {orderViewTab === 'print' && (
-                        <>
-                            <strong>หน้าพิมพ์ใบจัดส่ง</strong>
-                            <span>แสดงเฉพาะออเดอร์ที่ชำระแล้ว เพื่อเลือกพิมพ์ใบจัดส่งได้ทั้งแบบรายออเดอร์และแบบรวมหลายใบ</span>
-                        </>
-                    )}
-                </div>
 
-                <div className="order-filter-panel">
-                    <label className="order-search">
-                        <span>⌕</span>
-                        <input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="ค้นหาเลขออเดอร์ ชื่อผู้ใช้งาน หรือเลขพัสดุ..." />
-                    </label>
-                    {orderViewTab === 'slips' ? (
-                        <div className="order-filter-locked" aria-live="polite">
-                            <span>สถานะสลิป</span>
-                            <strong>{slipPageTab === 'history' ? 'รายการที่ตรวจแล้วเท่านั้น' : 'รอตรวจสอบสลิปเท่านั้น'}</strong>
+                    {orderViewTab === 'slips' && slipPageTab === 'review' && pendingSlipReviewCount > 0 && (
+                        <div className="payment-review-admin-alert">
+                            <strong>มีหลักฐานการชำระเงินใหม่รอตรวจสอบ {pendingSlipReviewCount.toLocaleString('th-TH')} รายการ</strong>
                         </div>
-                    ) : orderViewTab === 'print' ? (
-                        <div className="order-filter-locked" aria-live="polite">
-                            <span>สถานะออเดอร์</span>
-                            <strong>เตรียมสินค้าเท่านั้น</strong>
-                        </div>
-                    ) : (
-                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                            {orderStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-                        </select>
                     )}
-                    <select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)}>
-                        {orderViewTab === 'print' ? (
+
+                    <div className="order-view-banner">
+                        {orderViewTab === 'orders' && (
                             <>
-                                <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
-                                <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
-                                <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
-                            </>
-                        ) : (
-                            <>
-                                <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
-                                <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
-                                <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
-                                <option value="ขายหน้าร้าน">แอดมินขายหน้าร้าน</option>
+                                <strong>หน้าออเดอร์หลัก</strong>
+                                <span>แสดงคำสั่งซื้อทั้งหมดตามตัวกรองปัจจุบัน เพื่อเช็กสถานะและเปิดรายละเอียดออเดอร์ได้จากหน้าหลักเดียว</span>
                             </>
                         )}
-                    </select>
-                    <select value={orderDatePreset} onChange={(event) => setOrderDatePreset(event.target.value)}>
-                        {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                    </select>
-                    <button type="button" className="order-clear" onClick={clearOrderFilters}>ล้างตัวกรอง</button>
-                </div>
-
-                {orderDatePreset === 'custom' && (
-                    <div className="order-custom-date">
-                        <label>ตั้งแต่ <input type="date" value={orderDateFrom} onChange={(event) => setOrderDateFrom(event.target.value)} /></label>
-                        <label>ถึง <input type="date" value={orderDateTo} onChange={(event) => setOrderDateTo(event.target.value)} /></label>
+                        {orderViewTab === 'slips' && (
+                            <>
+                                <strong>{slipPageTab === 'history' ? 'หน้าประวัติอนุมัติ' : 'หน้าตรวจสลิป'}</strong>
+                                <span>
+                                    {slipPageTab === 'history'
+                                        ? 'แสดงรายการที่ตรวจสอบแล้วทั้งหมด เพื่อย้อนดูผลการอนุมัติ หมายเหตุ และวันที่ตรวจ'
+                                        : 'แสดงเฉพาะออเดอร์ที่มีการแนบสลิป เพื่อให้ตรวจสอบหลักฐานการชำระเงินได้เร็วขึ้น'}
+                                </span>
+                            </>
+                        )}
+                        {orderViewTab === 'print' && (
+                            <>
+                                <strong>หน้าพิมพ์ใบจัดส่ง</strong>
+                                <span>แสดงเฉพาะออเดอร์ที่ชำระแล้ว เพื่อเลือกพิมพ์ใบจัดส่งได้ทั้งแบบรายออเดอร์และแบบรวมหลายใบ</span>
+                            </>
+                        )}
                     </div>
-                )}
+
+                    <div className="order-filter-panel">
+                        <label className="order-search">
+                            <span>⌕</span>
+                            <input value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} placeholder="ค้นหาเลขออเดอร์ ชื่อผู้ใช้งาน หรือเลขพัสดุ..." />
+                        </label>
+                        {orderViewTab === 'slips' ? (
+                            <div className="order-filter-locked" aria-live="polite">
+                                <span>สถานะสลิป</span>
+                                <strong>{slipPageTab === 'history' ? 'รายการที่ตรวจแล้วเท่านั้น' : 'รอตรวจสอบสลิปเท่านั้น'}</strong>
+                            </div>
+                        ) : orderViewTab === 'print' ? (
+                            <div className="order-filter-locked" aria-live="polite">
+                                <span>สถานะออเดอร์</span>
+                                <strong>เตรียมสินค้าเท่านั้น</strong>
+                            </div>
+                        ) : (
+                            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                                {orderStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                            </select>
+                        )}
+                        <select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)}>
+                            {orderViewTab === 'print' ? (
+                                <>
+                                    <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
+                                    <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
+                                    <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="ทั้งหมด">วิธีรับสินค้าทั้งหมด</option>
+                                    <option value="ส่งสินค้า">จัดส่งตามที่อยู่</option>
+                                    <option value="รับหน้าร้าน">ผู้ใช้งานสั่งรับหน้าร้าน</option>
+                                    <option value="ขายหน้าร้าน">แอดมินขายหน้าร้าน</option>
+                                </>
+                            )}
+                        </select>
+                        <select value={orderDatePreset} onChange={(event) => setOrderDatePreset(event.target.value)}>
+                            {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                        <button type="button" className="order-clear" onClick={clearOrderFilters}>ล้างตัวกรอง</button>
+                    </div>
+
+                    {orderDatePreset === 'custom' && (
+                        <div className="order-custom-date">
+                            <label>ตั้งแต่ <input type="date" value={orderDateFrom} onChange={(event) => setOrderDateFrom(event.target.value)} /></label>
+                            <label>ถึง <input type="date" value={orderDateTo} onChange={(event) => setOrderDateTo(event.target.value)} /></label>
+                        </div>
+                    )}
 
                 {orderViewTab === 'slips' && slipPageTab === 'review' && (
                     <div className="order-print-bulk-bar order-slip-bulk-bar">
@@ -2796,6 +2797,7 @@ function AdminDashboardPage({
                         <button type="button" disabled={orderPage === orderTotalPages} onClick={() => setOrderPage(orderTotalPages)}>»</button>
                     </div>
                 </footer>
+                </div>
             </section>
 
             {quickReportRequest && typeof document !== 'undefined' && createPortal(

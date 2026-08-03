@@ -25,6 +25,7 @@ import { getCartItemKey, getCartTotal } from './utils/cart';
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
 const AUTH_TOKEN_KEY = 'clothingStoreToken';
 const CART_STORAGE_PREFIX = 'clothingStoreCart';
+const POS_COMPAT_PHONE = '0800000000';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 
@@ -498,7 +499,7 @@ function App() {
     const [customersLoading, setCustomersLoading] = useState(false);
     const [customersMeta, setCustomersMeta] = useState({
         pagination: { page: 1, limit: 10, total: 0, total_pages: 1 },
-        summary: { total_members: 0, total_admins: 0, total_users: 0, total_spent: 0 },
+        summary: { total_members: 0, total_admins: 0, total_users: 0, total_suspended: 0, total_spent: 0 },
     });
     const [adminUserCreate, setAdminUserCreate] = useState({ isOpen: false, form: emptyAdminUserForm });
     const [stockLogs, setStockLogs] = useState([]);
@@ -633,7 +634,7 @@ function App() {
             setCustomers(Array.isArray(payload.items) ? payload.items : []);
             setCustomersMeta({
                 pagination: payload.pagination || { page: 1, limit: 10, total: 0, total_pages: 1 },
-                summary: payload.summary || { total_members: 0, total_admins: 0, total_users: 0, total_spent: 0 },
+                summary: payload.summary || { total_members: 0, total_admins: 0, total_users: 0, total_suspended: 0, total_spent: 0 },
             });
         } catch (err) {
             console.error(err);
@@ -1169,6 +1170,47 @@ function App() {
         }
     };
 
+    const handleMoveProductsCategory = async (productIds, targetCategoryId) => {
+        const ids = Array.isArray(productIds) ? productIds.map((id) => String(id)) : [];
+        const targetCategory = categories.find((category) => String(category.category_id) === String(targetCategoryId));
+        if (ids.length === 0) {
+            return { success: false, message: 'กรุณาเลือกสินค้าอย่างน้อย 1 รายการ' };
+        }
+        if (!targetCategory || Number(targetCategory.status_category ?? 1) !== 1) {
+            return { success: false, message: 'กรุณาเลือกหมวดหมู่ปลายทางที่เปิดใช้งาน' };
+        }
+
+        try {
+            const productsToMove = products.filter((product) => ids.includes(String(product.id)));
+            if (productsToMove.length === 0) {
+                return { success: false, message: 'ไม่พบสินค้าที่เลือกในระบบ' };
+            }
+            await Promise.all(productsToMove.map((product) => productsApi.editProduct({
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                description: product.description || '',
+                image_url: product.image_url || '',
+                product_status: product.product_status,
+                category_id: targetCategory.category_id,
+                category_name: targetCategory.category_name,
+            })));
+            await fetchProducts(true);
+            await fetchCategories(true);
+            notify({
+                type: 'success',
+                title: 'ย้ายหมวดหมู่สินค้าแล้ว',
+                message: `ย้ายสินค้า ${productsToMove.length.toLocaleString('th-TH')} รายการไปยัง ${targetCategory.category_name}`,
+            });
+            return { success: true };
+        } catch (err) {
+            return {
+                success: false,
+                message: err.response?.data?.error || 'ย้ายสินค้าไปหมวดหมู่ใหม่ไม่สำเร็จ',
+            };
+        }
+    };
+
     const handleAddCategory = async (categoryName) => {
         const cleanName = String(categoryName || '').trim();
         if (!cleanName) {
@@ -1257,14 +1299,15 @@ function App() {
         setSelectedCartKeys((currentKeys) => currentKeys.filter((key) => !paidKeySet.has(key)));
     };
 
-    const handleConfirmPosPayment = async ({ receiver_name, phone, payment_method, cash_received }) => {
+    const handleConfirmPosPayment = async ({ user_code, payment_method, cash_received }) => {
         if (!redirectUnauthorizedPage('pos')) throw new Error('กรุณาเข้าสู่ระบบด้วยสิทธิ์แอดมิน');
         if (selectedCartItems.length === 0) throw new Error('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
 
         const res = await ordersApi.checkoutPosOrder({
             user_id: user?.id,
-            receiver_name,
-            phone,
+            user_code,
+            receiver_name: user_code,
+            phone: POS_COMPAT_PHONE,
             payment_method,
             cash_received,
             cart_items: selectedCartItems,
@@ -1906,6 +1949,7 @@ function App() {
                         onSaveEditProduct={handleSaveEditProduct}
                         onDeleteProduct={handleDeleteProduct}
                         onToggleProductStatus={handleToggleProductStatus}
+                        onMoveProductsCategory={handleMoveProductsCategory}
                         onAddCategory={handleAddCategory}
                         onUpdateCategory={handleUpdateCategory}
                         onDeleteCategory={handleDeleteCategory}
