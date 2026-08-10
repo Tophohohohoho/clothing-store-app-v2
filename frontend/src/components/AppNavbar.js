@@ -139,6 +139,17 @@ function AppNavbar({
             show: true,
         }];
 
+        if (!isAdmin && (Boolean(authView) || isOrderHistoryOpen)) {
+            items.unshift({
+                key: 'store',
+                label: 'หน้าแรก',
+                icon: 'store',
+                onClick: onOpenStore,
+                isActive: activeMenu === 'store',
+                show: true,
+            });
+        }
+
         if (isAdmin) {
             items.unshift({
                 key: 'admin',
@@ -186,10 +197,12 @@ function AppNavbar({
         return items.filter((item) => item.show);
     }, [
         activeMenu,
+        authView,
         cartCount,
         isAdmin,
         isAdminView,
         isMember,
+        isOrderHistoryOpen,
         onOpenAdmin,
         onOpenCart,
         onOpenLogin,

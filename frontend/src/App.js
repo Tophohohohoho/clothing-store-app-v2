@@ -912,6 +912,10 @@ function App() {
     const openStore = () => {
         setAuthView(null);
         setIsAdminView(false);
+        setIsCartOpen(false);
+        setIsOrderHistoryOpen(false);
+        setIsSalesHistoryOpen(false);
+        setIsProfileOpen(false);
     };
 
     const fetchAddresses = async (targetUser = user) => {
@@ -1551,7 +1555,7 @@ function App() {
             await fetchProducts(isAdminView);
             if (isAdminView) await fetchAdminOrders();
         } catch (err) {
-            showOrderToast('error', 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+            showOrderToast('error', err.response?.data?.error || 'ยกเลิกคำสั่งซื้อไม่สำเร็จ');
         } finally {
             setIsCancellingOrder(false);
         }
@@ -1652,6 +1656,8 @@ function App() {
         if (!redirectUnauthorizedPage('orders')) return;
 
         await fetchOrderHistory();
+        setAuthView(null);
+        setIsAdminView(false);
         setIsOrderHistoryOpen(true);
     };
 
@@ -1971,6 +1977,16 @@ function App() {
                         onReactivateUser={handleReactivateUser}
                         onChangeRole={handleChangeRole}
                     />
+                ) : isOrderHistoryOpen ? (
+                    <OrderHistoryModal
+                        orders={orderHistory}
+                        username={user?.username}
+                        isPageView
+                        onClose={openStore}
+                        onUploadReceipt={handleUploadOrderReceipt}
+                        onCancelReceipt={handleCancelOrderReceipt}
+                        onCancelOrder={handleCancelCustomerOrder}
+                    />
                 ) : (
                     <StorePage
                         products={products}
@@ -2030,17 +2046,6 @@ function App() {
                     cashier={user}
                     onClose={() => setShowPosCheckout(false)}
                     onConfirm={handleConfirmPosPayment}
-                />
-            )}
-
-            {isOrderHistoryOpen && (
-                <OrderHistoryModal
-                    orders={orderHistory}
-                    username={user?.username}
-                    onClose={() => setIsOrderHistoryOpen(false)}
-                    onUploadReceipt={handleUploadOrderReceipt}
-                    onCancelReceipt={handleCancelOrderReceipt}
-                    onCancelOrder={handleCancelCustomerOrder}
                 />
             )}
 

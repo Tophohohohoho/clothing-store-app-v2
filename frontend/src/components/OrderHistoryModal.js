@@ -10,6 +10,30 @@ const BANK_NAME = 'ธนาคารกสิกรไทย';
 const BANK_ACCOUNT_NAME = 'บริษัท เสื้อผ้าแฟชั่น จำกัด';
 const ACCEPTED_RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const REJECTED_PAYMENT_STATUSES = ['ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
+const CUSTOMER_DATE_PRESETS = [
+    { value: '30', label: '30 วันล่าสุด' },
+    { value: '90', label: '90 วันล่าสุด' },
+    { value: '365', label: '1 ปีล่าสุด' },
+    { value: 'all', label: 'ทั้งหมด' },
+];
+const CUSTOMER_FILTER_COPY = {
+    all: {
+        title: 'หน้าออเดอร์หลัก',
+        description: 'แสดงคำสั่งซื้อทั้งหมดตามตัวกรองปัจจุบัน เพื่อเช็กสถานะและเปิดรายละเอียดคำสั่งซื้อได้จากตารางเดียว',
+    },
+    pending: {
+        title: 'หน้ารอชำระ',
+        description: 'แสดงเฉพาะออเดอร์ที่ยังรอชำระเงินหรือรอตรวจสอบหลักฐาน เพื่อให้ติดตามสถานะและจัดการสลิปได้ง่ายขึ้น',
+    },
+    processing: {
+        title: 'หน้าดำเนินการ',
+        description: 'แสดงออเดอร์ที่ชำระแล้วและกำลังเตรียมสินค้า จัดส่ง หรืออยู่ระหว่างขั้นตอนดำเนินการในระบบ',
+    },
+    completed: {
+        title: 'หน้าสำเร็จ',
+        description: 'แสดงออเดอร์ที่เสร็จสิ้นแล้ว เพื่อย้อนดูประวัติคำสั่งซื้อและรายละเอียดรายการที่สำเร็จทั้งหมด',
+    },
+};
 
 function OrderHistoryModal({
     orders,
@@ -42,6 +66,11 @@ function OrderHistoryModal({
     const [slipOcrError, setSlipOcrError] = useState('');
     const [salesOrderSearch, setSalesOrderSearch] = useState('');
     const [isAccountCopied, setIsAccountCopied] = useState(false);
+    const [customerPage, setCustomerPage] = useState(1);
+    const [customerPageSize, setCustomerPageSize] = useState(10);
+    const [customerSearch, setCustomerSearch] = useState('');
+    const [customerDeliveryFilter, setCustomerDeliveryFilter] = useState('all');
+    const [customerDatePreset, setCustomerDatePreset] = useState('30');
     const cancelableStatuses = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'รอจัดการ', 'เตรียมสินค้า'];
     const completedHistoryStatuses = ['สำเร็จ', 'ได้รับสินค้าแล้ว', 'เสร็จสิ้น'];
     const cancelledHistoryStatuses = ['ยกเลิก', 'ยกเลิกคำสั่งซื้อ'];
@@ -83,6 +112,26 @@ function OrderHistoryModal({
             if (customerOrderFilter === 'processing') return isProcessingOrder(order);
             if (customerOrderFilter === 'completed') return isCompletedOrder(order);
             return !isCancelledOrder(order);
+        }).filter((order) => {
+            const normalizedSearch = customerSearch.trim().toLowerCase();
+            const orderDate = new Date(order.created_at || order.order_date || order.updated_at || Date.now());
+            const daysLimit = customerDatePreset === 'all' ? null : Number(customerDatePreset);
+            const diffDays = Number.isFinite(orderDate.getTime())
+                ? Math.floor((Date.now() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
+                : 0;
+            const matchesDate = daysLimit === null || diffDays <= daysLimit;
+            const deliveryMethod = String(order.shipping_method || order.delivery_type || '').trim();
+            const matchesDelivery = customerDeliveryFilter === 'all' || deliveryMethod === customerDeliveryFilter;
+            const matchesSearch = !normalizedSearch || [
+                String(order.id || ''),
+                String(order.username || ''),
+                String(order.full_name || ''),
+                String(order.tracking_no || ''),
+                String(order.payment_status || ''),
+                String(order.status || ''),
+            ].some((value) => value.toLowerCase().includes(normalizedSearch));
+
+            return matchesDate && matchesDelivery && matchesSearch;
         })
         : isSalesMode && normalizedSalesSearch
         ? visibleOrders.filter((order) => {
@@ -90,12 +139,23 @@ function OrderHistoryModal({
             return orderId === normalizedSalesSearch;
         })
         : visibleOrders;
+    const customerTotalPages = isCompactCustomerPage ? Math.max(1, Math.ceil(displayedOrders.length / customerPageSize)) : 1;
+    const paginatedCustomerOrders = isCompactCustomerPage
+        ? displayedOrders.slice((customerPage - 1) * customerPageSize, customerPage * customerPageSize)
+        : displayedOrders;
+    const customerFilterCopy = CUSTOMER_FILTER_COPY[customerOrderFilter] || CUSTOMER_FILTER_COPY.all;
     const canUploadReceipt = !isSalesMode && Boolean(onUploadReceipt);
     const canCancelOrder = !isSalesMode && Boolean(onCancelOrder);
     const canCancelReceipt = !isSalesMode && Boolean(onCancelReceipt);
-    const rootClassName = isPageView ? 'order-history-page' : 'order-history-backdrop';
-    const dialogClassName = isPageView ? 'order-history-dialog order-history-dialog-page' : 'order-history-dialog';
-    const bodyClassName = isPageView ? 'order-history-body order-history-body-page' : 'order-history-body';
+    const rootClassName = isPageView
+        ? `order-history-page${isCompactCustomerPage ? ' order-history-page-customer' : ''}`
+        : 'order-history-backdrop';
+    const dialogClassName = isPageView
+        ? `order-history-dialog order-history-dialog-page${isCompactCustomerPage ? ' order-history-dialog-customer-page' : ''}`
+        : 'order-history-dialog';
+    const bodyClassName = isPageView
+        ? `order-history-body order-history-body-page${isCompactCustomerPage ? ' order-history-body-customer-page' : ''}`
+        : 'order-history-body';
     const toggleExpandedOrder = (orderId) => {
         setExpandedOrders((current) => ({
             ...current,
@@ -116,6 +176,19 @@ function OrderHistoryModal({
         const refreshedOrder = sourceOrders.find((order) => String(order.id) === String(detailOrder.id));
         if (refreshedOrder && refreshedOrder !== detailOrder) setDetailOrder(refreshedOrder);
     }, [detailOrder, orders]);
+
+    useEffect(() => {
+        if (!isCompactCustomerPage) return;
+        setCustomerPage(1);
+    }, [customerOrderFilter, customerPageSize, customerSearch, customerDeliveryFilter, customerDatePreset, isCompactCustomerPage]);
+
+    useEffect(() => {
+        if (!isCompactCustomerPage) return;
+        if (customerPage > customerTotalPages) {
+            setCustomerPage(customerTotalPages);
+        }
+    }, [customerPage, customerTotalPages, isCompactCustomerPage]);
+
     const stopCardToggle = (event) => {
         event.stopPropagation();
     };
@@ -126,11 +199,109 @@ function OrderHistoryModal({
     });
 
     const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+    const isPaidStatus = (status) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(status);
 
     const formatFileSize = (bytes) => `${(Number(bytes || 0) / 1024 / 1024).toFixed(2)} MB`;
 
     const formatDateTime = (value) => {
         return formatThaiDateTime(value, 'ไม่ระบุวันที่ขาย');
+    };
+
+    const exportCustomerOrders = (format) => {
+        const rows = displayedOrders.map((order) => {
+            const orderItems = getOrderItems(order);
+            const itemCount = orderItems.reduce((sum, orderItem) => sum + Number(orderItem.qty || orderItem.quantity || 0), 0);
+            const productTotal = Number(order.total_price ?? orderItems.reduce((sum, orderItem) => {
+                const qty = Number(orderItem.qty || orderItem.quantity || 1);
+                const price = Number(orderItem.price || 0);
+                return sum + (qty * price);
+            }, 0));
+            const shippingFee = Number(order.shipping_fee || 0);
+            const discount = Number(order.discount || 0);
+            const finalPrice = Number(order.final_price ?? (productTotal + shippingFee - discount));
+
+            return {
+                order_id: `#${order.id}`,
+                order_date: formatDateTime(order.created_at || order.order_date),
+                customer: order.username || order.full_name || username || '-',
+                payment_status: formatPaymentStatus(order.payment_status || '-'),
+                delivery_method: order.shipping_method || order.delivery_type || '-',
+                tracking_no: order.tracking_no || 'N/A',
+                total: `฿${formatMoney(finalPrice)}`,
+                status: formatPaymentStatus(order.status || '-'),
+                item_count: `${orderItems.length || 0} รายการ / ${itemCount || 0} ชิ้น`,
+            };
+        });
+
+        if (!rows.length) {
+            notify({ type: 'warning', title: 'ไม่มีข้อมูลสำหรับส่งออก', message: 'ลองเปลี่ยนตัวกรองก่อนส่งออกรายการ' });
+            return;
+        }
+
+        const headers = ['เลขออเดอร์', 'วันที่สั่งซื้อ', 'ลูกค้า', 'สถานะชำระเงิน', 'วิธีรับสินค้า', 'เลขพัสดุ', 'ยอดสุทธิ', 'สถานะออเดอร์', 'รายการสินค้า'];
+        const values = rows.map((row) => [
+            row.order_id,
+            row.order_date,
+            row.customer,
+            row.payment_status,
+            row.delivery_method,
+            row.tracking_no,
+            row.total,
+            row.status,
+            row.item_count,
+        ]);
+
+        if (format === 'csv' || format === 'excel') {
+            const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const csvContent = [headers, ...values].map((row) => row.map(csvEscape).join(',')).join('\n');
+            const blob = new Blob(['\ufeff', csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `customer-orders.${format === 'excel' ? 'csv' : 'csv'}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            return;
+        }
+
+        const popup = window.open('', '_blank', 'width=1080,height=720');
+        if (!popup) return;
+        popup.document.write(`
+            <html>
+                <head>
+                    <meta charset="utf-8" />
+                    <title>Customer Orders</title>
+                    <style>
+                        body{font-family:Arial,sans-serif;padding:24px;color:#17202e}
+                        h2{margin:0 0 6px}
+                        p{margin:0 0 18px;color:#667085}
+                        table{width:100%;border-collapse:collapse;font-size:12px}
+                        th,td{padding:9px;border:1px solid #dfe4ea;text-align:left;vertical-align:top}
+                        th{background:#f2f4f7}
+                    </style>
+                </head>
+                <body>
+                    <h2>รายงานคำสั่งซื้อ</h2>
+                    <p>ข้อมูลตามตัวกรองปัจจุบันทั้งหมด ${rows.length.toLocaleString('th-TH')} รายการ</p>
+                    <table>
+                        <thead><tr>${headers.map((header) => `<th>${header}</th>`).join('')}</tr></thead>
+                        <tbody>${values.map((row) => `<tr>${row.map((value) => `<td>${value}</td>`).join('')}</tr>`).join('')}</tbody>
+                    </table>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+        popup.focus();
+        popup.print();
+    };
+
+    const getCompactStatusTone = (order) => {
+        if (isPendingPaymentOrder(order)) return 'is-pending';
+        if (isCompletedOrder(order)) return 'is-completed';
+        if (isCancelledOrder(order)) return 'is-cancelled';
+        return 'is-processing';
     };
 
     const getSellerName = (order) => (
@@ -335,23 +506,29 @@ function OrderHistoryModal({
                 aria-labelledby="order-history-title"
                 onMouseDown={isPageView ? undefined : ((event) => event.stopPropagation())}
             >
-                <header className="order-history-header">
-                    <div>
-                        <span>{eyebrow}</span>
-                        <h2 id="order-history-title">{title}</h2>
-                        <p>{description}</p>
+                <header className={`order-history-header${isCompactCustomerPage ? ' admin-hero order-history-customer-header' : ''}`}>
+                    <div className={isCompactCustomerPage ? 'admin-hero-copy' : ''}>
+                        <span className={isCompactCustomerPage ? 'admin-hero-eyebrow' : ''}>{eyebrow}</span>
+                        <h2 id="order-history-title" className={isCompactCustomerPage ? 'admin-hero-title' : ''}>{title}</h2>
+                        <p className={isCompactCustomerPage ? 'admin-hero-description' : ''}>{description}</p>
                     </div>
-                    <button type="button" onClick={onClose} aria-label={isPageView ? `กลับจากหน้า${title}` : `ปิดหน้าต่าง${title}`}>
-                        {isPageView ? '←' : '×'}
-                    </button>
+                    {!isCompactCustomerPage && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label={isPageView ? `กลับจากหน้า${title}` : `ปิดหน้าต่าง${title}`}
+                        >
+                            {isPageView ? '←' : '×'}
+                        </button>
+                    )}
                 </header>
 
                 <div className={bodyClassName}>
                     {isCompactCustomerPage ? (
-                        <div className="order-history-compact-tabs" role="tablist" aria-label="ตัวกรองคำสั่งซื้อของฉัน">
+                        <div className="admin-tabs-bar order-view-tabs order-history-customer-tabs" role="tablist" aria-label="ตัวกรองคำสั่งซื้อของฉัน">
                             <button
                                 type="button"
-                                className={customerOrderFilter === 'all' ? 'is-active' : ''}
+                                className={customerOrderFilter === 'all' ? 'active' : ''}
                                 onClick={() => setCustomerOrderFilter('all')}
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'all'}
@@ -360,7 +537,7 @@ function OrderHistoryModal({
                             </button>
                             <button
                                 type="button"
-                                className={customerOrderFilter === 'pending' ? 'is-active' : ''}
+                                className={customerOrderFilter === 'pending' ? 'active' : ''}
                                 onClick={() => setCustomerOrderFilter('pending')}
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'pending'}
@@ -369,7 +546,7 @@ function OrderHistoryModal({
                             </button>
                             <button
                                 type="button"
-                                className={customerOrderFilter === 'processing' ? 'is-active' : ''}
+                                className={customerOrderFilter === 'processing' ? 'active' : ''}
                                 onClick={() => setCustomerOrderFilter('processing')}
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'processing'}
@@ -378,7 +555,7 @@ function OrderHistoryModal({
                             </button>
                             <button
                                 type="button"
-                                className={customerOrderFilter === 'completed' ? 'is-active' : ''}
+                                className={customerOrderFilter === 'completed' ? 'active' : ''}
                                 onClick={() => setCustomerOrderFilter('completed')}
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'completed'}
@@ -515,6 +692,122 @@ function OrderHistoryModal({
                                     : (isSalesMode ? 'รายการที่ลูกค้าสั่งผ่านหน้าร้านออนไลน์จะแสดงที่นี่' : (activeHistoryView === 'completed' ? 'ออเดอร์ที่จบกระบวนการแล้วจะแสดงในแท็บนี้' : 'ออเดอร์ที่ถูกยกเลิกจะแสดงในแท็บนี้'))}
                             </span>
                         </div>
+                    ) : isCompactCustomerPage ? (
+                        <div className="order-history-customer-shell">
+                            <div className="order-view-banner order-history-customer-banner">
+                                <strong>{customerFilterCopy.title}</strong>
+                                <span>{customerFilterCopy.description}</span>
+                            </div>
+                            <div className="order-table-wrap order-history-customer-table-wrap">
+                                <table className="order-table order-history-customer-table">
+                                    <colgroup>
+                                        <col className="order-history-col-order" />
+                                        <col className="order-history-col-date" />
+                                        <col className="order-history-col-item" />
+                                        <col className="order-history-col-delivery" />
+                                        <col className="order-history-col-total" />
+                                        <col className="order-history-col-status" />
+                                        <col className="order-history-col-actions" />
+                                    </colgroup>
+                                    <thead>
+                                        <tr>
+                                            <th>เลขออเดอร์</th>
+                                            <th>วันที่สั่งซื้อ</th>
+                                            <th>รายการสินค้า</th>
+                                            <th>วิธีรับสินค้า</th>
+                                            <th>ยอดสุทธิ</th>
+                                            <th>สถานะออเดอร์</th>
+                                            <th>จัดการ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {paginatedCustomerOrders.map((item, index) => {
+                                            const orderItems = getOrderItems(item);
+                                            const itemCount = orderItems.reduce((sum, orderItem) => sum + Number(orderItem.qty || orderItem.quantity || 0), 0);
+                                            const productTotal = Number(item.total_price ?? orderItems.reduce((sum, orderItem) => {
+                                                const qty = Number(orderItem.qty || orderItem.quantity || 1);
+                                                const price = Number(orderItem.price || 0);
+                                                return sum + (qty * price);
+                                            }, 0));
+                                            const shippingFee = Number(item.shipping_fee || 0);
+                                            const discount = Number(item.discount || 0);
+                                            const finalPrice = Number(item.final_price ?? (productTotal + shippingFee - discount));
+                                            const canCancel = canCancelOrder && cancelableStatuses.includes(item.status) && !isPaidStatus(item.payment_status);
+                                            const saleDateTime = item.created_at || item.order_date;
+                                            const compactItemSummary = getCompactItemSummary(orderItems) || item.name || item.product_name || 'สินค้าแฟชั่น';
+                                            const compactStatusTone = getCompactStatusTone(item);
+                                            const compactStatus = formatPaymentStatus(item.payment_status || item.status || 'รอชำระ');
+
+                                            return (
+                                                <tr key={item.id || index}>
+                                                    <td data-label="เลขออเดอร์">
+                                                        <strong className="order-number">#{item.id}</strong>
+                                                    </td>
+                                                    <td data-label="วันที่สั่งซื้อ">
+                                                        <span className="order-date">{formatDateTime(saleDateTime)}</span>
+                                                    </td>
+                                                    <td data-label="รายการสินค้า">
+                                                        <strong>{compactItemSummary}</strong>
+                                                        <small>{`สินค้า ${orderItems.length || 0} รายการ · จำนวน ${itemCount || 0} ชิ้น`}</small>
+                                                    </td>
+                                                    <td data-label="วิธีรับสินค้า">
+                                                        <span className="delivery-badge">{item.shipping_method || item.delivery_type || '-'}</span>
+                                                    </td>
+                                                    <td data-label="ยอดสุทธิ" className="order-total">
+                                                        ฿{formatMoney(finalPrice)}
+                                                    </td>
+                                                    <td data-label="สถานะออเดอร์">
+                                                        <span className={`payment-badge order-history-customer-badge ${compactStatusTone}`}>
+                                                            {compactStatus}
+                                                        </span>
+                                                    </td>
+                                                    <td data-label="จัดการ">
+                                                        <div className="order-row-actions order-history-customer-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="order-detail-trigger"
+                                                                onClick={() => openOrderDetail(item, item.id || index)}
+                                                            >
+                                                                ดูรายละเอียด
+                                                            </button>
+                                                            {canCancel && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="order-cancel-trigger"
+                                                                    onClick={() => onCancelOrder?.(item.id)}
+                                                                >
+                                                                    ยกเลิกคำสั่งซื้อ
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <footer className="order-pagination order-history-customer-pagination">
+                                <label>แสดง
+                                    <select value={customerPageSize} onChange={(event) => setCustomerPageSize(Number(event.target.value))}>
+                                        {[10, 20, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+                                    </select>
+                                    รายการ
+                                </label>
+                                <span>
+                                    {displayedOrders.length ? ((customerPage - 1) * customerPageSize) + 1 : 0}
+                                    –
+                                    {Math.min(customerPage * customerPageSize, displayedOrders.length)} จาก {displayedOrders.length.toLocaleString('th-TH')} ออเดอร์
+                                </span>
+                                <div>
+                                    <button type="button" disabled={customerPage === 1} onClick={() => setCustomerPage(1)}>«</button>
+                                    <button type="button" disabled={customerPage === 1} onClick={() => setCustomerPage((page) => page - 1)}>‹</button>
+                                    <b>{customerPage} / {customerTotalPages}</b>
+                                    <button type="button" disabled={customerPage === customerTotalPages} onClick={() => setCustomerPage((page) => page + 1)}>›</button>
+                                    <button type="button" disabled={customerPage === customerTotalPages} onClick={() => setCustomerPage(customerTotalPages)}>»</button>
+                                </div>
+                            </footer>
+                        </div>
                     ) : (
                         displayedOrders.map((item, index) => {
                             const orderItems = getOrderItems(item);
@@ -528,7 +821,7 @@ function OrderHistoryModal({
                             const discount = Number(item.discount || 0);
                             const finalPrice = Number(item.final_price ?? (productTotal + shippingFee - discount));
                             const { cashReceived, change } = getReceiptAmounts(item, finalPrice);
-                            const canCancel = canCancelOrder && cancelableStatuses.includes(item.status);
+                            const canCancel = canCancelOrder && cancelableStatuses.includes(item.status) && !isPaidStatus(item.payment_status);
                             const hasSubmittedReceipt = Boolean(item.receipt_image);
                             const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
                             const isReceiptApproved = ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(item.payment_status);
@@ -544,6 +837,7 @@ function OrderHistoryModal({
                             const isExpanded = Boolean(expandedOrders[orderKey]);
                             const showExpandedDetails = isSalesMode || isExpanded;
                             const saleDateTime = item.created_at || item.order_date;
+                            const compactStatusTone = isCompactCustomerPage ? getCompactStatusTone(item) : '';
                             const sellerName = getSellerName(item);
                             const compactItemSummary = getCompactItemSummary(orderItems);
                             const orderTitle = isSalesMode
@@ -581,7 +875,7 @@ function OrderHistoryModal({
                                             )}
                                         </div>
                                         <div className="order-history-card-header-side">
-                                            <span className="order-history-status">{isCompactCustomerPage ? formatPaymentStatus(item.payment_status || item.status || 'รอชำระ') : (item.status || 'สำเร็จ')}</span>
+                                            <span className={`order-history-status ${compactStatusTone}`}>{isCompactCustomerPage ? formatPaymentStatus(item.payment_status || item.status || 'รอชำระ') : (item.status || 'สำเร็จ')}</span>
                                             {item.tracking_no && (
                                                 <small className="order-history-tracking-code">
                                                     เลขพัสดุ {item.tracking_no}
@@ -932,7 +1226,7 @@ function OrderHistoryModal({
                 const shippingFee = Number(detailOrder.shipping_fee || 0);
                 const discount = Number(detailOrder.discount || 0);
                 const finalPrice = Number(detailOrder.final_price ?? (productTotal + shippingFee - discount));
-                const canCancel = canCancelOrder && cancelableStatuses.includes(detailOrder.status);
+                const canCancel = canCancelOrder && cancelableStatuses.includes(detailOrder.status) && !isPaidStatus(detailOrder.payment_status);
                 const hasSubmittedReceipt = Boolean(detailOrder.receipt_image);
                 const isReceiptWaitingReview = detailOrder.payment_status === 'รอตรวจสอบ';
                 const isReceiptApproved = ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(detailOrder.payment_status);
