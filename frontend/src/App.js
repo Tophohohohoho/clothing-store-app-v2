@@ -1468,7 +1468,7 @@ function App() {
         }
     };
 
-    const handleUpdateOrderStatus = (orderId, trackingNo = '', status = 'เตรียมสินค้า') => {
+    const handleUpdateOrderStatus = (orderId, trackingNo = '', status = 'กำลังเตรียมสินค้า') => {
         if (status === 'กำลังจัดส่ง' && !String(trackingNo || '').trim()) {
             return {
                 success: false,
@@ -1871,7 +1871,7 @@ function App() {
         return <AdminOrderPrintPage orderIds={printOrderIds} />;
     }
 
-    const shouldShowSiteFooter = !isAdminUser(user);
+    const shouldShowSiteFooter = !isAdminUser(user) && !isOrderHistoryOpen;
 
     return (
         <div className="bg-light min-vh-100">

@@ -337,10 +337,23 @@ const normalizeProduct = (product) => ({
     stock: product.quantity,
 });
 
+const normalizeOrderStatus = (status) => {
+    const value = String(status || '').trim();
+    const aliases = {
+        รอจัดการ: 'รอชำระเงิน',
+        เตรียมสินค้า: 'กำลังเตรียมสินค้า',
+        สำเร็จ: 'เสร็จสิ้น',
+        ได้รับสินค้าแล้ว: 'เสร็จสิ้น',
+        ยกเลิก: 'ยกเลิกคำสั่งซื้อ',
+    };
+    return aliases[value] || value;
+};
+
 const normalizeOrder = (order) => ({
     ...order,
     id: order.order_id,
-    status: order.order_status,
+    order_status: normalizeOrderStatus(order.order_status),
+    status: normalizeOrderStatus(order.order_status),
     shipping_method: order.delivery_type,
     created_at: order.order_date,
 });
@@ -382,7 +395,7 @@ const snapshotAddress = (address = {}) => ({
 const snapshotOrder = (order = {}) => ({
     order_id: order.order_id ?? order.id ?? null,
     user_id: order.user_id ?? null,
-    order_status: order.order_status ?? order.status ?? '',
+    order_status: normalizeOrderStatus(order.order_status ?? order.status),
     payment_status: order.payment_status ?? '',
     delivery_type: order.delivery_type ?? order.shipping_method ?? '',
     receiver_name: order.receiver_name ?? '',
@@ -566,9 +579,11 @@ const applyStockChange = async ({
 
 const PAID_PAYMENT_STATUS = 'ชำระเงินแล้ว';
 const PAYMENT_REVIEW_STATUS = 'รอตรวจสอบ';
-const PAYMENT_REJECTED_STATUS = 'ถูกปฏิเสธ';
+const PAYMENT_REJECTED_STATUS = 'ไม่พบหลักฐาน';
 const ORDER_PAYMENT_REVIEW_STATUS = 'รอตรวจสอบการชำระเงิน';
 const ORDER_WAITING_PAYMENT_STATUS = 'รอชำระเงิน';
+const ORDER_PREPARING_STATUS = 'กำลังเตรียมสินค้า';
+const ORDER_CANCELLED_STATUS = 'ยกเลิกคำสั่งซื้อ';
 const ALLOWED_CUSTOMER_PAYMENT_METHODS = new Set(['โอนเงินผ่านธนาคาร']);
 const ALLOWED_SHIPPING_METHODS = new Set(['ส่งสินค้า', 'รับหน้าร้าน']);
 const RECEIPT_UPLOAD_OPTIONS = {
@@ -577,7 +592,7 @@ const RECEIPT_UPLOAD_OPTIONS = {
     maxSizeBytes: 5 * 1024 * 1024,
     maxSizeMessage: 'ไฟล์สลิปต้องมีขนาดไม่เกิน 5 MB',
 };
-const BLOCKED_FULFILLMENT_STATUSES = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const BLOCKED_FULFILLMENT_STATUSES = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
 
 const normalizeCheckoutItem = (item, index) => {
     const productId = Number(item?.id ?? item?.product_id ?? item?.p_id);
@@ -1494,7 +1509,7 @@ app.post('/api/password-reset/complete', async (req, res) => {
 app.get('/api/admin/summary', requireAdmin, async (req, res) => {
     try {
         const [result] = await query(
-            "SELECT COUNT(order_id) AS total_orders, COALESCE(SUM(final_price), 0) AS total_revenue FROM orders WHERE order_status <> 'ยกเลิก'",
+            "SELECT COUNT(order_id) AS total_orders, COALESCE(SUM(final_price), 0) AS total_revenue FROM orders WHERE order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ')",
         );
         res.json(result[0]);
     } catch (err) {
@@ -1538,7 +1553,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                     COALESCE(SUM(final_price), 0) AS total_revenue,
                     COALESCE(AVG(final_price), 0) AS average_order_value
                  FROM orders
-                 WHERE order_status <> 'ยกเลิก' AND order_date BETWEEN ? AND ?`,
+                 WHERE order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') AND order_date BETWEEN ? AND ?`,
                 rangeParams,
             ),
             query(
@@ -1547,7 +1562,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                     COUNT(*) AS order_count,
                     COALESCE(SUM(o.final_price), 0) AS revenue
                  FROM orders o
-                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 WHERE o.order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') AND o.order_date BETWEEN ? AND ?
                  GROUP BY ${groupExpression}
                  ORDER BY period ASC`,
                 rangeParams,
@@ -1587,7 +1602,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                  FROM order_detail od
                  JOIN orders o ON o.order_id = od.order_id
                  JOIN product p ON p.product_id = od.product_id
-                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 WHERE o.order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') AND o.order_date BETWEEN ? AND ?
                  GROUP BY p.product_id, p.product_name, p.product_image
                  ORDER BY units_sold DESC, revenue DESC
                  LIMIT 5`,
@@ -1603,7 +1618,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                  JOIN orders o ON o.order_id = od.order_id
                  JOIN product p ON p.product_id = od.product_id
                  JOIN category c ON c.category_id = p.category_id
-                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ?
+                 WHERE o.order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') AND o.order_date BETWEEN ? AND ?
                  GROUP BY c.category_id, c.category_name
                  ORDER BY revenue DESC, units_sold DESC
                  LIMIT 5`,
@@ -1618,7 +1633,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
                     COALESCE(SUM(o.final_price), 0) AS total_spent
                  FROM orders o
                  JOIN \`user\` u ON u.user_id = o.user_id
-                 WHERE o.order_status <> 'ยกเลิก' AND o.order_date BETWEEN ? AND ? AND u.role = 'user'
+                 WHERE o.order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') AND o.order_date BETWEEN ? AND ? AND u.role = 'user'
                  GROUP BY u.user_id, u.username, u.full_name
                  ORDER BY total_spent DESC, order_count DESC
                  LIMIT 5`,
@@ -1851,7 +1866,7 @@ app.post('/api/admin/orders/delete', requireAdmin, async (req, res) => {
             [order_id],
         );
         if (orders.length === 0) return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
-        if (orders[0].order_status === 'ยกเลิก' || orders[0].payment_status === 'ยกเลิก') {
+        if (normalizeOrderStatus(orders[0].order_status) === ORDER_CANCELLED_STATUS || normalizeOrderStatus(orders[0].payment_status) === ORDER_CANCELLED_STATUS) {
             return res.status(403).json({ error: 'ไม่สามารถลบออเดอร์ที่ยกเลิกแล้วได้' });
         }
         if (['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(orders[0].payment_status)) {
@@ -1861,7 +1876,7 @@ app.post('/api/admin/orders/delete', requireAdmin, async (req, res) => {
         const [items] = await query('SELECT order_detail_id, product_id, quantity, price FROM order_detail WHERE order_id = ?', [order_id]);
         const beforeOrderSnapshot = snapshotOrder(orders[0]);
         const beforeItemSnapshots = snapshotOrderItems(items);
-        if (orders[0].order_status !== 'ยกเลิก') {
+        if (normalizeOrderStatus(orders[0].order_status) !== ORDER_CANCELLED_STATUS) {
             for (const item of items) {
                 await applyStockChange({
                     productId: item.product_id,
@@ -1954,7 +1969,7 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
         const [spentRows] = await query(`
             SELECT COALESCE(SUM(final_price), 0) AS total_spent
             FROM orders
-            WHERE order_status <> 'ยกเลิก'
+            WHERE order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ')
         `);
         const [results] = await query(`
             SELECT
@@ -1967,7 +1982,7 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
                 u.status_user,
                 u.created_at,
                 COUNT(o.order_id) AS total_orders,
-                IFNULL(SUM(CASE WHEN o.order_status <> 'ยกเลิก' THEN o.final_price ELSE 0 END), 0) AS total_spent,
+                IFNULL(SUM(CASE WHEN o.order_status NOT IN ('ยกเลิก', 'ยกเลิกคำสั่งซื้อ') THEN o.final_price ELSE 0 END), 0) AS total_spent,
                 CASE WHEN u.user_id = ? THEN 1 ELSE 0 END AS is_main_admin
             FROM \`user\` u
             LEFT JOIN orders o ON u.user_id = o.user_id
@@ -3287,7 +3302,7 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         approve: { paymentStatus: PAID_PAYMENT_STATUS, label: 'อนุมัติการชำระเงิน', requiresNote: false },
         reject: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน', requiresNote: true },
         request_new: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐานและขอหลักฐานใหม่', requiresNote: true },
-        suspicious: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ปฏิเสธหลักฐาน: สงสัยสลิปปลอม', requiresNote: true },
+        suspicious: { paymentStatus: PAYMENT_REJECTED_STATUS, label: 'ไม่พบหลักฐาน: สงสัยสลิปปลอม', requiresNote: true },
     };
     const review = actionMap[cleanAction];
 
@@ -3329,7 +3344,7 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
     );
     const nextOrderStatus = cleanAction === 'approve'
-        ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : 'เตรียมสินค้า')
+        ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : ORDER_PREPARING_STATUS)
         : ORDER_WAITING_PAYMENT_STATUS;
     await query(
         'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
@@ -3371,7 +3386,7 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         order_status: nextOrderStatus,
         payment_status: review.paymentStatus,
         review_note: cleanNote || null,
-        message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานการชำระเงินแล้ว',
+        message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'บันทึกว่าไม่พบหลักฐานแล้ว',
     };
 };
 
@@ -3462,7 +3477,7 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
         const { id } = req.params;
         const { id: actorId, role } = req.authUser;
         const isAdmin = role === 'admin';
-        const cancelableStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า'];
+        const cancelableStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, ORDER_PREPARING_STATUS];
 
         const [orders] = await query(`
             SELECT o.order_id, o.user_id, o.order_status, o.payment_status, u.username
@@ -3477,7 +3492,7 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
 
         const order = orders[0];
 
-        if (order.order_status === 'ยกเลิก') {
+        if (normalizeOrderStatus(order.order_status) === ORDER_CANCELLED_STATUS) {
             return res.json({ success: true, message: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว' });
         }
 
@@ -3485,7 +3500,7 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
             return res.status(400).json({ error: 'ไม่สามารถยกเลิกคำสั่งซื้อที่ชำระเงินแล้วได้' });
         }
 
-        if (!cancelableStatuses.includes(order.order_status)) {
+        if (!cancelableStatuses.includes(normalizeOrderStatus(order.order_status))) {
             return res.status(400).json({ error: isAdmin ? 'คำสั่งซื้อนี้เริ่มดำเนินการแล้ว ไม่สามารถยกเลิกได้' : 'คำสั่งซื้อนี้เริ่มดำเนินการแล้ว ไม่สามารถยกเลิกเองได้' });
         }
 
@@ -3507,15 +3522,15 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
 
         await query(
             'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
-            ['ยกเลิก', 'ยกเลิก', id],
+            [ORDER_CANCELLED_STATUS, ORDER_CANCELLED_STATUS, id],
         );
-        await writeOrderStatusHistory(id, 'ยกเลิก', isAdmin ? actorId : order.user_id, isAdmin ? 'แอดมินยกเลิกคำสั่งซื้อ' : 'ลูกค้ายกเลิกคำสั่งซื้อ');
+        await writeOrderStatusHistory(id, ORDER_CANCELLED_STATUS, isAdmin ? actorId : order.user_id, isAdmin ? 'แอดมินยกเลิกคำสั่งซื้อ' : 'ลูกค้ายกเลิกคำสั่งซื้อ');
         await writeSystemLog(isAdmin ? actorId : order.user_id, 'ยกเลิกคำสั่งซื้อ', `${isAdmin ? 'แอดมิน' : 'ลูกค้า'}ยกเลิกคำสั่งซื้อ #${id}`, {
             beforeData: snapshotOrder(order),
             afterData: {
                 ...snapshotOrder(order),
-                order_status: 'ยกเลิก',
-                payment_status: 'ยกเลิก',
+                order_status: ORDER_CANCELLED_STATUS,
+                payment_status: ORDER_CANCELLED_STATUS,
                 cancelled_by: isAdmin ? 'admin' : 'customer',
             },
         });
@@ -3540,11 +3555,11 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         const order = orders[0];
         const deliveryType = order.delivery_type || 'ส่งสินค้า';
         const trackingNo = String(tracking_no || '').trim();
-        const requestedStatus = String(status || '').trim();
-        const allowedStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
-        const currentStatus = order.order_status;
+        const requestedStatus = normalizeOrderStatus(status);
+        const allowedStatuses = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+        const currentStatus = normalizeOrderStatus(order.order_status);
 
-        if (order.order_status === 'ยกเลิก') {
+        if (normalizeOrderStatus(order.order_status) === ORDER_CANCELLED_STATUS) {
             return res.status(400).json({ error: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถเปลี่ยนสถานะต่อได้', field: 'status' });
         }
 
@@ -3561,15 +3576,16 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
 
         const isValidTransition = (() => {
             if (deliveryType === 'รับหน้าร้าน') {
-                const pickupFlowStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, 'รอจัดการ', 'เตรียมสินค้า', 'พร้อมรับสินค้า', 'เสร็จสิ้น'];
+                const pickupFlowStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, ORDER_PREPARING_STATUS, 'พร้อมรับสินค้า', 'เสร็จสิ้น'];
                 const currentStep = pickupFlowStatuses.indexOf(currentStatus);
                 const requestedStep = pickupFlowStatuses.indexOf(requestedStatus);
                 return currentStep !== -1 && requestedStep === currentStep + 1;
             }
 
             const transitionMap = {
-                รอจัดการ: ['เตรียมสินค้า'],
-                เตรียมสินค้า: ['กำลังจัดส่ง', 'เสร็จสิ้น'],
+                [ORDER_WAITING_PAYMENT_STATUS]: [ORDER_PREPARING_STATUS],
+                [ORDER_PAYMENT_REVIEW_STATUS]: [ORDER_PREPARING_STATUS],
+                [ORDER_PREPARING_STATUS]: ['กำลังจัดส่ง', 'เสร็จสิ้น'],
                 กำลังจัดส่ง: ['จัดส่งแล้ว', 'เสร็จสิ้น'],
                 จัดส่งแล้ว: ['เสร็จสิ้น'],
             };
@@ -3647,6 +3663,9 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
             SELECT
                 o.order_id AS id,
                 u.username,
+                u.full_name,
+                u.email,
+                u.phone AS customer_phone,
                 o.total_price,
                 o.shipping_fee,
                 o.discount,
@@ -3655,6 +3674,13 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 o.payment_method,
                 o.payment_status,
                 o.delivery_type AS shipping_method,
+                COALESCE(NULLIF(TRIM(o.receiver_name), ''), a.receiver_name, u.full_name, u.username) AS receiver_name,
+                COALESCE(NULLIF(TRIM(o.shipping_phone), ''), a.phone, u.phone) AS shipping_phone,
+                a.address_detail,
+                a.subdistrict,
+                a.district,
+                a.province,
+                a.postal_code,
                 o.tracking_no,
                 o.order_date AS created_at,
                 pay.payment_date,
@@ -3662,6 +3688,8 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 pay.receipt_file_name,
                 pay.reviewed_at,
                 pay.review_note,
+                reviewer.username AS reviewer_username,
+                reviewer.full_name AS reviewer_full_name,
                 od.product_id,
                 od.quantity,
                 od.price,
@@ -3670,11 +3698,15 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 p.description AS product_description
             FROM orders o
             JOIN \`user\` u ON o.user_id = u.user_id
+            LEFT JOIN address a ON a.address_id = (
+                SELECT MAX(address_id) FROM address WHERE user_id = o.user_id
+            )
             LEFT JOIN payment pay ON pay.payment_id = (
                 SELECT MAX(payment_id)
                 FROM payment
                 WHERE order_id = o.order_id
             )
+            LEFT JOIN \`user\` reviewer ON reviewer.user_id = pay.reviewed_by
             LEFT JOIN order_detail od ON o.order_id = od.order_id
             LEFT JOIN product p ON od.product_id = p.product_id
             WHERE o.user_id = ?
@@ -3687,14 +3719,24 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 orderMap.set(row.id, {
                     id: row.id,
                     username: row.username,
+                    full_name: row.full_name,
+                    email: row.email,
+                    customer_phone: row.customer_phone,
                     total_price: row.total_price,
                     shipping_fee: row.shipping_fee,
                     discount: row.discount,
                     final_price: row.final_price,
-                    status: row.status,
+                    status: normalizeOrderStatus(row.status),
                     payment_method: row.payment_method,
                     payment_status: row.payment_status,
                     shipping_method: row.shipping_method,
+                    receiver_name: row.receiver_name,
+                    shipping_phone: row.shipping_phone,
+                    address_detail: row.address_detail,
+                    subdistrict: row.subdistrict,
+                    district: row.district,
+                    province: row.province,
+                    postal_code: row.postal_code,
                     tracking_no: row.tracking_no,
                     created_at: row.created_at,
                     payment_date: row.payment_date,
@@ -3702,6 +3744,8 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                     receipt_file_name: row.receipt_file_name,
                     reviewed_at: row.reviewed_at,
                     review_note: row.review_note,
+                    reviewer_username: row.reviewer_username,
+                    reviewer_full_name: row.reviewer_full_name,
                     items: [],
                 });
             }

@@ -15,30 +15,43 @@ const formatMoney = (value) => {
 };
 
 const DEFAULT_ORDER_STATUS_FILTER = '__active_orders__';
+const normalizeOrderStatus = (status) => {
+    const value = String(status || '').trim();
+    const aliases = {
+        รอจัดการ: 'รอชำระเงิน',
+        เตรียมสินค้า: 'กำลังเตรียมสินค้า',
+        สำเร็จ: 'เสร็จสิ้น',
+        ได้รับสินค้าแล้ว: 'เสร็จสิ้น',
+        ยกเลิก: 'ยกเลิกคำสั่งซื้อ',
+    };
+    return aliases[value] || value;
+};
 const orderStatusOptions = [
-    { value: DEFAULT_ORDER_STATUS_FILTER, label: 'ทั้งหมดไม่รวมเสร็จสิ้น/ยกเลิก' },
-    { value: 'รอชำระ', label: 'รอชำระ' },
-    { value: 'รอตรวจสอบ', label: 'รอตรวจสอบ' },
-    { value: 'จัดเตรียม', label: 'จัดเตรียม' },
+    { value: DEFAULT_ORDER_STATUS_FILTER, label: 'ออเดอร์ที่ยังดำเนินการ' },
+    { value: 'รอชำระเงิน', label: 'รอชำระเงิน' },
+    { value: 'รอตรวจสอบการชำระเงิน', label: 'รอตรวจสอบการชำระเงิน' },
+    { value: 'กำลังเตรียมสินค้า', label: 'กำลังเตรียมสินค้า' },
+    { value: 'กำลังจัดส่ง', label: 'กำลังจัดส่ง' },
+    { value: 'พร้อมรับสินค้า', label: 'พร้อมรับสินค้า' },
+    { value: 'จัดส่งแล้ว', label: 'จัดส่งแล้ว' },
     { value: 'เสร็จสิ้น', label: 'เสร็จสิ้น' },
-    { value: 'ยกเลิก', label: 'ยกเลิก' },
+    { value: 'ยกเลิกคำสั่งซื้อ', label: 'ยกเลิกคำสั่งซื้อ' },
 ];
-const preparingOrderStatuses = ['รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'];
-const blockedFulfillmentStatuses = ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
-const rejectionReasons = ['ยอดเงินไม่ถูกต้อง', 'รูปไม่ชัด', 'ไม่พบรายการโอน', 'หลักฐานไม่ถูกต้อง', 'อื่น ๆ'];
+const paidPaymentStatuses = ['ชำระเงินแล้ว', 'ชำระแล้ว'];
+const blockedFulfillmentStatuses = ['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const rejectionReasons = ['ยอดเงินไม่ถูกต้อง', 'รูปไม่ชัด', 'ไม่พบหลักฐาน', 'อื่น ๆ'];
 const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
-const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status);
-const isCancelledOrder = (order) => order?.status === 'ยกเลิก' || order?.payment_status === 'ยกเลิก';
-const isCompletedOrder = (order) => (order?.status || '') === 'เสร็จสิ้น';
+const isPaidOrder = (order) => paidPaymentStatuses.includes(order.payment_status);
+const isCancelledOrder = (order) => normalizeOrderStatus(order?.status) === 'ยกเลิกคำสั่งซื้อ' || normalizeOrderStatus(order?.payment_status) === 'ยกเลิกคำสั่งซื้อ';
+const isCompletedOrder = (order) => normalizeOrderStatus(order?.status) === 'เสร็จสิ้น';
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
 const matchesOrderStatusFilter = (order, statusFilter) => {
-    const orderStatus = order.status || 'รอจัดการ';
+    const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
     const paymentStatus = order.payment_status || '';
     if (statusFilter === DEFAULT_ORDER_STATUS_FILTER) return !isCompletedOrder(order) && !isCancelledOrder(order);
-    if (statusFilter === 'รอชำระ') return ['รอชำระเงิน', 'รอจัดการ'].includes(orderStatus) || paymentStatus === 'รอชำระ';
-    if (statusFilter === 'รอตรวจสอบ') return orderStatus === 'รอตรวจสอบการชำระเงิน' || paymentStatus === 'รอตรวจสอบ';
-    if (statusFilter === 'จัดเตรียม') return preparingOrderStatuses.includes(orderStatus);
-    if (statusFilter === 'ยกเลิก') return isCancelledOrder(order);
+    if (statusFilter === 'รอชำระเงิน') return orderStatus === 'รอชำระเงิน' || paymentStatus === 'รอชำระ';
+    if (statusFilter === 'รอตรวจสอบการชำระเงิน') return orderStatus === 'รอตรวจสอบการชำระเงิน' || paymentStatus === 'รอตรวจสอบ';
+    if (statusFilter === 'ยกเลิกคำสั่งซื้อ') return isCancelledOrder(order);
     return orderStatus === statusFilter;
 };
 const DATE_PRESETS = [
@@ -216,6 +229,107 @@ const renderSlipReportThumb = (order) => {
     };
 };
 
+const getOrderReportItems = (order = {}) => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    return items.length ? items : [{
+        product_name: order.product_name || order.name || '-',
+        quantity: order.quantity || order.qty || 1,
+        price: order.price || order.final_price || order.total_price || 0,
+    }];
+};
+
+const renderOrderReportGroupedHtml = (orders = []) => orders.map((order) => {
+    const items = getOrderReportItems(order);
+    const productTotal = Number(order.total_price ?? items.reduce((sum, item) => {
+        const qty = Number(item.quantity || item.qty || 0);
+        const price = Number(item.price || 0);
+        return sum + (qty * price);
+    }, 0));
+    const shippingFee = Number(order.shipping_fee || 0);
+    const discount = Number(order.discount || 0);
+    const finalPrice = Number(order.final_price ?? (productTotal + shippingFee - discount));
+    const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
+    const paymentStatus = formatPaymentStatus(order.payment_status) || 'รอชำระ';
+    const trackingSummary = formatOrderTrackingSummary(order);
+
+    return `
+        <section class="order-report-card">
+            <header class="order-report-head">
+                <div>
+                    <span>เลขออเดอร์</span>
+                    <strong>#${escapeHtml(order.id)}</strong>
+                </div>
+                <div>
+                    <span>วันที่สั่งซื้อ</span>
+                    <strong>${escapeHtml(formatDateTime(order.created_at))}</strong>
+                </div>
+                <div>
+                    <span>ลูกค้า</span>
+                    <strong>${escapeHtml(order.full_name || order.username || 'ผู้ใช้งานทั่วไป')}</strong>
+                </div>
+                <div>
+                    <span>สถานะ</span>
+                    <strong>${escapeHtml(orderStatus)}</strong>
+                </div>
+            </header>
+            <table class="order-report-items">
+                <thead>
+                    <tr>
+                        <th>สินค้า</th>
+                        <th>จำนวน</th>
+                        <th>ราคาต่อชิ้น</th>
+                        <th>ราคารวม</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.map((item) => {
+                        const quantity = Number(item.quantity || item.qty || 0);
+                        const price = Number(item.price || 0);
+                        return `<tr>
+                            <td>${escapeHtml(item.product_name || item.name || 'สินค้า')}</td>
+                            <td class="number">${escapeHtml(quantity.toLocaleString('th-TH'))}</td>
+                            <td class="number">฿${escapeHtml(formatMoney(price))}</td>
+                            <td class="number">฿${escapeHtml(formatMoney(quantity * price))}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+            <footer class="order-report-foot">
+                <div><span>ชำระเงิน</span><strong>${escapeHtml(paymentStatus)}</strong></div>
+                <div><span>วิธีรับสินค้า</span><strong>${escapeHtml(order.shipping_method || '-')}</strong></div>
+                <div><span>เลขพัสดุ</span><strong>${escapeHtml(trackingSummary)}</strong></div>
+                <div><span>ยอดสินค้า</span><strong>฿${escapeHtml(formatMoney(productTotal))}</strong></div>
+                <div><span>ค่าส่ง</span><strong>฿${escapeHtml(formatMoney(shippingFee))}</strong></div>
+                <div><span>ส่วนลด</span><strong>-฿${escapeHtml(formatMoney(discount))}</strong></div>
+                <div class="grand-total"><span>ยอดสุทธิ</span><strong>฿${escapeHtml(formatMoney(finalPrice))}</strong></div>
+            </footer>
+        </section>
+    `;
+}).join('');
+
+const flattenOrderReportRows = (orders = []) => orders.flatMap((order) => {
+    const items = getOrderReportItems(order);
+    const productTotal = Number(order.total_price ?? items.reduce((sum, item) => {
+        const qty = Number(item.quantity || item.qty || 0);
+        const price = Number(item.price || 0);
+        return sum + (qty * price);
+    }, 0));
+    const shippingFee = Number(order.shipping_fee || 0);
+    const discount = Number(order.discount || 0);
+    const finalPrice = Number(order.final_price ?? (productTotal + shippingFee - discount));
+    return [
+        ['หัวออเดอร์', `#${order.id}`, formatDateTime(order.created_at), order.full_name || order.username || 'ผู้ใช้งานทั่วไป', formatPaymentStatus(order.payment_status) || 'รอชำระ', order.shipping_method || '-', formatOrderTrackingSummary(order), normalizeOrderStatus(order.status || 'รอชำระเงิน')],
+        ['สินค้า', 'ชื่อสินค้า', 'จำนวน', 'ราคาต่อชิ้น', 'ราคารวม', '', '', ''],
+        ...items.map((item) => {
+            const quantity = Number(item.quantity || item.qty || 0);
+            const price = Number(item.price || 0);
+            return ['รายการสินค้า', item.product_name || item.name || 'สินค้า', quantity, `฿${formatMoney(price)}`, `฿${formatMoney(quantity * price)}`, '', '', ''];
+        }),
+        ['ท้ายออเดอร์', 'ยอดสินค้า', `฿${formatMoney(productTotal)}`, 'ค่าส่ง', `฿${formatMoney(shippingFee)}`, 'ส่วนลด', `-฿${formatMoney(discount)}`, `ยอดสุทธิ ฿${formatMoney(finalPrice)}`],
+        [],
+    ];
+});
+
 const getOrderReportConfig = (orderViewTab, rows, orderRange, slipPageTab = 'review') => {
     const countText = `${rows.length.toLocaleString('th-TH')} รายการ · ${orderRange.from} ถึง ${orderRange.to}`;
     if (orderViewTab === 'slips') {
@@ -237,7 +351,7 @@ const getOrderReportConfig = (orderViewTab, rows, orderRange, slipPageTab = 'rev
                             : '-'),
                     order.transaction_ref || '-',
                     order.reviewer_full_name || order.reviewer_username || (order.reviewed_at ? 'แอดมิน' : '-'),
-                    ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status)
+                    paidPaymentStatuses.includes(order.payment_status)
                         ? 'อนุมัติการชำระเงิน'
                         : (order.review_note || (order.payment_status ? `ปฏิเสธหลักฐาน (${formatPaymentStatus(order.payment_status)})` : '-')),
                 ])),
@@ -282,7 +396,9 @@ const getOrderReportConfig = (orderViewTab, rows, orderRange, slipPageTab = 'rev
         title: 'รายงานออเดอร์',
         subtitle: countText,
         fileName: `order-report-${orderRange.from}-${orderRange.to}`,
-        headers: ['เลขออเดอร์', 'วันที่สั่งซื้อ', 'ผู้ใช้งาน', 'สถานะการชำระเงิน', 'วิธีรับสินค้า', 'เลขพัสดุ', 'ยอดสุทธิ', 'สถานะออเดอร์'],
+        groupedOrders: true,
+        orders: rows,
+        headers: ['ประเภท', 'เลขออเดอร์/สินค้า', 'วันที่/จำนวน', 'ลูกค้า/ราคา', 'สถานะชำระเงิน/รวม', 'วิธีรับสินค้า', 'เลขพัสดุ/ส่วนลด', 'สถานะ/ยอดสุทธิ'],
         rows: rows.map((order) => ([
             `#${order.id}`,
             formatDateTime(order.created_at),
@@ -291,8 +407,9 @@ const getOrderReportConfig = (orderViewTab, rows, orderRange, slipPageTab = 'rev
             order.shipping_method || '-',
             formatOrderTrackingSummary(order),
             `฿${formatMoney(order.final_price ?? order.total_price)}`,
-            order.status || 'รอจัดการ',
+            normalizeOrderStatus(order.status || 'รอชำระเงิน'),
         ])),
+        exportRows: flattenOrderReportRows(rows),
     };
 };
 
@@ -592,7 +709,7 @@ function AdminDashboardPage({
         if (nextOrderView === 'print') {
             return sourceOrders.filter((order) => (
                 isPaidOrder(order)
-                && order.status === 'เตรียมสินค้า'
+                && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า'
                 && ['ส่งสินค้า', 'รับหน้าร้าน'].includes(order.shipping_method)
             ));
         }
@@ -608,11 +725,11 @@ function AdminDashboardPage({
     );
     const orderTotalPages = Math.max(1, Math.ceil(activeOrderRows.length / orderPageSize));
     const visibleOrders = activeOrderRows.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
-    const pendingSlipReviewCount = orders.filter((order) => order.payment_status === 'รอตรวจสอบ').length;
+    const pendingSlipReviewCount = reviewableSlipOrders.length;
     const newOrdersCount = orders.filter((order) => isWithinBounds(order.created_at || order.order_date, getRangeBounds(getDateRange('today')))).length;
     const readyToPrintCount = orders.filter((order) => (
         isPaidOrder(order)
-        && order.status === 'เตรียมสินค้า'
+        && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า'
         && ['ส่งสินค้า', 'รับหน้าร้าน'].includes(order.shipping_method)
     )).length;
     const visiblePaidOrderIds = visibleOrders.filter(isPaidOrder).map((order) => String(order.id));
@@ -698,10 +815,10 @@ function AdminDashboardPage({
             .filter((order) => order.payment_status === 'รอตรวจสอบ')
             .sort((a, b) => new Date(a.payment_date || a.created_at || 0) - new Date(b.payment_date || b.created_at || 0));
         const stuckOrders = orders
-            .filter((order) => !isCancelledOrder(order) && ['รอจัดการ', 'เตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า'].includes(order.status || 'รอจัดการ'))
+            .filter((order) => !isCancelledOrder(order) && ['รอชำระเงิน', 'กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า'].includes(normalizeOrderStatus(order.status || 'รอชำระเงิน')))
             .sort((a, b) => getOrderDate(a) - getOrderDate(b));
         const readyToPrintOrders = orders
-            .filter((order) => isPaidOrder(order) && order.status === 'เตรียมสินค้า')
+            .filter((order) => isPaidOrder(order) && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า')
             .sort((a, b) => getOrderDate(a) - getOrderDate(b));
         const lowStockProducts = products
             .filter((product) => Number(product.product_status ?? product.status ?? 1) === 1 && Number(product.stock ?? product.quantity ?? 0) <= 5)
@@ -727,7 +844,7 @@ function AdminDashboardPage({
                 id: `stuck-${order.id}`,
                 tone: 'blue',
                 eyebrow: 'ออเดอร์ค้าง',
-                title: `ออเดอร์ #${order.id} ยังอยู่สถานะ ${order.status || 'รอจัดการ'}`,
+                title: `ออเดอร์ #${order.id} ยังอยู่สถานะ ${normalizeOrderStatus(order.status || 'รอชำระเงิน')}`,
                 detail: `${getPersonName(order)} · ${order.shipping_method || '-'}`,
                 age: formatRelativeTime(order.created_at || order.order_date),
                 actionLabel: 'เปิดออเดอร์',
@@ -839,15 +956,15 @@ function AdminDashboardPage({
 
     useEffect(() => {
         if (orderViewTab !== 'print') return;
-        if (statusFilter !== 'เตรียมสินค้า') {
+        if (statusFilter !== 'กำลังเตรียมสินค้า') {
             printStatusFilterRef.current = statusFilter;
-            setStatusFilter('เตรียมสินค้า');
+            setStatusFilter('กำลังเตรียมสินค้า');
         }
     }, [orderViewTab, statusFilter]);
 
     useEffect(() => {
         if (orderViewTab === 'print') return;
-        if (statusFilter === 'เตรียมสินค้า') {
+        if (statusFilter === 'กำลังเตรียมสินค้า') {
             setStatusFilter(printStatusFilterRef.current || DEFAULT_ORDER_STATUS_FILTER);
         }
     }, [orderViewTab, statusFilter]);
@@ -1091,13 +1208,13 @@ function AdminDashboardPage({
         });
     };
 
-    const reviewReceiptEvidence = async () => {
-        if (!receiptPreview?.src || receiptOcrLoading) return;
+    const reviewReceiptEvidence = async (sourceSrc = receiptPreview?.src) => {
+        if (!sourceSrc || receiptOcrLoading) return;
 
         setReceiptOcrLoading(true);
         setReceiptOcrError('');
         try {
-            const extractedText = await extractTextFromImage(receiptPreview.src);
+            const extractedText = await extractTextFromImage(sourceSrc);
             if (!extractedText) {
                 notify({
                     type: 'warning',
@@ -1389,7 +1506,7 @@ function AdminDashboardPage({
             user_id: currentUser?.id,
             verified_amount: draft.verified_amount,
             transaction_ref: draft.transaction_ref,
-            review_note: isApprove ? '' : 'หลักฐานไม่ถูกต้อง',
+            review_note: isApprove ? '' : 'ไม่พบหลักฐาน',
         };
 
         try {
@@ -1601,15 +1718,36 @@ function AdminDashboardPage({
         const reportTitle = reportConfig.title;
         const reportSubtitle = reportConfig.subtitle;
         const headers = reportConfig.headers;
-        const rows = reportConfig.rows;
+        const rows = reportConfig.exportRows || reportConfig.rows;
         const fileName = reportConfig.fileName;
         if (format === 'pdf') {
             const popup = window.open('', '_blank', 'width=1200,height=760');
             if (!popup) return;
+            const groupedOrderHtml = reportConfig.groupedOrders
+                ? renderOrderReportGroupedHtml(reportConfig.orders)
+                : '';
             popup.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${fileName}</title>
-                <style>body{font-family:Arial,sans-serif;padding:24px;color:#17202e}h2{margin:0 0 4px}p{color:#667085}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:8px;border:1px solid #dfe4ea;text-align:left}th{background:#f2f4f7}@page{size:landscape;margin:10mm}</style>
+                <style>
+                    body{font-family:Arial,sans-serif;padding:24px;color:#17202e;background:#fff}
+                    h2{margin:0 0 4px}p{color:#667085}
+                    table{width:100%;border-collapse:collapse;font-size:11px}
+                    th,td{padding:8px;border:1px solid #dfe4ea;text-align:left;vertical-align:top}
+                    th{background:#f2f4f7}
+                    .order-report-card{border:1px solid #cfd8e3;border-radius:8px;margin:0 0 14px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}
+                    .order-report-head{display:grid;grid-template-columns:1fr 1.2fr 1.4fr 1fr;gap:0;background:#17202e;color:#fff}
+                    .order-report-head>div{padding:10px 12px;border-right:1px solid rgba(255,255,255,.2)}
+                    .order-report-head span,.order-report-foot span{display:block;font-size:10px;color:inherit;opacity:.72;margin-bottom:3px}
+                    .order-report-head strong,.order-report-foot strong{font-size:12px}
+                    .order-report-items th{background:#eef2f6}
+                    .order-report-items .number{text-align:right}
+                    .order-report-foot{display:grid;grid-template-columns:1.1fr 1fr 1fr .9fr .8fr .8fr 1fr;background:#f8fafc;border-top:1px solid #dfe4ea}
+                    .order-report-foot>div{padding:9px 10px;border-right:1px solid #dfe4ea}
+                    .order-report-foot .grand-total{background:#e8f3ee}
+                    .order-report-foot .grand-total strong{font-size:14px;color:#087443}
+                    @page{size:landscape;margin:10mm}
+                </style>
                 </head><body><h2>${reportTitle}</h2><p>${reportSubtitle}</p>
-                <table><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr>${rows.map((row) => `<tr>${row.map((item) => `<td>${renderReportCellHtml(item)}</td>`).join('')}</tr>`).join('')}</table>
+                ${reportConfig.groupedOrders ? groupedOrderHtml : `<table><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr>${rows.map((row) => `<tr>${row.map((item) => `<td>${renderReportCellHtml(item)}</td>`).join('')}</tr>`).join('')}</table>`}
                 <script>window.onload=()=>window.print();</script></body></html>`);
             popup.document.close();
             return;
@@ -1617,7 +1755,9 @@ function AdminDashboardPage({
         let blob;
         let extension;
         if (format === 'excel') {
-            const html = `<html><head><meta charset="utf-8"></head><body><h2>${reportTitle}</h2><p>${reportSubtitle}</p><table><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr>${rows.map((row) => `<tr>${row.map((item) => `<td>${renderReportCellHtml(item)}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
+            const html = reportConfig.groupedOrders
+                ? `<html><head><meta charset="utf-8"></head><body><h2>${reportTitle}</h2><p>${reportSubtitle}</p>${renderOrderReportGroupedHtml(reportConfig.orders)}</body></html>`
+                : `<html><head><meta charset="utf-8"></head><body><h2>${reportTitle}</h2><p>${reportSubtitle}</p><table><tr>${headers.map((item) => `<th>${item}</th>`).join('')}</tr>${rows.map((row) => `<tr>${row.map((item) => `<td>${renderReportCellHtml(item)}</td>`).join('')}</tr>`).join('')}</table></body></html>`;
             blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
             extension = 'xls';
         } else {
@@ -2055,9 +2195,11 @@ function AdminDashboardPage({
     const detailHistory = Array.isArray(orderDetails?.history) ? orderDetails.history : [];
     const detailPaymentStatus = formatPaymentStatus(detailOrder?.payment_status) || 'รอชำระ';
     const detailOrderIsPaid = isPaidOrder(detailOrder || selectedOrder || {});
+    const selectedOrderStatus = normalizeOrderStatus(selectedOrder?.status);
+    const detailOrderStatus = normalizeOrderStatus(detailOrder?.status);
     const paymentReviewDisabled = !detailOrder?.receipt_image || Boolean(paymentReviewSaving) || detailPaymentStatus !== 'รอตรวจสอบ';
     const paymentReviewReady = Boolean(String(paymentReviewForm.verified_amount || '').trim() && String(paymentReviewForm.transaction_ref || '').trim());
-    const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
+    const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['ไม่พบหลักฐาน', 'ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
 
     return (
         <div className="commerce-dashboard">
@@ -2416,7 +2558,7 @@ function AdminDashboardPage({
                         ) : orderViewTab === 'print' ? (
                             <div className="order-filter-locked" aria-live="polite">
                                 <span>สถานะออเดอร์</span>
-                                <strong>เตรียมสินค้าเท่านั้น</strong>
+                                <strong>กำลังเตรียมสินค้าเท่านั้น</strong>
                             </div>
                         ) : (
                             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
@@ -2538,99 +2680,115 @@ function AdminDashboardPage({
                             <table className="order-table slip-review-table">
                                 <thead>
                                     <tr>
-                                        <th><button type="button" onClick={() => changeOrderSort('id')}>ออเดอร์{orderSortMarker('id')}</button></th>
-                                        <th><button type="button" onClick={() => changeOrderSort('date')}>วันที่ส่งสลิป{orderSortMarker('date')}</button></th>
-                                        <th>ชื่อผู้ใช้</th>
-                                        <th className="text-end">ยอดเงิน</th>
-                                        <th>สลิป</th>
-                                        <th>ยอดที่พบ</th>
-                                        <th>เลขอ้างอิง</th>
-                                        <th>จัดการ</th>
+                                        <th>รูปสลิป</th>
+                                        <th>ข้อมูลการชำระเงิน</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {ordersLoading ? [...Array(6)].map((_, index) => (
-                                        <tr key={`slip-skeleton-${index}`} className="order-skeleton"><td colSpan="8"><i /></td></tr>
+                                        <tr key={`slip-skeleton-${index}`} className="order-skeleton"><td colSpan="2"><i /></td></tr>
                                     )) : visibleOrders.length ? visibleOrders.map((order) => {
                                         const draft = slipReviewDrafts[order.id] || { verified_amount: '', transaction_ref: '' };
                                         const fieldErrors = slipReviewFieldErrors[order.id] || {};
                                         const paymentStatus = formatPaymentStatus(order.payment_status) || '';
                                         const isPendingReview = paymentStatus === 'รอตรวจสอบ';
-                                        return (
+                                        return [
+                                            <tr className="slip-review-order-head" key={`slip-${order.id}-head`}>
+                                                <td colSpan="2">
+                                                    <div className="order-history-customer-order-head-inner">
+                                                        <div>
+                                                            <strong>คำสั่งซื้อ #{order.id}</strong>
+                                                            <span>{order.payment_date ? formatThaiDateTime(order.payment_date) : 'ยังไม่ระบุวันที่ส่งสลิป'}</span>
+                                                        </div>
+                                                        <span className={`payment-badge ${isPendingReview ? 'review' : isPaidOrder(order) ? 'paid' : 'waiting'}`}>{paymentStatus || '-'}</span>
+                                                    </div>
+                                                </td>
+                                            </tr>,
                                             <tr
-                                                key={`slip-${order.id}`}
+                                                className="slip-review-order-row"
+                                                key={`slip-${order.id}-row`}
                                                 onClick={orderViewTab === 'slips' ? undefined : () => loadOrderDetails(order)}
                                             >
-                                                <td data-label="ออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                                <td data-label="วันที่ส่งสลิป"><span className="order-date">{order.payment_date ? formatThaiDateTime(order.payment_date) : '-'}</span></td>
-                                            <td data-label="ผู้ใช้งาน"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
-                                                <td data-label="ยอดเงิน" className="order-total">฿{formatMoney(order.final_price ?? order.total_price)}</td>
-                                                <td data-label="สลิป">
+                                                <td data-label="รูปสลิป" className="slip-review-image-cell">
                                                     <button type="button" className="slip-review-thumb" onClick={(event) => openReceiptLightbox(order, event)} aria-label={`ดูสลิปออเดอร์ #${order.id}`}>
                                                         <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
                                                         <span>กดขยาย</span>
                                                     </button>
                                                 </td>
-                                                <td data-label="ยอดที่พบ">
-                                                    <input
-                                                        className="slip-review-input"
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={draft.verified_amount}
-                                                        onClick={(event) => event.stopPropagation()}
-                                                        onChange={(event) => updateSlipReviewDraft(order.id, 'verified_amount', event.target.value)}
-                                                        placeholder="0.00"
-                                                        disabled={!isPendingReview || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
-                                                        aria-invalid={Boolean(fieldErrors.verified_amount)}
-                                                    />
-                                                    {fieldErrors.verified_amount && <small className="slip-review-field-error">{fieldErrors.verified_amount}</small>}
-                                                </td>
-                                                <td data-label="เลขอ้างอิง">
-                                                    <input
-                                                        className="slip-review-input"
-                                                        value={draft.transaction_ref}
-                                                        onClick={(event) => event.stopPropagation()}
-                                                        onChange={(event) => updateSlipReviewDraft(order.id, 'transaction_ref', event.target.value)}
-                                                        placeholder="เช่น Ref / Transaction ID"
-                                                        disabled={!isPendingReview || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
-                                                        aria-invalid={Boolean(fieldErrors.transaction_ref)}
-                                                    />
-                                                    {fieldErrors.transaction_ref && <small className="slip-review-field-error">{fieldErrors.transaction_ref}</small>}
-                                                </td>
-                                                <td data-label="จัดการ">
-                                                    <div className="slip-review-actions">
-                                                        <button
-                                                            type="button"
-                                                            className="order-table-slip-check"
-                                                            onClick={(event) => reviewSlipRowEvidence(order, event)}
-                                                            disabled={tableReceiptOcrOrderId === order.id || !order.receipt_image || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
-                                                        >
-                                                            {tableReceiptOcrOrderId === order.id ? 'กำลังตรวจสอบ...' : 'ตรวจสอบ'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="order-table-slip-approve"
-                                                            onClick={(event) => submitSlipReviewRow(order, 'approve', event)}
-                                                            disabled={!isPendingReview || quickReviewOrderAction === `${order.id}:approve` || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
-                                                        >
-                                                            {quickReviewOrderAction === `${order.id}:approve` ? 'กำลังอนุมัติ...' : 'อนุมัติ'}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="order-table-slip-reject"
-                                                            onClick={(event) => openTableRejectDialog(order, event)}
-                                                            disabled={!isPendingReview || quickReviewOrderAction === `${order.id}:reject` || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
-                                                        >
-                                                            {quickReviewOrderAction === `${order.id}:reject` ? 'กำลังปฏิเสธ...' : 'ปฏิเสธ'}
-                                                        </button>
+                                                <td data-label="ข้อมูลการชำระเงิน" className="slip-review-payment-cell">
+                                                    <div className="slip-review-payment-panel">
+                                                        <h3>ข้อมูลการชำระเงิน</h3>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>ผู้ใช้งาน</span>
+                                                            <strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong>
+                                                            {order.full_name && order.username && <small>{order.full_name}</small>}
+                                                        </div>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>จำนวนเงิน</span>
+                                                            <strong>฿{formatMoney(order.final_price ?? order.total_price)}</strong>
+                                                        </div>
+                                                        <label className="slip-review-payment-field">
+                                                            <span>ยอดที่พบ</span>
+                                                            <input
+                                                                className="slip-review-input"
+                                                                type="number"
+                                                                min="0"
+                                                                step="0.01"
+                                                                value={draft.verified_amount}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onChange={(event) => updateSlipReviewDraft(order.id, 'verified_amount', event.target.value)}
+                                                                placeholder="0.00"
+                                                                disabled={!isPendingReview || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
+                                                                aria-invalid={Boolean(fieldErrors.verified_amount)}
+                                                            />
+                                                            {fieldErrors.verified_amount && <small className="slip-review-field-error">{fieldErrors.verified_amount}</small>}
+                                                        </label>
+                                                        <label className="slip-review-payment-field">
+                                                            <span>เลขอ้างอิง</span>
+                                                            <input
+                                                                className="slip-review-input"
+                                                                value={draft.transaction_ref}
+                                                                onClick={(event) => event.stopPropagation()}
+                                                                onChange={(event) => updateSlipReviewDraft(order.id, 'transaction_ref', event.target.value)}
+                                                                placeholder="เช่น Ref / Transaction ID"
+                                                                disabled={!isPendingReview || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
+                                                                aria-invalid={Boolean(fieldErrors.transaction_ref)}
+                                                            />
+                                                            {fieldErrors.transaction_ref && <small className="slip-review-field-error">{fieldErrors.transaction_ref}</small>}
+                                                        </label>
+                                                        <div className="slip-review-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="order-table-slip-check"
+                                                                onClick={(event) => reviewSlipRowEvidence(order, event)}
+                                                                disabled={tableReceiptOcrOrderId === order.id || !order.receipt_image || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
+                                                            >
+                                                                {tableReceiptOcrOrderId === order.id ? 'กำลังตรวจสอบ...' : 'ตรวจสอบ'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="order-table-slip-approve"
+                                                                onClick={(event) => submitSlipReviewRow(order, 'approve', event)}
+                                                                disabled={!isPendingReview || quickReviewOrderAction === `${order.id}:approve` || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
+                                                            >
+                                                                {quickReviewOrderAction === `${order.id}:approve` ? 'กำลังอนุมัติ...' : '✓ อนุมัติ'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="order-table-slip-reject"
+                                                                onClick={(event) => openTableRejectDialog(order, event)}
+                                                                disabled={!isPendingReview || quickReviewOrderAction === `${order.id}:reject` || Boolean(quickReviewOrderAction) || bulkSlipReviewSaving}
+                                                            >
+                                                                {quickReviewOrderAction === `${order.id}:reject` ? 'กำลังปฏิเสธ...' : '✕ ปฏิเสธ'}
+                                                            </button>
+                                                        </div>
+                                                        {tableReceiptOcrError && tableReceiptOcrErrorOrderId === order.id && <small className="slip-review-error">{tableReceiptOcrError}</small>}
                                                     </div>
-                                                    {tableReceiptOcrError && tableReceiptOcrErrorOrderId === order.id && <small className="slip-review-error">{tableReceiptOcrError}</small>}
                                                 </td>
-                                            </tr>
-                                        );
+                                            </tr>,
+                                        ];
                                     }) : (
-                                        <tr><td colSpan="8"><div className="order-empty"><b>⌕</b><strong>ไม่พบออเดอร์ที่มีสลิป</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูออเดอร์ที่แนบสลิป</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
+                                        <tr><td colSpan="2"><div className="order-empty"><b>⌕</b><strong>ไม่พบออเดอร์ที่มีสลิป</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูออเดอร์ที่แนบสลิป</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
                                     )}
                                 </tbody>
                             </table>
@@ -2638,50 +2796,86 @@ function AdminDashboardPage({
                             <table className="order-table slip-history-table">
                                 <thead>
                                     <tr>
-                                        <th><button type="button" onClick={() => changeOrderSort('id')}>ออเดอร์{orderSortMarker('id')}</button></th>
-                                        <th>วันที่ตรวจ</th>
-                                        <th>ผู้ใช้งาน</th>
                                         <th>รูปสลิป</th>
-                                        <th className="text-end">ยอดที่ตรวจพบ</th>
-                                        <th>เลขอ้างอิง</th>
-                                        <th>ผู้ตรวจสอบ</th>
-                                        <th>ผลการตรวจ</th>
+                                        <th>ข้อมูลการชำระเงิน</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {ordersLoading ? [...Array(6)].map((_, index) => (
-                                        <tr key={`slip-history-skeleton-${index}`} className="order-skeleton"><td colSpan="8"><i /></td></tr>
+                                        <tr key={`slip-history-skeleton-${index}`} className="order-skeleton"><td colSpan="2"><i /></td></tr>
                                     )) : visibleOrders.length ? visibleOrders.map((order) => {
-                                        const approved = ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order.payment_status);
-                                        return (
-                                            <tr key={`slip-history-${order.id}`} onClick={() => loadOrderDetails(order)}>
-                                                <td data-label="ออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                                <td data-label="วันที่ตรวจ"><span className="order-date">{order.reviewed_at ? formatThaiDateTime(order.reviewed_at) : (order.payment_date ? formatThaiDateTime(order.payment_date) : '-')}</span></td>
-                                                <td data-label="ผู้ใช้งาน"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
-                                                <td data-label="รูปสลิป">
+                                        const approved = paidPaymentStatuses.includes(order.payment_status);
+                                        const reviewedAtText = order.reviewed_at ? formatThaiDateTime(order.reviewed_at) : (order.payment_date ? formatThaiDateTime(order.payment_date) : '-');
+                                        const verifiedAmountText = order.verified_amount !== undefined && order.verified_amount !== null && String(order.verified_amount).trim() !== ''
+                                            ? formatMoney(order.verified_amount)
+                                            : (order.payment_amount !== undefined && order.payment_amount !== null && String(order.payment_amount).trim() !== '' ? formatMoney(order.payment_amount) : '-');
+                                        return [
+                                            <tr className="slip-review-order-head" key={`slip-history-${order.id}-head`}>
+                                                <td colSpan="2">
+                                                    <div className="order-history-customer-order-head-inner">
+                                                        <div>
+                                                            <strong>คำสั่งซื้อ #{order.id}</strong>
+                                                            <span>{reviewedAtText}</span>
+                                                        </div>
+                                                        <span className={`payment-badge ${approved ? 'paid' : 'rejected'}`}>
+                                                            {approved ? 'อนุมัติแล้ว' : (formatPaymentStatus(order.payment_status) || 'ปฏิเสธแล้ว')}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>,
+                                            <tr className="slip-review-order-row" key={`slip-history-${order.id}-row`} onClick={() => loadOrderDetails(order)}>
+                                                <td data-label="รูปสลิป" className="slip-review-image-cell">
                                                     <button type="button" className="slip-review-thumb" onClick={(event) => openReceiptLightbox(order, event)} aria-label={`ดูสลิปออเดอร์ #${order.id}`}>
                                                         <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
                                                         <span>กดขยาย</span>
                                                     </button>
                                                 </td>
-                                                <td data-label="ยอดที่ตรวจพบ" className="order-total">฿{order.verified_amount !== undefined && order.verified_amount !== null && String(order.verified_amount).trim() !== '' ? formatMoney(order.verified_amount) : (order.payment_amount !== undefined && order.payment_amount !== null && String(order.payment_amount).trim() !== '' ? formatMoney(order.payment_amount) : '-')}</td>
-                                                <td data-label="เลขอ้างอิง"><span className="order-address-tracking">{order.transaction_ref || '-'}</span></td>
-                                                <td data-label="ผู้ตรวจสอบ"><strong>{order.reviewer_full_name || order.reviewer_username || (order.reviewed_at ? 'แอดมิน' : '-')}</strong></td>
-                                                <td data-label="ผลการตรวจ">
-                                                    <span className={`payment-badge ${approved ? 'paid' : 'rejected'}`}>
-                                                        {approved ? 'อนุมัติแล้ว' : (formatPaymentStatus(order.payment_status) || 'ปฏิเสธแล้ว')}
-                                                    </span>
+                                                <td data-label="ข้อมูลการชำระเงิน" className="slip-review-payment-cell">
+                                                    <div className="slip-review-payment-panel slip-history-payment-panel">
+                                                        <h3>ข้อมูลการชำระเงิน</h3>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>ผู้ใช้งาน</span>
+                                                            <strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong>
+                                                            {order.full_name && order.username && <small>{order.full_name}</small>}
+                                                        </div>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>ยอดที่ตรวจพบ</span>
+                                                            <strong>{verifiedAmountText === '-' ? '-' : `฿${verifiedAmountText}`}</strong>
+                                                        </div>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>เลขอ้างอิง</span>
+                                                            <strong>{order.transaction_ref || '-'}</strong>
+                                                        </div>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>ผู้ตรวจสอบ</span>
+                                                            <strong>{order.reviewer_full_name || order.reviewer_username || (order.reviewed_at ? 'แอดมิน' : '-')}</strong>
+                                                            <small>เวลาตรวจ {reviewedAtText}</small>
+                                                        </div>
+                                                        <div className="slip-review-payment-summary">
+                                                            <span>ผลการตรวจ</span>
+                                                            <strong>{approved ? 'อนุมัติแล้ว' : (formatPaymentStatus(order.payment_status) || 'ปฏิเสธแล้ว')}</strong>
+                                                        </div>
+                                                    </div>
                                                 </td>
-                                            </tr>
-                                        );
+                                            </tr>,
+                                        ];
                                     }) : (
-                                        <tr><td colSpan="8"><div className="order-empty"><b>⌕</b><strong>ไม่พบประวัติอนุมัติ</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูรายการที่ตรวจแล้ว</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
+                                        <tr><td colSpan="2"><div className="order-empty"><b>⌕</b><strong>ไม่พบประวัติอนุมัติ</strong><span>ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูรายการที่ตรวจแล้ว</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
                                     )}
                                 </tbody>
                             </table>
                         )
                     ) : (
-                        <table className="order-table">
+                        <table className={`order-table order-card-table order-admin-member-table${showPrintSelectionColumn ? ' has-select-column' : ''}`}>
+                            <colgroup>
+                                {showPrintSelectionColumn && <col className="order-admin-col-select" />}
+                                <col className="order-admin-col-image" />
+                                <col className="order-admin-col-product" />
+                                <col className="order-admin-col-price" />
+                                <col className="order-admin-col-qty" />
+                                <col className="order-admin-col-slip" />
+                                <col className="order-admin-col-actions" />
+                            </colgroup>
                             <thead>
                                 <tr>
                                     {showPrintSelectionColumn && (
@@ -2695,73 +2889,170 @@ function AdminDashboardPage({
                                             />
                                         </th>
                                     )}
-                                    <th><button type="button" onClick={() => changeOrderSort('id')}>เลขออเดอร์{orderSortMarker('id')}</button></th>
-                                    <th><button type="button" onClick={() => changeOrderSort('date')}>วันที่สั่งซื้อ{orderSortMarker('date')}</button></th>
-                                    <th>ลูกค้า</th>
-                                    <th>สลิปการชำระเงิน</th>
-                                    <th>วิธีรับสินค้า</th>
-                                    <th>เลขพัสดุ</th>
-                                    <th><button type="button" onClick={() => changeOrderSort('amount')}>ยอดสุทธิ{orderSortMarker('amount')}</button></th>
-                                    <th><button type="button" onClick={() => changeOrderSort('status')}>สถานะออเดอร์{orderSortMarker('status')}</button></th>
+                                    <th>รูป</th>
+                                    <th>ชื่อคำอธิบาย</th>
+                                    <th><button type="button" onClick={() => changeOrderSort('amount')}>ราคา{orderSortMarker('amount')}</button></th>
+                                    <th>ชิ้น</th>
+                                    <th>รูปสลิป</th>
                                     <th>จัดการ</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {ordersLoading ? [...Array(6)].map((_, index) => (
-                                    <tr key={`order-skeleton-${index}`} className="order-skeleton"><td colSpan={showPrintSelectionColumn ? '10' : '9'}><i /></td></tr>
+                                    <tr key={`order-skeleton-${index}`} className="order-skeleton"><td colSpan={showPrintSelectionColumn ? '7' : '6'}><i /></td></tr>
                                 )) : visibleOrders.length ? visibleOrders.map((order) => {
                                     const orderIsPaid = isPaidOrder(order);
                                     const trackingSummary = formatOrderTrackingSummary(order);
                                     const orderIdText = String(order.id);
-                                    return (
-                                        <tr key={order.id} onClick={() => loadOrderDetails(order)}>
-                                            {showPrintSelectionColumn && (
-                                                <td data-label="เลือก" className="order-select-col">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedPrintOrderIds.includes(orderIdText)}
-                                                        disabled={!orderIsPaid}
-                                                        onClick={(event) => event.stopPropagation()}
-                                                        onChange={() => togglePrintOrder(order)}
-                                                        aria-label={`เลือกออเดอร์ #${order.id} สำหรับพิมพ์ใบจัดส่ง`}
-                                                    />
-                                                </td>
-                                            )}
-                                            <td data-label="เลขออเดอร์"><strong className="order-number">#{order.id}</strong></td>
-                                            <td data-label="วันที่สั่งซื้อ"><span className="order-date">{formatThaiDateTime(order.created_at)}</span></td>
-                                            <td data-label="ลูกค้า"><strong>{order.username || order.full_name || 'ผู้ใช้งานทั่วไป'}</strong><small>{order.full_name && order.username ? order.full_name : ''}</small></td>
-                                            <td data-label="สลิปการชำระเงิน">
-                                                {order.receipt_image ? (
-                                                    <button type="button" className="slip-review-thumb" onClick={(event) => openReceiptLightbox(order, event)} aria-label={`ดูสลิปออเดอร์ #${order.id}`}>
-                                                        <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
-                                                        <span>กดขยาย</span>
-                                                    </button>
-                                                ) : (
-                                                    <div className="order-no-receipt">ยังไม่มีสลิป</div>
-                                                )}
-                                            </td>
-                                            <td data-label="วิธีรับสินค้า"><span className="delivery-badge">{order.shipping_method || '-'}</span></td>
-                                            <td data-label="เลขพัสดุ">
-                                                <div className="order-address-tracking">
-                                                    <span>{trackingSummary}</span>
+                                    const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
+                                    const paymentStatus = formatPaymentStatus(order.payment_status) || 'รอชำระ';
+                                    const productTotal = Number(order.total_price ?? order.final_price ?? 0);
+                                    const shippingFee = Number(order.shipping_fee || 0);
+                                    const discount = Number(order.discount || 0);
+                                    const finalPrice = Number(order.final_price ?? (productTotal + shippingFee - discount));
+                                    const orderItems = getOrderReportItems(order);
+                                    const colSpan = showPrintSelectionColumn ? 7 : 6;
+                                    const canCancelInlineOrder = Boolean(onCancelOrder) && !orderIsPaid && !isCancelledOrder(order);
+                                    const productRows = orderItems.length ? orderItems : [order];
+
+                                    return [
+                                        <tr className="order-history-customer-order-head order-admin-member-order-head" key={`${order.id}-head`} onClick={() => loadOrderDetails(order)}>
+                                            <td colSpan={colSpan}>
+                                                <div className="order-history-customer-order-head-inner">
+                                                    <div>
+                                                        <strong>คำสั่งซื้อ #{order.id}</strong>
+                                                        <span>{formatThaiDateTime(order.created_at)}</span>
+                                                    </div>
+                                                    <span className={`payment-badge ${orderIsPaid ? 'paid' : paymentStatus === 'รอตรวจสอบ' ? 'review' : 'waiting'}`}>{paymentStatus}</span>
                                                 </div>
                                             </td>
-                                            <td data-label="ยอดสุทธิ" className="order-total">฿{formatMoney(order.final_price ?? order.total_price)}</td>
-                                            <td data-label="สถานะออเดอร์"><span className="admin-status">{order.status || 'รอจัดการ'}</span></td>
+                                        </tr>,
+                                        <tr className="order-history-customer-order-items order-admin-member-order-items" key={`${order.id}-items`} onClick={() => loadOrderDetails(order)}>
+                                            {showPrintSelectionColumn && (
+                                                <td data-label="เลือก" className="order-admin-member-select-cell">
+                                                    <label onClick={(event) => event.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedPrintOrderIds.includes(orderIdText)}
+                                                            disabled={!orderIsPaid}
+                                                            onChange={() => togglePrintOrder(order)}
+                                                            aria-label={`เลือกออเดอร์ #${order.id} สำหรับพิมพ์ใบจัดส่ง`}
+                                                        />
+                                                    </label>
+                                                </td>
+                                            )}
+                                            <td data-label="รูป">
+                                                <div className="order-history-customer-product-images">
+                                                    {productRows.map((item, itemIndex) => {
+                                                        const itemName = item.product_name || item.name || 'สินค้า';
+                                                        const itemInitial = String(itemName).trim().charAt(0).toUpperCase() || 'ส';
+
+                                                        return (
+                                                            <div className="order-history-customer-product-image-row" key={`${order.id}-image-${item.order_detail_id || item.product_id || itemName}-${itemIndex}`}>
+                                                                <div className="order-history-customer-product-thumb">
+                                                                    {item.product_image ? (
+                                                                        <img src={resolveMediaUrl(item.product_image)} alt={itemName} />
+                                                                    ) : (
+                                                                        <span>{itemInitial}</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                            <td data-label="ชื่อคำอธิบาย">
+                                                <div className="order-history-customer-products">
+                                                    {productRows.map((item, itemIndex) => {
+                                                        const itemName = item.product_name || item.name || 'สินค้า';
+
+                                                        return (
+                                                            <div className="order-history-customer-product" key={`${order.id}-copy-${item.order_detail_id || item.product_id || itemName}-${itemIndex}`}>
+                                                                <div className="order-history-customer-product-copy">
+                                                                    <strong>{itemName}</strong>
+                                                                    <small>{item.description || item.product_description || '-'}</small>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                            <td data-label="ราคา" className="order-total">
+                                                <div className="order-history-customer-line-values">
+                                                    {productRows.map((item, itemIndex) => {
+                                                        const itemQuantity = Number(item.quantity || item.qty || 0) || 1;
+                                                        const itemPrice = Number(item.price || item.product_price || 0);
+                                                        const itemTotal = itemPrice * itemQuantity;
+                                                        const displayPrice = itemPrice || itemTotal || finalPrice;
+
+                                                        return (
+                                                            <strong key={`${order.id}-price-${item.order_detail_id || item.product_id || itemIndex}`}>
+                                                                ฿{formatMoney(displayPrice)}
+                                                            </strong>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                            <td data-label="ชิ้น">
+                                                <div className="order-history-customer-line-values">
+                                                    {productRows.map((item, itemIndex) => {
+                                                        const itemQuantity = Number(item.quantity || item.qty || 0) || 1;
+
+                                                        return (
+                                                            <strong key={`${order.id}-qty-${item.order_detail_id || item.product_id || itemIndex}`}>
+                                                                {itemQuantity.toLocaleString('th-TH')} ชิ้น
+                                                            </strong>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </td>
+                                            <td data-label="รูปสลิป">
+                                                <div className="order-history-customer-slip-cell">
+                                                    {order.receipt_image ? (
+                                                        <button
+                                                            type="button"
+                                                            className="order-history-action-slip-preview"
+                                                            onClick={(event) => openReceiptLightbox(order, event)}
+                                                            aria-label={`ดูสลิปออเดอร์ #${order.id}`}
+                                                        >
+                                                            <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
+                                                            <span>สลิป</span>
+                                                        </button>
+                                                    ) : (
+                                                        <span className="order-history-customer-slip-empty">ยังไม่มีสลิป</span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td data-label="จัดการ">
-                                                <div className="order-row-actions">
+                                                <div className="order-row-actions order-history-customer-actions">
                                                     {orderViewTab === 'print' && (
                                                         <button type="button" className="order-print-trigger" onClick={(event) => { event.stopPropagation(); openSinglePrintPage(order); }} disabled={!orderIsPaid}>
                                                             พิมพ์
                                                         </button>
                                                     )}
                                                     <button type="button" className="order-detail-trigger" onClick={(event) => { event.stopPropagation(); loadOrderDetails(order); }}>ดูรายละเอียด</button>
+                                                    {canCancelInlineOrder && (
+                                                        <button type="button" className="order-cancel-inline-trigger" onClick={(event) => { event.stopPropagation(); onCancelOrder(order.id); }}>ยกเลิกคำสั่งซื้อ</button>
+                                                    )}
                                                 </div>
                                             </td>
-                                        </tr>
-                                    );
+                                        </tr>,
+                                        <tr className="order-history-customer-order-foot order-admin-member-order-foot" key={`${order.id}-foot`}>
+                                            <td colSpan={colSpan}>
+                                                <div className="order-history-customer-order-foot-inner">
+                                                    <span>สินค้า <strong>{orderItems.length.toLocaleString('th-TH')} รายการ</strong></span>
+                                                    <span>วิธีรับ <strong>{order.shipping_method || '-'}</strong></span>
+                                                    <span>เลขพัสดุ <strong>{trackingSummary}</strong></span>
+                                                    <span>ค่าส่ง <strong>฿{formatMoney(shippingFee)}</strong></span>
+                                                    {discount > 0 && <span>ส่วนลด <strong>-฿{formatMoney(discount)}</strong></span>}
+                                                    <span>สถานะออเดอร์ <strong>{orderStatus}</strong></span>
+                                                    <strong>รวมสุทธิ ฿{formatMoney(finalPrice)}</strong>
+                                                </div>
+                                            </td>
+                                        </tr>,
+                                    ];
                                 }) : (
-                                    <tr><td colSpan={showPrintSelectionColumn ? '10' : '9'}><div className="order-empty"><b>⌕</b><strong>{orderViewTab === 'print' ? 'ไม่พบออเดอร์ที่พร้อมพิมพ์ใบจัดส่ง' : 'ไม่พบออเดอร์'}</strong><span>{orderViewTab === 'print' ? 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูออเดอร์ที่ชำระแล้ว' : 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่'}</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
+                                    <tr><td colSpan={showPrintSelectionColumn ? '7' : '6'}><div className="order-empty"><b>⌕</b><strong>{orderViewTab === 'print' ? 'ไม่พบออเดอร์ที่พร้อมพิมพ์ใบจัดส่ง' : 'ไม่พบออเดอร์'}</strong><span>{orderViewTab === 'print' ? 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูออเดอร์ที่ชำระแล้ว' : 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่'}</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -2884,15 +3175,14 @@ function AdminDashboardPage({
                         ) : (
                             <div className="order-modal-body">
                                 <section className="order-detail-summary">
-                                    <div><span>ผู้ใช้งาน</span><strong>{detailOrder.full_name || detailOrder.username || 'ผู้ใช้งานทั่วไป'}</strong><small>{detailOrder.email || '-'} · {detailOrder.customer_phone || '-'}</small></div>
-                                    <div><span>วิธีชำระเงิน</span><strong>{detailOrder.payment_method || '-'}</strong><small>{detailOrder.payment_date ? `ส่งสลิป ${formatThaiDateTime(detailOrder.payment_date)}` : 'ยังไม่มีสลิป'}</small></div>
-                                    <div><span>ยอดสุทธิ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong><small>สินค้า ฿{formatMoney(detailOrder.total_price)} · ค่าส่ง ฿{formatMoney(detailOrder.shipping_fee)}</small></div>
-                                    <div><span>สถานะออเดอร์</span><strong>{detailOrder.status || '-'}</strong><small>{isPickupOrder(detailOrder || selectedOrder) ? 'เลขพัสดุ N/A' : (detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ')}</small></div>
+                                    <div><span>สถานะออเดอร์</span><strong>{detailOrderStatus || '-'}</strong><small>{isPickupOrder(detailOrder || selectedOrder) ? 'เลขพัสดุ N/A' : (detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ')}</small></div>
                                 </section>
 
                                 <div className="order-modal-grid">
-                                    <section className="order-detail-card">
-                                        <h3>สินค้าในออเดอร์</h3>
+                                    <section className="order-detail-card order-detail-items-card">
+                                        <div className="order-detail-items-head">
+                                            <h3>สินค้าในออเดอร์</h3>
+                                        </div>
                                         <div className="order-items">
                                             {detailItems.length ? detailItems.map((item) => (
                                                 <article key={item.order_detail_id}>
@@ -2902,17 +3192,36 @@ function AdminDashboardPage({
                                                 </article>
                                             )) : <div className="order-empty-inline">ไม่พบรายการสินค้าในออเดอร์นี้</div>}
                                         </div>
+                                        <div className="order-detail-items-total">
+                                            <span>สินค้า ฿{formatMoney(detailOrder.total_price)}</span>
+                                            <span>ค่าส่ง ฿{formatMoney(detailOrder.shipping_fee)}</span>
+                                            <strong>ยอดสุทธิ ฿{formatMoney(detailOrder.final_price)}</strong>
+                                        </div>
                                     </section>
-                                    <section className="order-detail-card">
-                                        <h3>ข้อมูลจัดส่ง</h3>
-                                        <p><strong>{detailOrder.receiver_name || detailOrder.full_name || '-'}</strong></p>
-                                        <p>{detailOrder.address_detail || selectedOrder.address || '-'}</p>
-                                        <p>{[detailOrder.subdistrict, detailOrder.district, detailOrder.province, detailOrder.postal_code].filter(Boolean).join(' ') || '-'}</p>
-                                        <p>โทร: {detailOrder.shipping_phone || detailOrder.customer_phone || '-'}</p>
+                                    <section className="order-detail-card order-customer-shipping-card">
+                                        <h3>ข้อมูลลูกค้าและจัดส่ง</h3>
+                                        <div className="order-customer-shipping-user">
+                                            <strong>{detailOrder.full_name || detailOrder.username || 'ผู้ใช้งานทั่วไป'}</strong>
+                                            <span>{detailOrder.email || '-'}</span>
+                                            <span>โทร: {detailOrder.customer_phone || detailOrder.shipping_phone || '-'}</span>
+                                        </div>
+                                        <div className="order-customer-shipping-address">
+                                            <p><strong>{detailOrder.receiver_name || detailOrder.full_name || '-'}</strong></p>
+                                            <p>{detailOrder.address_detail || selectedOrder.address || '-'}</p>
+                                            <p>{[detailOrder.subdistrict, detailOrder.district, detailOrder.province, detailOrder.postal_code].filter(Boolean).join(' ') || '-'}</p>
+                                            <p>โทรจัดส่ง: {detailOrder.shipping_phone || detailOrder.customer_phone || '-'}</p>
+                                        </div>
                                         <span className="delivery-badge">{detailOrder.shipping_method || '-'}</span>
                                     </section>
-                                    <section className="order-detail-card">
-                                        <h3>หลักฐานการชำระเงิน</h3>
+                                    <section className="order-detail-card order-payment-proof-card">
+                                        <div className="order-payment-proof-head">
+                                            <h3>หลักฐานการชำระเงิน</h3>
+                                            <div>
+                                                <span>วิธีชำระเงิน</span>
+                                                <strong>{detailOrder.payment_method || '-'}</strong>
+                                                <small>{detailOrder.payment_date ? `ส่งสลิป ${formatThaiDateTime(detailOrder.payment_date)}` : 'ยังไม่มีสลิป'}</small>
+                                            </div>
+                                        </div>
                                         {detailOrder.receipt_image ? (
                                                 <button
                                                     type="button"
@@ -2926,15 +3235,23 @@ function AdminDashboardPage({
                                                 <span>ดูภาพขนาดใหญ่</span>
                                             </button>
                                         ) : <div className="order-no-receipt">ยังไม่มีหลักฐานการชำระเงิน</div>}
+                                        {detailOrder.receipt_image && (
+                                            <button
+                                                type="button"
+                                                className="order-receipt-check"
+                                                onClick={() => reviewReceiptEvidence(resolveMediaUrl(detailOrder.receipt_image))}
+                                                disabled={receiptOcrLoading}
+                                            >
+                                                {receiptOcrLoading ? 'กำลังตรวจสอบ...' : 'ตรวจสอบสลิป'}
+                                            </button>
+                                        )}
                                         {shouldWarnPaymentReview && (
                                             <div className="payment-review-warning">
-                                                {detailPaymentStatus === 'ถูกปฏิเสธ' ? `หลักฐานถูกปฏิเสธ${detailOrder.review_note ? `: ${detailOrder.review_note}` : ''}` : 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง'}
+                                                {['ไม่พบหลักฐาน', 'ถูกปฏิเสธ'].includes(detailPaymentStatus) ? `ไม่พบหลักฐาน${detailOrder.review_note ? `: ${detailOrder.review_note}` : ''}` : 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง'}
                                             </div>
                                         )}
                                         <div className="payment-review-box">
                                             <div className="payment-review-meta">
-                                                <div><span>ยอดที่ต้องชำระ</span><strong>฿{formatMoney(detailOrder.final_price)}</strong></div>
-                                                <div><span>วันที่ส่งสลิป</span><strong>{detailOrder.payment_date ? formatThaiDateTime(detailOrder.payment_date) : '-'}</strong></div>
                                                 <label>ยอดที่ตรวจพบ<input type="number" min="0" step="0.01" value={paymentReviewForm.verified_amount} onChange={(event) => updatePaymentReviewForm('verified_amount', event.target.value)} placeholder="0.00" disabled={paymentReviewDisabled} /></label>
                                                 <label>เลขอ้างอิงรายการ<input value={paymentReviewForm.transaction_ref} onChange={(event) => updatePaymentReviewForm('transaction_ref', event.target.value)} placeholder="เช่น Ref / Transaction ID" disabled={paymentReviewDisabled} /></label>
                                                 <div><span>ผู้ตรวจสอบ</span><strong>{detailOrder.reviewer_full_name || detailOrder.reviewer_username || '-'}</strong></div>
@@ -2953,13 +3270,13 @@ function AdminDashboardPage({
                                     <section className="order-detail-card">
                                         <h3>ประวัติสถานะ</h3>
                                         <div className="order-timeline">
-                                            {detailHistory.length ? detailHistory.map((item) => <div key={item.history_id}><i /><div><strong>{item.status}</strong><span>{formatThaiDateTime(item.created_at)}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>) : <div className="order-empty-inline">ยังไม่มีประวัติสถานะ</div>}
+                                            {detailHistory.length ? detailHistory.map((item) => <div key={item.history_id}><i /><div><strong>{normalizeOrderStatus(item.status)}</strong><span>{formatThaiDateTime(item.created_at)}</span><small>{item.note || '-'}{item.full_name || item.username ? ` · โดย ${item.full_name || item.username}` : ''}</small></div></div>) : <div className="order-empty-inline">ยังไม่มีประวัติสถานะ</div>}
                                         </div>
                                     </section>
                                 </div>
 
                                 <section className="order-modal-actions">
-                                    {!isPickupOrder(selectedOrder) && ['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrder.status) && (
+                                    {!isPickupOrder(selectedOrder) && ['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrderStatus) && (
                                         <label>เลขพัสดุ<input value={trackingInputs[selectedOrder.id] || ''} onChange={(event) => updateTrackingInput(selectedOrder.id, event.target.value)} placeholder="กรอกเลขพัสดุ" />{trackingErrors[selectedOrder.id] && <small>{trackingErrors[selectedOrder.id]}</small>}</label>
                                     )}
                                     {!detailOrderIsPaid && (
@@ -2968,10 +3285,10 @@ function AdminDashboardPage({
                                         </div>
                                     )}
                                     <div>
-                                        {selectedOrder.status === 'รอจัดการ' && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เตรียมสินค้า')}>เตรียมสินค้า</button>}
-                                        {['เตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrder.status) && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>บันทึกเลขพัสดุและเสร็จสิ้น</button>}
-                                        {selectedOrder.status === 'เตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
-                                        {selectedOrder.status === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
+                                        {selectedOrderStatus === 'รอชำระเงิน' && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'กำลังเตรียมสินค้า')}>กำลังเตรียมสินค้า</button>}
+                                        {['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrderStatus) && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>บันทึกเลขพัสดุและเสร็จสิ้น</button>}
+                                        {selectedOrderStatus === 'กำลังเตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
+                                        {selectedOrderStatus === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
                                         {!isPaidOrder(detailOrder) && !isCancelledOrder(detailOrder || selectedOrder) && (
                                             <button type="button" className="danger" onClick={() => onCancelOrder(selectedOrder.id, { onCancelled: closeOrderDetailModal })}>ยกเลิกคำสั่งซื้อ</button>
                                         )}

@@ -14,7 +14,7 @@ const formatDate = (value) => {
 
 const formatPrintTimestamp = () => formatThaiShortDateTime(new Date(), '-');
 
-const isPaidOrder = (order) => ['ชำระแล้ว', 'ชำระเงินแล้ว'].includes(order?.payment_status);
+const isPaidOrder = (order) => ['ชำระเงินแล้ว', 'ชำระแล้ว'].includes(order?.payment_status);
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
 
 function AdminOrderPrintPage({ orderIds }) {
