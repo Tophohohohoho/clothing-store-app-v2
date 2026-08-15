@@ -1648,6 +1648,53 @@
     line-height: 1.55;
 }
 
+.admin-tabs-bar.order-prepare-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 12px 18px 0;
+}
+
+.order-prepare-actions span,
+.order-prepare-actions strong {
+    min-width: 0;
+}
+
+.order-prepare-actions span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+}
+
+.order-prepare-actions strong {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    min-height: 26px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(16, 24, 40, .08);
+    font-size: .72rem;
+    font-weight: 800;
+}
+
+.order-prepare-actions button {
+    width: 100%;
+    gap: 8px;
+    justify-content: center;
+    padding-right: 10px;
+    padding-left: 10px;
+    text-align: center;
+}
+
+.order-prepare-actions button.active strong {
+    background: rgba(255, 255, 255, .16);
+}
+
+.order-prepare-actions button:disabled {
+    cursor: not-allowed;
+    opacity: .5;
+}
+
 .order-export button,
 .order-clear {
     min-height: 39px;
@@ -1763,7 +1810,8 @@
 
 .order-table-wrap {
     width: 100%;
-    overflow-x: auto;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .order-table {
@@ -2109,7 +2157,7 @@
 }
 
 .order-card-table {
-    min-width: 1180px;
+    min-width: 0;
     border-collapse: separate;
     border-spacing: 0 14px;
 }
@@ -2131,13 +2179,13 @@
 
 .order-admin-member-table {
     table-layout: fixed;
-    min-width: 1260px;
+    min-width: 0;
     border-collapse: collapse;
     border-spacing: 0;
 }
 
 .order-admin-member-table.has-select-column {
-    min-width: 1320px;
+    min-width: 0;
 }
 
 .order-admin-member-table thead {
@@ -2634,7 +2682,7 @@
 
 .slip-review-table,
 .slip-history-table {
-    min-width: 860px;
+    min-width: 0;
     table-layout: fixed;
 }
 
@@ -3594,6 +3642,8 @@
 }
 
 .order-receipt-check {
+    width: 100%;
+    margin-top: 10px;
     min-height: 38px;
     border: 0;
     border-radius: 10px;
@@ -8374,6 +8424,12 @@ body {
         margin: 12px 14px 0;
     }
 
+    .admin-tabs-bar.order-prepare-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 12px 14px 0;
+        overflow-x: visible;
+    }
+
     .admin-tabs-bar {
         overflow-x: auto;
         grid-template-columns: repeat(5, minmax(150px, 1fr));
@@ -8398,6 +8454,11 @@ body {
 
     .order-view-banner {
         margin: 12px 14px 0;
+    }
+
+    .admin-tabs-bar.order-prepare-actions {
+        grid-template-columns: 1fr;
+        padding: 8px;
     }
 
     .admin-tabs-bar {

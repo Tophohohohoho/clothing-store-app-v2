@@ -377,7 +377,7 @@ const getOrderReportConfig = (orderViewTab, rows, orderRange, slipPageTab = 'rev
 
     if (orderViewTab === 'print') {
         return {
-            title: 'รายงานพิมพ์ใบจัดส่ง',
+            title: 'หน้าเตรียมสินค้า',
             subtitle: countText,
             fileName: `shipping-report-${orderRange.from}-${orderRange.to}`,
             headers: ['เลขออเดอร์', 'วันที่สั่งซื้อ', 'ผู้ใช้งาน', 'สินค้า', 'วิธีรับสินค้า', 'เบอร์ติดต่อ'],
@@ -727,6 +727,33 @@ function AdminDashboardPage({
     const visibleOrders = activeOrderRows.slice((orderPage - 1) * orderPageSize, orderPage * orderPageSize);
     const pendingSlipReviewCount = reviewableSlipOrders.length;
     const newOrdersCount = orders.filter((order) => isWithinBounds(order.created_at || order.order_date, getRangeBounds(getDateRange('today')))).length;
+    const prepareActionOrders = useMemo(() => {
+        const keyword = orderSearch.trim().toLowerCase();
+        const from = new Date(`${orderRange.from}T00:00:00`);
+        const to = new Date(`${orderRange.to}T23:59:59`);
+        return orders.filter((order) => {
+            const orderDate = new Date(order.created_at || order.order_date);
+            const searchable = [
+                order.id,
+                order.username,
+                order.full_name,
+                order.tracking_no,
+                order.transaction_ref,
+                order.payment_date ? formatThaiDateTime(order.payment_date) : '',
+                order.payment_status,
+            ].join(' ').toLowerCase();
+            return (!keyword || searchable.includes(keyword))
+                && isPaidOrder(order)
+                && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า'
+                && ['ส่งสินค้า', 'รับหน้าร้าน'].includes(order.shipping_method)
+                && (!Number.isNaN(orderDate.getTime()) && orderDate >= from && orderDate <= to);
+        });
+    }, [orders, orderSearch, orderRange.from, orderRange.to]);
+    const prepareOrderCounts = useMemo(() => ({
+        all: prepareActionOrders.length,
+        pickup: prepareActionOrders.filter((order) => order.shipping_method === 'รับหน้าร้าน').length,
+        shipping: prepareActionOrders.filter((order) => order.shipping_method === 'ส่งสินค้า').length,
+    }), [prepareActionOrders]);
     const readyToPrintCount = orders.filter((order) => (
         isPaidOrder(order)
         && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า'
@@ -869,11 +896,11 @@ function AdminDashboardPage({
             items.push({
                 id: `print-${readyToPrintOrders[0].id}`,
                 tone: 'green',
-                eyebrow: 'พร้อมจัดส่ง',
-                title: `ออเดอร์ #${readyToPrintOrders[0].id} พร้อมพิมพ์ใบจัดส่ง`,
+                eyebrow: 'เตรียมสินค้า',
+                title: `ออเดอร์ #${readyToPrintOrders[0].id} กำลังเตรียมสินค้า`,
                 detail: `${getPersonName(readyToPrintOrders[0])} · ${readyToPrintOrders.length.toLocaleString('th-TH')} รายการพร้อมทำต่อ`,
                 age: formatRelativeTime(readyToPrintOrders[0].created_at || readyToPrintOrders[0].order_date),
-                actionLabel: 'ไปหน้าพิมพ์',
+                actionLabel: 'ไปหน้าเตรียม',
                 onAction: () => {
                     setAdminPage?.('admin-orders');
                     setOrderViewTab('print');
@@ -1063,6 +1090,12 @@ function AdminDashboardPage({
         setPaymentReviewSaving('');
         paymentReviewRequestRef.current = '';
         setPaymentReviewForm({ verified_amount: '', transaction_ref: '', review_note: '' });
+    };
+
+    const goToPrepareOrdersPage = (order = null) => {
+        setOrderViewTab('print');
+        setDeliveryFilter(['ส่งสินค้า', 'รับหน้าร้าน'].includes(order?.shipping_method) ? order.shipping_method : 'ทั้งหมด');
+        setOrderPage(1);
     };
 
     const loadOrderDetails = async (order) => {
@@ -1524,6 +1557,9 @@ function AdminDashboardPage({
                 title: isApprove ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานแล้ว',
                 message: isApprove ? `ออเดอร์ #${order.id} พร้อมดำเนินการต่อ` : `ออเดอร์ #${order.id} สามารถรอส่งสลิปใหม่ได้`,
             });
+            if (isApprove) {
+                goToPrepareOrdersPage(order);
+            }
         } catch (err) {
             notify({
                 type: 'error',
@@ -1680,6 +1716,11 @@ function AdminDashboardPage({
                 title: action === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'ปฏิเสธหลักฐานแล้ว',
                 message: action === 'approve' ? 'อัปเดตสถานะออเดอร์เรียบร้อย' : 'ผู้ใช้งานสามารถอัปโหลดสลิปใหม่ได้',
             });
+            if (action === 'approve') {
+                const approvedOrder = orderDetails?.order || selectedOrder;
+                closeOrderDetailModal();
+                goToPrepareOrdersPage(approvedOrder);
+            }
         } catch (err) {
             if (!reviewSaved) paymentReviewRequestRef.current = '';
             setPaymentReviewError(err.response?.data?.error || 'บันทึกผลตรวจสอบการชำระเงินไม่สำเร็จ');
@@ -2199,6 +2240,7 @@ function AdminDashboardPage({
     const detailOrderStatus = normalizeOrderStatus(detailOrder?.status);
     const paymentReviewDisabled = !detailOrder?.receipt_image || Boolean(paymentReviewSaving) || detailPaymentStatus !== 'รอตรวจสอบ';
     const paymentReviewReady = Boolean(String(paymentReviewForm.verified_amount || '').trim() && String(paymentReviewForm.transaction_ref || '').trim());
+    const canShowPaymentReviewActions = Boolean(detailOrder?.receipt_image) && detailPaymentStatus === 'รอตรวจสอบ';
     const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['ไม่พบหลักฐาน', 'ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
 
     return (
@@ -2254,8 +2296,8 @@ function AdminDashboardPage({
                     setAdminPage?.('admin-orders');
                     setOrderViewTab('print');
                 }}>
-                    <span>SHIPPING</span>
-                    <strong>พิมพ์ใบจัดส่ง</strong>
+                    <span>PREPARE</span>
+                    <strong>เตรียมสินค้า</strong>
                     <b>{readyToPrintCount.toLocaleString('th-TH')}</b>
                     <small>รายการที่พร้อมดำเนินการต่อ</small>
                 </button>
@@ -2490,7 +2532,7 @@ function AdminDashboardPage({
                         <p className="admin-hero-description">
                             {orderViewTab === 'orders' && 'ดูข้อมูลออเดอร์ทั้งหมด เลือกช่วงที่ต้องการ แล้วส่งออกเป็น CSV, Excel หรือ PDF'}
                             {orderViewTab === 'slips' && (slipPageTab === 'history' ? 'ดูรายการที่ตรวจแล้วทั้งหมด เพื่อย้อนดูผลการอนุมัติและส่งออกเป็นรายงานประวัติ' : 'ดูเฉพาะออเดอร์ที่แนบสลิป เพื่อส่งออกเป็นรายงานตรวจสลิป')}
-                            {orderViewTab === 'print' && 'ดูเฉพาะออเดอร์ที่พร้อมจัดส่ง เพื่อส่งออกเป็นรายงานใบจัดส่ง'}
+                            {orderViewTab === 'print' && 'ดูเฉพาะออเดอร์ที่กำลังเตรียมสินค้า เพื่อจัดของและพิมพ์ใบจัดส่ง'}
                         </p>
                     </div>
                     <div className="order-export admin-hero-export">
@@ -2504,8 +2546,30 @@ function AdminDashboardPage({
                     <div className="admin-tabs-bar order-view-tabs" role="tablist" aria-label="เมนูหน้าจัดออเดอร์">
                         <button type="button" className={orderViewTab === 'orders' ? 'active' : ''} onClick={() => setOrderViewTab('orders')}>หน้าออเดอร์หลัก</button>
                         <button type="button" className={orderViewTab === 'slips' ? 'active' : ''} onClick={() => setOrderViewTab('slips')}>หน้าตรวจสลิป</button>
-                        <button type="button" className={orderViewTab === 'print' ? 'active' : ''} onClick={() => setOrderViewTab('print')}>หน้าพิมพ์ใบจัดส่ง</button>
+                        <button type="button" className={orderViewTab === 'print' ? 'active' : ''} onClick={() => setOrderViewTab('print')}>หน้าเตรียมสินค้า</button>
                     </div>
+
+                    {orderViewTab === 'print' && (
+                        <div className="admin-tabs-bar order-prepare-actions" role="tablist" aria-label="ตัวกรองหน้าเตรียมสินค้า">
+                            <button
+                                type="button"
+                                className={deliveryFilter === 'ทั้งหมด' ? 'active' : ''}
+                                onClick={() => { setDeliveryFilter('ทั้งหมด'); setOrderPage(1); }}
+                            >
+                                <span>จัดเตรียม</span>
+                                <strong>{prepareOrderCounts.all.toLocaleString('th-TH')}</strong>
+                            </button>
+                            <button
+                                type="button"
+                                className={deliveryFilter === 'ส่งสินค้า' ? 'active' : ''}
+                                onClick={() => { setDeliveryFilter('ส่งสินค้า'); setOrderPage(1); }}
+                                disabled={prepareOrderCounts.shipping === 0}
+                            >
+                                <span>กรอกรหัสจัดส่ง</span>
+                                <strong>{prepareOrderCounts.shipping.toLocaleString('th-TH')}</strong>
+                            </button>
+                        </div>
+                    )}
 
                     {orderViewTab === 'slips' && (
                         <div className="admin-tabs-bar slip-review-tabs" role="tablist" aria-label="เมนูหน้าตรวจสลิป">
@@ -2539,8 +2603,8 @@ function AdminDashboardPage({
                         )}
                         {orderViewTab === 'print' && (
                             <>
-                                <strong>หน้าพิมพ์ใบจัดส่ง</strong>
-                                <span>แสดงเฉพาะออเดอร์ที่ชำระแล้ว เพื่อเลือกพิมพ์ใบจัดส่งได้ทั้งแบบรายออเดอร์และแบบรวมหลายใบ</span>
+                                <strong>หน้าเตรียมสินค้า</strong>
+                                <span>แสดงเฉพาะออเดอร์ที่ชำระแล้วและอยู่สถานะกำลังเตรียมสินค้า เพื่อจัดของและเลือกพิมพ์ใบจัดส่งได้</span>
                             </>
                         )}
                     </div>
@@ -3026,8 +3090,20 @@ function AdminDashboardPage({
                                             <td data-label="จัดการ">
                                                 <div className="order-row-actions order-history-customer-actions">
                                                     {orderViewTab === 'print' && (
-                                                        <button type="button" className="order-print-trigger" onClick={(event) => { event.stopPropagation(); openSinglePrintPage(order); }} disabled={!orderIsPaid}>
-                                                            พิมพ์
+                                                        <button
+                                                            type="button"
+                                                            className="order-print-trigger"
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                if (deliveryFilter === 'ส่งสินค้า') {
+                                                                    loadOrderDetails(order);
+                                                                } else {
+                                                                    openSinglePrintPage(order);
+                                                                }
+                                                            }}
+                                                            disabled={!orderIsPaid}
+                                                        >
+                                                            {deliveryFilter === 'ส่งสินค้า' ? 'กรอกรหัส' : 'พิมพ์'}
                                                         </button>
                                                     )}
                                                     <button type="button" className="order-detail-trigger" onClick={(event) => { event.stopPropagation(); loadOrderDetails(order); }}>ดูรายละเอียด</button>
@@ -3052,7 +3128,7 @@ function AdminDashboardPage({
                                         </tr>,
                                     ];
                                 }) : (
-                                    <tr><td colSpan={showPrintSelectionColumn ? '7' : '6'}><div className="order-empty"><b>⌕</b><strong>{orderViewTab === 'print' ? 'ไม่พบออเดอร์ที่พร้อมพิมพ์ใบจัดส่ง' : 'ไม่พบออเดอร์'}</strong><span>{orderViewTab === 'print' ? 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่ เพื่อดูออเดอร์ที่ชำระแล้ว' : 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่'}</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
+                                    <tr><td colSpan={showPrintSelectionColumn ? '7' : '6'}><div className="order-empty"><b>⌕</b><strong>{orderViewTab === 'print' ? 'ไม่พบออเดอร์ที่กำลังเตรียมสินค้า' : 'ไม่พบออเดอร์'}</strong><span>{orderViewTab === 'print' ? 'ลองเปลี่ยนคำค้นหา วิธีรับสินค้า หรือช่วงวันที่ เพื่อดูออเดอร์ที่ต้องเตรียม' : 'ลองเปลี่ยนคำค้นหา สถานะ หรือช่วงวันที่'}</span><button type="button" onClick={clearOrderFilters}>ล้างตัวกรองทั้งหมด</button></div></td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -3235,7 +3311,7 @@ function AdminDashboardPage({
                                                 <span>ดูภาพขนาดใหญ่</span>
                                             </button>
                                         ) : <div className="order-no-receipt">ยังไม่มีหลักฐานการชำระเงิน</div>}
-                                        {detailOrder.receipt_image && (
+                                        {canShowPaymentReviewActions && (
                                             <button
                                                 type="button"
                                                 className="order-receipt-check"
@@ -3258,11 +3334,13 @@ function AdminDashboardPage({
                                                 <div><span>เวลาตรวจสอบ</span><strong>{detailOrder.reviewed_at ? formatThaiDateTime(detailOrder.reviewed_at) : '-'}</strong></div>
                                             </div>
                                             {paymentReviewError && <div className="payment-review-error">{paymentReviewError}</div>}
-                                            <div className="payment-review-actions">
-                                                <button type="button" className="approve" disabled={paymentReviewDisabled || !paymentReviewReady} onClick={() => reviewPaymentEvidence('approve')}>{paymentReviewSaving === 'approve' ? 'กำลังบันทึก...' : 'อนุมัติการชำระเงิน'}</button>
-                                                <button type="button" className="reject" disabled={paymentReviewDisabled} onClick={openRejectReviewDialog}>{paymentReviewSaving === 'reject' ? 'กำลังบันทึก...' : 'ปฏิเสธหลักฐาน'}</button>
-                                            </div>
-                                            {!paymentReviewReady && (
+                                            {canShowPaymentReviewActions && (
+                                                <div className="payment-review-actions">
+                                                    <button type="button" className="approve" disabled={paymentReviewDisabled || !paymentReviewReady} onClick={() => reviewPaymentEvidence('approve')}>{paymentReviewSaving === 'approve' ? 'กำลังบันทึก...' : 'อนุมัติการชำระเงิน'}</button>
+                                                    <button type="button" className="reject" disabled={paymentReviewDisabled} onClick={openRejectReviewDialog}>{paymentReviewSaving === 'reject' ? 'กำลังบันทึก...' : 'ปฏิเสธหลักฐาน'}</button>
+                                                </div>
+                                            )}
+                                            {canShowPaymentReviewActions && !paymentReviewReady && (
                                                 <small className="payment-review-hint">อนุมัติได้เมื่อกรอกยอดที่ตรวจพบและเลขอ้างอิงเรียบร้อย</small>
                                             )}
                                         </div>

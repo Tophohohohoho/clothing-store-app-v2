@@ -3344,7 +3344,7 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
     );
     const nextOrderStatus = cleanAction === 'approve'
-        ? (order.delivery_type === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : ORDER_PREPARING_STATUS)
+        ? ORDER_PREPARING_STATUS
         : ORDER_WAITING_PAYMENT_STATUS;
     await query(
         'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
