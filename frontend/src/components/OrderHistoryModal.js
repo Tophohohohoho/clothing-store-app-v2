@@ -22,8 +22,18 @@ const normalizeOrderStatus = (status) => {
     };
     return aliases[value] || value;
 };
+const formatCustomerOrderStatus = (order) => {
+    const status = normalizeOrderStatus(order?.status);
+    if (status === 'เสร็จสิ้น') {
+        return (order?.shipping_method || order?.delivery_type) === 'รับหน้าร้าน' ? 'พร้อมรับสินค้า' : 'จัดส่งแล้ว';
+    }
+    return status || '-';
+};
+const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
+const formatStorePickupAddress = () => STORE_PICKUP_ADDRESS;
 const PREPARING_ORDER_STATUSES = ['กำลังเตรียมสินค้า'];
-const COMPLETED_ORDER_STATUSES = ['เสร็จสิ้น'];
+const PENDING_CUSTOMER_ORDER_STATUSES = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน'];
+const COMPLETED_ORDER_STATUSES = ['พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
 const CANCELLED_ORDER_STATUSES = ['ยกเลิกคำสั่งซื้อ'];
 const CUSTOMER_DATE_PRESETS = [
     { value: '30', label: '30 วันล่าสุด' },
@@ -37,16 +47,16 @@ const CUSTOMER_FILTER_COPY = {
         description: 'แสดงคำสั่งซื้อทั้งหมดตามตัวกรองปัจจุบัน เพื่อเช็กสถานะและเปิดรายละเอียดคำสั่งซื้อได้จากตารางเดียว',
     },
     pending: {
-        title: 'หน้ารอชำระ',
-        description: 'แสดงเฉพาะออเดอร์ที่ยังรอชำระเงินหรือรอตรวจสอบหลักฐาน เพื่อให้ติดตามสถานะและจัดการสลิปได้ง่ายขึ้น',
+        title: 'หน้าที่ต้องชำระ',
+        description: 'แสดงเฉพาะออเดอร์สถานะรอชำระเงินหรือรอตรวจสอบการชำระเงิน เพื่อให้ติดตามการชำระได้ง่ายขึ้น',
     },
     processing: {
         title: 'หน้าดำเนินการ',
         description: 'แสดงออเดอร์ที่ชำระแล้วและกำลังเตรียมสินค้า จัดส่ง หรืออยู่ระหว่างขั้นตอนดำเนินการในระบบ',
     },
     completed: {
-        title: 'หน้าสำเร็จ',
-        description: 'แสดงออเดอร์ที่เสร็จสิ้นแล้ว เพื่อย้อนดูประวัติคำสั่งซื้อและรายละเอียดรายการที่สำเร็จทั้งหมด',
+        title: 'หน้ารอรับ',
+        description: 'แสดงออเดอร์ที่พร้อมรับสินค้าหรือจัดส่งแล้ว เพื่อให้ติดตามรายการที่รอรับสินค้าได้ง่ายขึ้น',
     },
 };
 
@@ -60,6 +70,7 @@ function OrderHistoryModal({
     description = 'ตรวจสอบคำสั่งซื้อ สถานะชำระเงิน และแนบสลิปได้ในที่เดียว',
     activeTabLabel = 'คำสั่งซื้อ',
     historyTabLabel = 'ประวัติคำสั่งซื้อ',
+    storeContact = {},
     onClose,
     onUploadReceipt,
     onCancelReceipt,
@@ -81,6 +92,7 @@ function OrderHistoryModal({
     const [slipOcrError, setSlipOcrError] = useState('');
     const [salesOrderSearch, setSalesOrderSearch] = useState('');
     const [isAccountCopied, setIsAccountCopied] = useState(false);
+    const [copiedTrackingOrderId, setCopiedTrackingOrderId] = useState(null);
     const [customerPage, setCustomerPage] = useState(1);
     const [customerPageSize, setCustomerPageSize] = useState(10);
     const [customerSearch, setCustomerSearch] = useState('');
@@ -98,7 +110,7 @@ function OrderHistoryModal({
     const isSalesMode = mode === 'sales';
     const isCompactCustomerPage = isPageView && !isSalesMode;
     const isHistoryOrder = (order) => historyStatuses.includes(normalizeOrderStatus(order.status));
-    const isPendingPaymentOrder = (order) => reuploadPaymentStatuses.includes(order.payment_status) || normalizeOrderStatus(order.status) === 'รอชำระเงิน';
+    const isPendingPaymentOrder = (order) => PENDING_CUSTOMER_ORDER_STATUSES.includes(normalizeOrderStatus(order.status));
     const isCancelledOrder = (order) => cancelledHistoryStatuses.includes(normalizeOrderStatus(order.status));
     const isCompletedOrder = (order) => completedHistoryStatuses.includes(normalizeOrderStatus(order.status));
     const isProcessingOrder = (order) => !isPendingPaymentOrder(order) && !isCompletedOrder(order) && !isCancelledOrder(order);
@@ -127,7 +139,7 @@ function OrderHistoryModal({
             if (customerOrderFilter === 'pending') return isPendingPaymentOrder(order);
             if (customerOrderFilter === 'processing') return isProcessingOrder(order);
             if (customerOrderFilter === 'completed') return isCompletedOrder(order);
-            return !isCancelledOrder(order);
+            return true;
         }).filter((order) => {
             const normalizedSearch = customerSearch.trim().toLowerCase();
             const orderDate = new Date(order.created_at || order.order_date || order.updated_at || Date.now());
@@ -467,6 +479,30 @@ function OrderHistoryModal({
         }
     };
 
+    const copyTrackingNo = async (order) => {
+        const trackingNo = String(order?.tracking_no || '').trim();
+        if (!trackingNo) return;
+
+        try {
+            const copied = await copyTextToClipboard(trackingNo);
+            if (!copied) throw new Error('copy_failed');
+            setCopiedTrackingOrderId(order.id);
+            window.setTimeout(() => setCopiedTrackingOrderId(null), 1800);
+            notify({
+                type: 'success',
+                title: 'คัดลอกเลขจัดส่งแล้ว',
+                message: trackingNo,
+            });
+        } catch (error) {
+            notify({
+                type: 'error',
+                title: 'คัดลอกเลขจัดส่งไม่สำเร็จ',
+                message: 'กรุณาลองคัดลอกด้วยตนเองอีกครั้ง',
+            });
+            console.error(error);
+        }
+    };
+
     const removeReceiptDraft = (orderId) => {
         setReceiptDrafts((current) => {
             const next = { ...current };
@@ -558,7 +594,7 @@ function OrderHistoryModal({
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'pending'}
                             >
-                                รอชำระ
+                                ที่ต้องชำระ
                             </button>
                             <button
                                 type="button"
@@ -576,7 +612,7 @@ function OrderHistoryModal({
                                 role="tab"
                                 aria-selected={customerOrderFilter === 'completed'}
                             >
-                                สำเร็จ
+                                รอรับ
                             </button>
                         </div>
                     ) : (
@@ -613,7 +649,7 @@ function OrderHistoryModal({
                                 role="tab"
                                 aria-selected={activePaymentView === 'pending'}
                             >
-                                รอชำระ
+                                ที่ต้องชำระ
                                 <span>{pendingPaymentOrders.length}</span>
                             </button>
                             <button
@@ -648,7 +684,7 @@ function OrderHistoryModal({
                                 role="tab"
                                 aria-selected={activeHistoryView === 'completed'}
                             >
-                                เสร็จสิ้น
+                                สำเร็จ
                                 <span>{completedHistoryOrders.length}</span>
                             </button>
                             <button
@@ -695,7 +731,7 @@ function OrderHistoryModal({
                                     : isSalesMode && normalizedSalesSearch
                                     ? 'ไม่พบคำสั่งซื้อที่ค้นหา'
                                     : activeView === 'active'
-                                    ? (isSalesMode ? 'ยังไม่มีประวัติการขายหน้าร้าน' : (activePaymentView === 'pending' ? 'ยังไม่มีออเดอร์รอชำระ' : activePaymentView === 'review' ? 'ยังไม่มีออเดอร์รอตรวจสอบ' : 'ยังไม่มีออเดอร์ที่ชำระแล้วและกำลังดำเนินการ'))
+                                    ? (isSalesMode ? 'ยังไม่มีประวัติการขายหน้าร้าน' : (activePaymentView === 'pending' ? 'ยังไม่มีออเดอร์ที่ต้องชำระ' : activePaymentView === 'review' ? 'ยังไม่มีออเดอร์รอตรวจสอบ' : 'ยังไม่มีออเดอร์ที่ชำระแล้วและกำลังดำเนินการ'))
                                     : (isSalesMode ? 'ยังไม่มีรายการขายออนไลน์' : 'ยังไม่มีประวัติคำสั่งซื้อย้อนหลัง')}
                             </strong>
                             <span>
@@ -704,7 +740,7 @@ function OrderHistoryModal({
                                     : isSalesMode && normalizedSalesSearch
                                     ? 'ลองตรวจสอบเลขออเดอร์ หรือกดล้างเพื่อดูรายการทั้งหมด'
                                     : activeView === 'active'
-                                        ? (isSalesMode ? 'รายการ POS หรือรายการที่ขายผ่านหน้าร้านจะแสดงที่นี่' : (activePaymentView === 'pending' ? 'ออเดอร์ที่ยังไม่แนบสลิปหรือยังไม่ชำระจะแสดงที่นี่' : activePaymentView === 'review' ? 'ออเดอร์ที่แนบสลิปแล้วและรอแอดมินยืนยันจะแสดงที่นี่' : 'ออเดอร์ที่ชำระแล้วแต่ยังไม่จบกระบวนการจะแสดงที่นี่'))
+                                        ? (isSalesMode ? 'รายการ POS หรือรายการที่ขายผ่านหน้าร้านจะแสดงที่นี่' : (activePaymentView === 'pending' ? 'ออเดอร์สถานะรอชำระเงินหรือรอตรวจสอบการชำระเงินจะแสดงที่นี่' : activePaymentView === 'review' ? 'ออเดอร์ที่แนบสลิปแล้วและรอแอดมินยืนยันจะแสดงที่นี่' : 'ออเดอร์ที่ชำระแล้วแต่ยังไม่จบกระบวนการจะแสดงที่นี่'))
                                     : (isSalesMode ? 'รายการที่ลูกค้าสั่งผ่านหน้าร้านออนไลน์จะแสดงที่นี่' : (activeHistoryView === 'completed' ? 'ออเดอร์ที่จบกระบวนการแล้วจะแสดงในแท็บนี้' : 'ออเดอร์ที่ถูกยกเลิกจะแสดงในแท็บนี้'))}
                             </span>
                         </div>
@@ -751,7 +787,7 @@ function OrderHistoryModal({
                                             const orderKey = item.id || index;
                                             const saleDateTime = item.created_at || item.order_date;
                                             const compactStatusTone = getCompactStatusTone(item);
-                                            const compactStatus = formatPaymentStatus(item.payment_status || itemStatus || 'รอชำระ');
+                                            const orderStatusLabel = formatCustomerOrderStatus(item);
                                             const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
                                             const isReceiptApproved = PAID_PAYMENT_STATUSES.includes(item.payment_status);
                                             const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(item.payment_status);
@@ -760,7 +796,7 @@ function OrderHistoryModal({
                                                 && !isReceiptApproved
                                                 && (isReceiptRejected || reuploadPaymentStatuses.includes(item.payment_status) || itemStatus === 'รอชำระเงิน');
                                             const receiptDraft = receiptDrafts[item.id];
-                                            const shouldShowReceiptInActions = isProcessingOrder(item) && Boolean(item.receipt_image);
+                                            const shouldShowReceiptInActions = Boolean(item.receipt_image);
 
                                             return [
                                                 <tr className="order-history-customer-order-head" key={`${orderKey}-head`}>
@@ -770,9 +806,11 @@ function OrderHistoryModal({
                                                                 <strong>คำสั่งซื้อ #{item.id}</strong>
                                                                 <span>{formatDateTime(saleDateTime)}</span>
                                                             </div>
-                                                            <span className={`payment-badge order-history-customer-badge ${compactStatusTone}`}>
-                                                                {compactStatus}
-                                                            </span>
+                                                            <div className="order-history-customer-badges">
+                                                                <span className={`payment-badge order-history-customer-badge ${compactStatusTone}`}>
+                                                                    {orderStatusLabel}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>,
@@ -958,6 +996,7 @@ function OrderHistoryModal({
                             const showExpandedDetails = isSalesMode || isExpanded;
                             const saleDateTime = item.created_at || item.order_date;
                             const compactStatusTone = isCompactCustomerPage ? getCompactStatusTone(item) : '';
+                            const orderStatusLabel = formatCustomerOrderStatus(item);
                             const sellerName = getSellerName(item);
                             const compactItemSummary = getCompactItemSummary(orderItems);
                             const orderTitle = isSalesMode
@@ -995,7 +1034,13 @@ function OrderHistoryModal({
                                             )}
                                         </div>
                                         <div className="order-history-card-header-side">
-                                            <span className={`order-history-status ${compactStatusTone}`}>{isCompactCustomerPage ? formatPaymentStatus(item.payment_status || itemStatus || 'รอชำระ') : (itemStatus || 'เสร็จสิ้น')}</span>
+                                            {isCompactCustomerPage ? (
+                                                <div className="order-history-card-status-group">
+                                                    <span className={`order-history-status ${compactStatusTone}`}>{orderStatusLabel}</span>
+                                                </div>
+                                            ) : (
+                                                <span className={`order-history-status ${compactStatusTone}`}>{orderStatusLabel}</span>
+                                            )}
                                             {item.tracking_no && (
                                                 <small className="order-history-tracking-code">
                                                     เลขพัสดุ {item.tracking_no}
@@ -1353,6 +1398,7 @@ function OrderHistoryModal({
                 const discount = Number(detailOrder.discount || 0);
                 const finalPrice = Number(detailOrder.final_price ?? (productTotal + shippingFee - discount));
                 const detailOrderStatus = normalizeOrderStatus(detailOrder.status);
+                const detailOrderDisplayStatus = formatCustomerOrderStatus(detailOrder);
                 const canCancel = canCancelOrder && cancelableStatuses.includes(detailOrderStatus) && !isPaidStatus(detailOrder.payment_status);
                 const hasSubmittedReceipt = Boolean(detailOrder.receipt_image);
                 const isReceiptWaitingReview = detailOrder.payment_status === 'รอตรวจสอบ';
@@ -1366,7 +1412,7 @@ function OrderHistoryModal({
                 const uploadInputId = `receipt-upload-detail-${detailOrder.id}`;
                 const receiptDraft = receiptDrafts[detailOrder.id];
                 const detailReviewerName = detailOrder.reviewer_full_name || detailOrder.reviewer_username || '';
-                const customerName = detailOrder.full_name || detailOrder.username || username || '-';
+                const customerName = detailOrder.username || username || detailOrder.full_name || '-';
                 const customerPhone = detailOrder.customer_phone || detailOrder.phone || '-';
                 const receiverName = detailOrder.receiver_name || customerName;
                 const shippingPhone = detailOrder.shipping_phone || customerPhone;
@@ -1378,7 +1424,7 @@ function OrderHistoryModal({
                     detailOrder.postal_code,
                 ].filter(Boolean);
                 const deliveryAddress = detailOrder.shipping_method === 'รับหน้าร้าน'
-                    ? 'รับสินค้าเองที่หน้าร้าน'
+                    ? formatStorePickupAddress(storeContact)
                     : (addressParts.join(' ') || detailOrder.address || '-');
 
                 return (
@@ -1395,7 +1441,9 @@ function OrderHistoryModal({
                                     <span>คำสั่งซื้อ</span>
                                     <h2 id="order-detail-popup-title">#{detailOrder.id}</h2>
                                 </div>
-                                <strong>{formatPaymentStatus(detailOrder.payment_status || detailOrderStatus || 'รอชำระเงิน')}</strong>
+                                <div className="order-detail-popup-statuses">
+                                    <strong>{detailOrderDisplayStatus}</strong>
+                                </div>
                                 <button type="button" onClick={() => setDetailOrder(null)} aria-label="ปิดรายละเอียดคำสั่งซื้อ">×</button>
                             </header>
 
@@ -1403,9 +1451,14 @@ function OrderHistoryModal({
                                 {!!detailOrder.tracking_no && (
                                     <section className="order-detail-popup-section">
                                         <div className="order-detail-popup-meta">
-                                            <div>
-                                                <span>รหัสพัสดุ</span>
-                                                <strong>{detailOrder.tracking_no}</strong>
+                                            <div className="order-detail-tracking-card">
+                                                <div>
+                                                    <span>รหัสพัสดุ</span>
+                                                    <strong>{detailOrder.tracking_no}</strong>
+                                                </div>
+                                                <button type="button" onClick={() => copyTrackingNo(detailOrder)}>
+                                                    {copiedTrackingOrderId === detailOrder.id ? 'คัดลอกแล้ว' : 'คัดลอกเลขจัดส่ง'}
+                                                </button>
                                             </div>
                                         </div>
                                     </section>
@@ -1453,11 +1506,6 @@ function OrderHistoryModal({
                                             <div className="order-detail-popup-empty">ไม่พบรายการสินค้าในคำสั่งซื้อนี้</div>
                                         )}
                                     </div>
-                                    <div className="order-detail-popup-total">
-                                        <span>รวม</span>
-                                        <strong>สินค้า {orderItems.length || 0} รายการจำนวน {itemCount || 0} ชิ้น</strong>
-                                        <b>฿{formatMoney(finalPrice)}</b>
-                                    </div>
                                     {(shippingFee > 0 || discount > 0) && (
                                         <div className="order-detail-popup-breakdown">
                                             <span>ยอดสินค้า ฿{formatMoney(productTotal)}</span>
@@ -1465,6 +1513,11 @@ function OrderHistoryModal({
                                             {discount > 0 && <span>ส่วนลด -฿{formatMoney(discount)}</span>}
                                         </div>
                                     )}
+                                    <div className="order-detail-popup-total">
+                                        <span>รวม</span>
+                                        <strong>สินค้า {orderItems.length || 0} รายการจำนวน {itemCount || 0} ชิ้น</strong>
+                                        <b>฿{formatMoney(finalPrice)}</b>
+                                    </div>
                                 </section>
 
                                 {!isReceiptApproved && (
@@ -1505,6 +1558,7 @@ function OrderHistoryModal({
                                     <div className="order-history-submitted-slip">
                                         <div className="order-history-submitted-slip-info">
                                             <span>สลิปที่ส่งไปแล้ว</span>
+                                            <strong>{formatPaymentStatus(detailOrder.payment_status || 'รอชำระเงิน')}</strong>
                                             {detailOrder.receipt_file_name && <small>ไฟล์: {detailOrder.receipt_file_name}</small>}
                                             {detailOrder.payment_date && <small>ส่งเมื่อ {formatDateTime(detailOrder.payment_date)}</small>}
                                             {(detailReviewerName || detailOrder.reviewed_at) && (

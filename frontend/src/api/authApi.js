@@ -9,6 +9,10 @@ export const logout = (userId, sessionDuration = '') => apiClient.post('/api/log
 
 export const register = (payload) => apiClient.post('/api/register', payload);
 
+export const requestRegisterOtp = (payload) => apiClient.post('/api/register/otp/request', payload);
+
+export const verifyRegisterOtp = (payload) => apiClient.post('/api/register/otp/verify', payload);
+
 export const requestPasswordReset = (payload) => apiClient.post('/api/password-reset/request', payload);
 
 export const verifyPasswordResetCode = (payload) => apiClient.post('/api/password-reset/verify', payload);

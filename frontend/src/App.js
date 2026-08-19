@@ -147,16 +147,23 @@ const getMissingShippingFields = (shippingInfo) => {
 const getRegisterValidationErrors = (form) => {
     const errors = {};
 
-    if (!form.username.trim()) errors.username = 'กรุณากรอกชื่อผู้ใช้';
-    else if (!form.full_name.trim()) errors.full_name = 'กรุณากรอกชื่อ-นามสกุล';
+    if (!form.full_name.trim()) errors.full_name = 'กรุณากรอกชื่อ-นามสกุล';
     else if (!form.email.trim()) errors.email = 'กรุณากรอกอีเมล';
     else if (!EMAIL_REGEX.test(form.email.trim())) errors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
-    else if (!form.phone.trim()) errors.phone = 'กรุณากรอกเบอร์โทร';
-    else if (!PHONE_REGEX.test(cleanPhone(form.phone))) errors.phone = 'รูปแบบเบอร์โทรไม่ถูกต้อง';
     else if (!form.password) errors.password = 'กรุณากรอกรหัสผ่าน';
     else if (form.password.length < 8) errors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
     else if (!form.confirmPassword) errors.confirmPassword = 'กรุณากรอกยืนยันรหัสผ่าน';
     else if (form.password !== form.confirmPassword) errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
+    else if (!form.phone.trim()) errors.phone = 'กรุณากรอกเบอร์โทร';
+    else if (!PHONE_REGEX.test(cleanPhone(form.phone))) errors.phone = 'รูปแบบเบอร์โทรไม่ถูกต้อง';
+    else if (!form.address_detail?.trim()) errors.address_detail = 'กรุณากรอกที่อยู่';
+    else if (!form.province?.trim()) errors.province = 'กรุณาเลือกจังหวัด';
+    else if (!form.district?.trim()) errors.district = 'กรุณาเลือกอำเภอ/เขต';
+    else if (!form.subdistrict?.trim()) errors.subdistrict = 'กรุณาเลือกตำบล/แขวง';
+    else if (!String(form.postal_code || '').trim()) errors.postal_code = 'กรุณาเลือกรหัสไปรษณีย์';
+    else if (!form.termsAccepted) errors.termsAccepted = 'กรุณายอมรับข้อกำหนดการใช้งาน';
+    else if (!form.privacyNoticeAcknowledged) errors.privacyNoticeAcknowledged = 'กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัว';
+    else if (!/^\d{6}$/.test(String(form.registrationOtp || '').trim())) errors.registrationOtp = 'กรุณากรอกรหัส OTP 6 หลักจากอีเมล';
 
     return errors;
 };
@@ -196,24 +203,32 @@ const getPrintOrderIdsFromLocation = () => {
     return match ? [decodeURIComponent(match[1])] : [];
 };
 
-function SiteFooter({ contact, onOpenStore }) {
-    const phone = contact?.phone || 'ยังไม่ได้ระบุ';
-    const email = contact?.email || 'ยังไม่ได้ระบุ';
+const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
+const STORE_PICKUP_PLACE = 'อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย';
+const STORE_PICKUP_LOCATION = '234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
+const STORE_CONTACT_PHONE = '0812345678';
+const STORE_CONTACT_EMAIL = 'admin@example.com';
+
+function SiteFooter({ contact }) {
+    const phone = contact?.phone || STORE_CONTACT_PHONE;
+    const email = contact?.email || STORE_CONTACT_EMAIL;
 
     return (
         <footer className="site-footer">
             <div className="site-footer-inner">
                 <div className="site-footer-grid">
+                    <section className="site-footer-section" aria-labelledby="footer-address">
+                        <h2 id="footer-address">ที่อยู่ร้าน</h2>
+                        <div className="site-footer-address">
+                            <p>{STORE_PICKUP_PLACE}</p>
+                            <p>{STORE_PICKUP_LOCATION}</p>
+                        </div>
+                    </section>
+
                     <section className="site-footer-section" aria-labelledby="footer-contact">
                         <h2 id="footer-contact">ติดต่อเรา</h2>
                         <p>โทร {phone}</p>
                         <p>อีเมล {email}</p>
-                    </section>
-
-                    <section className="site-footer-section" aria-labelledby="footer-menu">
-                        <h2 id="footer-menu">เมนูสำคัญ</h2>
-                        <button type="button" onClick={onOpenStore}>หน้าแรก</button>
-                        <button type="button" onClick={onOpenStore}>สินค้า</button>
                     </section>
 
                     <section className="site-footer-section" aria-labelledby="footer-social">
@@ -485,6 +500,14 @@ function App() {
         full_name: '',
         email: '',
         phone: '',
+        registrationOtp: '',
+        address_detail: '',
+        province: '',
+        district: '',
+        subdistrict: '',
+        postal_code: '',
+        address_type: 'บ้าน',
+        termsAccepted: false,
         privacyNoticeAcknowledged: false,
         consentAnalytics: false,
     });
@@ -850,28 +873,84 @@ function App() {
                 full_name: registerForm.full_name,
                 email: registerForm.email,
                 phone: registerForm.phone,
+                registration_otp: registerForm.registrationOtp,
+                terms_accepted: registerForm.termsAccepted,
                 privacy_notice_acknowledged: registerForm.privacyNoticeAcknowledged,
                 consent_analytics: registerForm.consentAnalytics,
+                address: {
+                    address_detail: registerForm.address_detail,
+                    province: registerForm.province,
+                    district: registerForm.district,
+                    subdistrict: registerForm.subdistrict,
+                    postal_code: registerForm.postal_code,
+                    address_type: registerForm.address_type || 'บ้าน',
+                },
             });
 
             if (res.data.success) {
-                setRegisterMsg({ type: 'success', text: 'สมัครสมาชิกสำเร็จ กำลังกลับไปหน้า Login...' });
-                setTimeout(() => {
-                    setIsRegisterView(false);
-                    setAuthView('login');
-                    setRegisterMsg({ type: '', text: '' });
-                    setRegisterFieldErrors({});
-                    setRegisterForm({
-                        username: '',
-                        password: '',
-                        confirmPassword: '',
-                        full_name: '',
-                        email: '',
-                        phone: '',
-                        privacyNoticeAcknowledged: false,
-                        consentAnalytics: false,
+                let registeredUser = res.data.user;
+                let authToken = res.data.token || '';
+                if (!registeredUser) {
+                    const loginRes = await authApi.login({
+                        username: registerForm.email,
+                        password: registerForm.password,
                     });
-                }, 1200);
+                    registeredUser = loginRes.data.user;
+                    authToken = loginRes.data.token || '';
+                }
+
+                const storage = rememberLogin ? localStorage : sessionStorage;
+                const otherStorage = rememberLogin ? sessionStorage : localStorage;
+
+                if (registeredUser) {
+                    setUser(registeredUser);
+                    setSessionStartedAt(Date.now());
+                    storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(registeredUser));
+                    storeAuthToken(storage, authToken);
+                    otherStorage.removeItem(AUTH_STORAGE_KEY);
+                    otherStorage.removeItem(AUTH_TOKEN_KEY);
+                    otherStorage.removeItem(getCartStorageKey(registeredUser.id));
+                    setProfileUsername(registeredUser.username || '');
+                    setProfilePassword('');
+                    setProfileFullName(registeredUser.full_name || registeredUser.username || '');
+                    setProfileEmail(registeredUser.email || '');
+                    setProfilePhone(registeredUser.phone || '');
+                    fetchAddresses(registeredUser).then((list) => {
+                        const defaultAddress = list.find((address) => Number(address.is_default) === 1) || list[0];
+                        setAddressForm(defaultAddress ? { ...emptyAddress, ...defaultAddress } : {
+                            ...emptyAddress,
+                            receiver_name: registeredUser.full_name || registeredUser.username || '',
+                            phone: registeredUser.phone || '',
+                        });
+                    });
+                    setIsProfileOpen(true);
+                }
+
+                setRegisterMsg({ type: '', text: '' });
+                setRegisterFieldErrors({});
+                setIsRegisterView(false);
+                setAuthView(null);
+                setPendingAuthAction(null);
+                setIsAdminView(false);
+                setRegisterForm({
+                    username: '',
+                    password: '',
+                    confirmPassword: '',
+                    full_name: '',
+                    email: '',
+                    phone: '',
+                    registrationOtp: '',
+                    address_detail: '',
+                    province: '',
+                    district: '',
+                    subdistrict: '',
+                    postal_code: '',
+                    address_type: 'บ้าน',
+                    termsAccepted: false,
+                    privacyNoticeAcknowledged: false,
+                    consentAnalytics: false,
+                });
+                notify({ type: 'success', title: 'สมัครสมาชิกสำเร็จ', message: 'เข้าสู่ระบบและเปิดโปรไฟล์ให้แล้ว' });
             }
         } catch (err) {
             setRegisterMsg({ type: '', text: '' });
@@ -1359,7 +1438,7 @@ function App() {
                 username: user?.username || 'ลูกค้าทั่วไป',
                 receiver_name: shippingInfo.receiver_name || user?.full_name || user?.username || 'ลูกค้า',
                 address_id: isPickup ? null : shippingInfo.address_id,
-                address: isPickup ? 'รับสินค้าเองที่หน้าร้าน' : shippingInfo.address,
+                address: isPickup ? STORE_PICKUP_ADDRESS : shippingInfo.address,
                 phone: shippingInfo.phone,
                 subdistrict: isPickup ? '' : shippingInfo.subdistrict,
                 district: isPickup ? '' : shippingInfo.district,
@@ -1498,6 +1577,27 @@ function App() {
         await fetchAdminOrders();
         await fetchSystemLogs();
         return response;
+    };
+
+    const handleBulkUpdateOrderStatus = async (items = [], status = '') => {
+        const targets = Array.isArray(items) ? items.filter((item) => item?.id && status) : [];
+        if (targets.length === 0) {
+            return { success: false, updated: 0, failed: 0, message: 'ไม่มีออเดอร์ที่ต้องอัปเดต' };
+        }
+
+        const results = await Promise.allSettled(targets.map((item) => (
+            adminApi.updateOrderStatus(item.id, status, item.tracking_no || '', user?.id)
+        )));
+        await fetchAdminOrders();
+        await fetchSystemLogs();
+
+        const failed = results.filter((result) => result.status === 'rejected');
+        return {
+            success: failed.length === 0,
+            updated: results.length - failed.length,
+            failed: failed.length,
+            message: failed[0]?.reason?.response?.data?.error || '',
+        };
     };
 
     const handleUploadOrderReceipt = async (orderId, payload) => {
@@ -1961,6 +2061,7 @@ function App() {
                         onDeleteCategory={handleDeleteCategory}
                         onCancelOrder={handleAdminCancelOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}
+                        onBulkUpdateOrderStatus={handleBulkUpdateOrderStatus}
                         onReviewOrderPayment={handleReviewOrderPayment}
                         onBulkReviewOrderPayments={handleBulkReviewOrderPayments}
                         onOpenStockEdit={(product) => setStockEdit({
@@ -1981,6 +2082,7 @@ function App() {
                     <OrderHistoryModal
                         orders={orderHistory}
                         username={user?.username}
+                        storeContact={storeContact}
                         isPageView
                         onClose={openStore}
                         onUploadReceipt={handleUploadOrderReceipt}
@@ -2006,7 +2108,7 @@ function App() {
                 )}
             </div>
 
-            {shouldShowSiteFooter && <SiteFooter contact={storeContact} onOpenStore={openStore} />}
+            {shouldShowSiteFooter && <SiteFooter contact={storeContact} />}
 
             <StockEditModal stockEdit={stockEdit} setStockEdit={setStockEdit} onSave={handleUpdateStock} />
 
@@ -2081,6 +2183,7 @@ function App() {
                 <OrderHistoryModal
                     orders={adminOrders}
                     username={user?.username}
+                    storeContact={storeContact}
                     mode="sales"
                     eyebrow="Sales History"
                     title="ประวัติการขาย"

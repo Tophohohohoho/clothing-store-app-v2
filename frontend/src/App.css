@@ -1850,6 +1850,14 @@
     line-height: 1.45;
 }
 
+.order-print-bulk-actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .order-print-bulk-bar button {
     min-height: 40px;
     flex: 0 0 auto;
@@ -2545,6 +2553,7 @@
 }
 
 .payment-badge,
+.order-status-badge,
 .delivery-badge {
     display: inline-flex;
     align-items: center;
@@ -2562,6 +2571,12 @@
 .payment-badge.rejected { color: #b42318; background: #fff1f3; border: 1px solid #fda4af; }
 .payment-badge.suspicious { color: #7f1d1d; background: #fee2e2; border: 1px solid #991b1b; }
 .payment-badge.cancelled { color: #475467; background: #f2f4f7; border: 1px solid #d0d5dd; }
+.order-status-badge.waiting { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; }
+.order-status-badge.review { color: #b54708; background: #fffaeb; border: 1px solid #fedf89; }
+.order-status-badge.preparing { color: #175cd3; background: #eff8ff; border: 1px solid #b2ddff; }
+.order-status-badge.shipping { color: #3538cd; background: #eef4ff; border: 1px solid #c7d7fe; }
+.order-status-badge.done { color: #027a48; background: #ecfdf3; border: 1px solid #abefc6; }
+.order-status-badge.cancelled { color: #475467; background: #f2f4f7; border: 1px solid #d0d5dd; }
 .delivery-badge { color: #175cd3; background: #eff8ff; border: 1px solid #b2ddff; }
 
 .order-table-slip {
@@ -3081,6 +3096,40 @@
 .order-history-customer-slip-cell {
     display: flex;
     justify-content: center;
+}
+
+.order-inline-tracking-cell {
+    display: grid;
+    gap: 5px;
+    width: min(100%, 180px);
+}
+
+.order-inline-tracking-cell input {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    padding: 7px 9px;
+    color: #101828;
+    font-size: .74rem;
+    font-weight: 800;
+    outline: none;
+}
+
+.order-inline-tracking-cell input:focus {
+    border-color: #5145cd;
+    box-shadow: 0 0 0 3px rgba(81, 69, 205, .12);
+}
+
+.order-inline-tracking-cell span,
+.order-inline-tracking-cell small {
+    color: #667085;
+    font-size: .72rem;
+    font-weight: 900;
+}
+
+.order-inline-tracking-cell small {
+    color: #b42318;
 }
 
 .order-history-customer-slip-empty {
@@ -4737,6 +4786,14 @@
     color: #b91c1c !important;
 }
 
+.order-history-card-status-group {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
 .order-history-product {
     padding: 18px 0;
 }
@@ -5659,6 +5716,14 @@
     font-weight: 950;
 }
 
+.order-detail-popup-statuses {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .order-detail-popup-header strong {
     padding: 8px 12px;
     border-radius: 999px;
@@ -5704,6 +5769,35 @@
     border: 1px solid #dbe4ee;
     border-radius: 14px;
     background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
+}
+
+.order-detail-tracking-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.order-detail-tracking-card > div {
+    min-width: 0;
+}
+
+.order-detail-tracking-card button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 8px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: #1f2937;
+    font-size: .78rem;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.order-detail-tracking-card button:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
 }
 
 .order-detail-popup-meta span {
@@ -6493,8 +6587,12 @@
     }
 
     .order-detail-popup-header strong {
-        grid-column: 1 / 2;
         justify-self: start;
+    }
+
+    .order-detail-popup-statuses {
+        grid-column: 1 / 2;
+        justify-content: flex-start;
     }
 
     .order-detail-popup-header button {
@@ -6505,6 +6603,15 @@
     .order-detail-popup-body {
         max-height: calc(92dvh - 94px);
         padding: 15px;
+    }
+
+    .order-detail-tracking-card {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .order-detail-tracking-card button {
+        width: 100%;
     }
 
     .order-detail-customer-card {
@@ -8031,6 +8138,23 @@ body {
     text-decoration: none;
 }
 
+.site-footer-address {
+    display: grid;
+    gap: 8px;
+}
+
+.site-footer-address p {
+    color: #cbd5e1;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.site-footer-address-text {
+    color: #cbd5e1;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
 .site-footer-section a:hover,
 .site-footer-section button:hover {
     color: #ffd02f;
@@ -8188,6 +8312,15 @@ body {
     min-width: 0;
 }
 
+.order-history-customer-order-head-inner .order-history-customer-badges {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: min(100%, 220px);
+}
+
 .order-history-customer-order-head-inner strong,
 .order-history-customer-order-head-inner span {
     display: block;
@@ -8204,6 +8337,13 @@ body {
     color: #667085;
     font-size: .72rem;
     font-weight: 700;
+}
+
+.order-history-customer-order-head-inner .order-history-customer-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }
 
 .order-history-customer-order-items td {
@@ -11510,7 +11650,9 @@ body {
     color: #b42318;
 }
 
-.auth-form input {
+.auth-form input,
+.auth-form select,
+.auth-form textarea {
     width: 100%;
     min-height: 52px;
     padding: 0 16px;
@@ -11523,22 +11665,375 @@ body {
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
-.auth-form input:focus {
+.auth-form textarea {
+    min-height: 92px;
+    padding: 14px 16px;
+    resize: vertical;
+    line-height: 1.55;
+}
+
+.auth-form select {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #697386 50%), linear-gradient(135deg, #697386 50%, transparent 50%);
+    background-position: calc(100% - 18px) 22px, calc(100% - 12px) 22px;
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+}
+
+.auth-form input:focus,
+.auth-form select:focus,
+.auth-form textarea:focus {
     border-color: var(--accent);
     background: var(--paper);
     box-shadow: 0 0 0 4px rgba(189, 90, 60, 0.16);
 }
 
 .auth-form label.has-error input,
-.auth-form input[aria-invalid='true'] {
+.auth-form label.has-error select,
+.auth-form label.has-error textarea,
+.auth-form input[aria-invalid='true'],
+.auth-form select[aria-invalid='true'],
+.auth-form textarea[aria-invalid='true'] {
     border-color: #f04438;
     background: #fff5f5;
 }
 
 .auth-form label.has-error input:focus,
-.auth-form input[aria-invalid='true']:focus {
+.auth-form label.has-error select:focus,
+.auth-form label.has-error textarea:focus,
+.auth-form input[aria-invalid='true']:focus,
+.auth-form select[aria-invalid='true']:focus,
+.auth-form textarea[aria-invalid='true']:focus {
     border-color: #f04438;
     box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.16);
+}
+
+.auth-register-steps {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding: 2px 0 6px;
+}
+
+.auth-register-steps::before {
+    content: '';
+    position: absolute;
+    left: 25%;
+    right: 25%;
+    top: 21px;
+    height: 2px;
+    background: #d7dde6;
+}
+
+.auth-register-steps div {
+    position: relative;
+    z-index: 1;
+    min-height: 66px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 6px;
+    color: #697386;
+    text-align: center;
+}
+
+.auth-register-steps b {
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    border: 4px solid #fff;
+    border-radius: 50%;
+    background: #e9edf3;
+    color: #5b6472;
+    box-shadow: 0 0 0 1px #d7dde6;
+    font-size: 0.9rem;
+    font-weight: 900;
+}
+
+.auth-register-steps em {
+    min-width: 0;
+    font-style: normal;
+    font-size: 0.82rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.auth-register-steps i {
+    color: #a3adba;
+    font-size: 0.8rem;
+    font-style: normal;
+    line-height: 1;
+}
+
+.auth-register-steps div.active {
+    color: var(--accent-dark);
+}
+
+.auth-register-steps div.active b {
+    background: var(--accent-dark);
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(189, 90, 60, 0.34), 0 8px 18px rgba(189, 90, 60, 0.2);
+}
+
+.auth-register-steps div.active i {
+    color: var(--accent-dark);
+}
+
+.auth-register-steps div.done {
+    color: #16704a;
+}
+
+.auth-register-steps div.done b {
+    background: #16704a;
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(22, 112, 74, 0.24);
+}
+
+.auth-register-steps div.done i {
+    color: #16704a;
+}
+
+.auth-register-otp {
+    display: grid;
+    gap: 9px;
+}
+
+.auth-register-otp.has-error label {
+    color: #b42318;
+}
+
+.auth-register-otp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: #343842;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.auth-register-otp-head label {
+    display: block;
+}
+
+.auth-register-otp-head span {
+    color: #16704a;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.auth-register-otp-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.auth-register-otp-inputs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.auth-register-otp-inputs input {
+    min-width: 0;
+    padding: 0;
+    text-align: center;
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+.auth-register-otp-row button {
+    min-height: 52px;
+    padding: 0 14px;
+    border: 1px solid rgba(189, 90, 60, 0.3);
+    border-radius: 12px;
+    background: #fff7f2;
+    color: var(--accent-dark);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.auth-register-otp-row button.secondary {
+    border-color: #d7dde6;
+    background: #f8fafc;
+    color: #343842;
+}
+
+.auth-register-otp-row button:hover:not(:disabled),
+.auth-register-otp-row button:focus-visible {
+    border-color: rgba(189, 90, 60, 0.55);
+    box-shadow: 0 0 0 4px rgba(189, 90, 60, 0.12);
+    outline: none;
+}
+
+.auth-register-otp-row button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
+.auth-register-otp-timer {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: #eefaf4;
+    color: #16704a;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.auth-register-otp-timer.expired {
+    background: #fff5f5;
+    color: #b42318;
+}
+
+.auth-register-otp-message {
+    color: #697386;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.auth-register-otp-message.success {
+    color: #16704a;
+}
+
+.auth-register-otp-message.error {
+    color: #b42318;
+}
+
+.auth-register-address,
+.auth-terms-box {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid #e0e5ec;
+    border-radius: 14px;
+    background: #f8fafc;
+}
+
+.auth-register-address-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.auth-register-address-head span {
+    color: #252a33;
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.auth-register-address-head small {
+    color: #697386;
+    font-size: 0.76rem;
+}
+
+.auth-register-address-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.auth-terms-box.has-error {
+    border-color: #f04438;
+    box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.08);
+}
+
+.auth-terms-box label {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+}
+
+.auth-terms-box input {
+    width: 18px;
+    min-height: 18px;
+    margin-top: 2px;
+    padding: 0;
+    accent-color: var(--accent);
+    box-shadow: none;
+}
+
+.auth-terms-box strong,
+.auth-terms-box small {
+    display: block;
+}
+
+.auth-terms-box strong {
+    color: #252a33;
+    font-size: 0.9rem;
+}
+
+.auth-terms-box small {
+    margin-top: 3px;
+    color: #697386;
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.auth-verified-email {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid rgba(22, 112, 74, 0.24);
+    border-radius: 14px;
+    background: #eefaf4;
+}
+
+.auth-verified-email div {
+    min-width: 0;
+}
+
+.auth-verified-email span,
+.auth-verified-email strong {
+    display: block;
+}
+
+.auth-verified-email span {
+    color: #16704a;
+    font-size: 0.74rem;
+    font-weight: 900;
+}
+
+.auth-verified-email strong {
+    margin-top: 2px;
+    color: #1f2933;
+    font-size: 0.92rem;
+    overflow-wrap: anywhere;
+}
+
+.auth-verified-email button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid rgba(22, 112, 74, 0.24);
+    border-radius: 10px;
+    background: #fff;
+    color: #16704a;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.auth-verified-email button:hover,
+.auth-verified-email button:focus-visible {
+    border-color: rgba(22, 112, 74, 0.42);
+    box-shadow: 0 0 0 4px rgba(22, 112, 74, 0.1);
+    outline: none;
 }
 
 .auth-consent-box {
@@ -12498,6 +12993,11 @@ body {
         flex-direction: column;
     }
 
+    .order-print-bulk-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
     .order-print-bulk-bar button {
         width: 100%;
     }
@@ -13271,6 +13771,56 @@ body {
         align-items: flex-start;
         flex-direction: column;
         gap: 8px;
+    }
+
+    .auth-register-steps {
+        padding-bottom: 4px;
+    }
+
+    .auth-register-steps div {
+        min-height: 62px;
+        padding: 0 3px;
+    }
+
+    .auth-register-steps b {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+        border-width: 3px;
+    }
+
+    .auth-register-steps em {
+        font-size: 0.74rem;
+    }
+
+    .auth-register-otp-row {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-register-otp-row button {
+        width: 100%;
+    }
+
+    .auth-register-otp-inputs {
+        gap: 6px;
+    }
+
+    .auth-register-otp-inputs input {
+        min-height: 46px;
+        font-size: 1rem;
+    }
+
+    .auth-verified-email {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .auth-verified-email button {
+        width: 100%;
+    }
+
+    .auth-register-address-grid {
+        grid-template-columns: 1fr;
     }
 
     .auth-privacy-modal-backdrop {

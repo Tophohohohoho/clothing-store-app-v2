@@ -43,12 +43,14 @@ const dbp = db.promise();
 
 const query = (sql, params = []) => dbp.query(sql, params);
 
-const hashResetCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
+const hashVerificationCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
+const hashResetCode = hashVerificationCode;
 const PASSWORD_HASH_ROUNDS = 12;
 const AUTH_TOKEN_SECRET = process.env.JWT_SECRET || process.env.AUTH_TOKEN_SECRET || 'dev-auth-secret-change-me';
 const AUTH_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
+const VERIFICATION_CODE_EXPIRES_MS = 10 * 60 * 1000;
 
 const cleanText = (value) => String(value ?? '').trim();
 const cleanPhone = (value) => cleanText(value).replace(/[\s-]/g, '');
@@ -161,8 +163,25 @@ const requireOrderOwnerOrAdmin = async (req, res, next) => {
     });
 };
 
-const getFirstRegisterValidationMessage = ({ username, full_name, email, phone, password, confirm_password }) => {
-    if (!cleanText(username)) return 'กรุณากรอกชื่อผู้ใช้';
+const createUsernameFromEmail = async (email) => {
+    const emailName = cleanText(email).split('@')[0] || 'user';
+    const baseUsername = emailName
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '')
+        .replace(/^[._-]+|[._-]+$/g, '')
+        .slice(0, 40) || 'user';
+
+    for (let index = 0; index < 100; index += 1) {
+        const candidate = index === 0 ? baseUsername : `${baseUsername}${index}`;
+        const [rows] = await query('SELECT user_id FROM `user` WHERE username = ? LIMIT 1', [candidate]);
+        if (rows.length === 0) return candidate;
+    }
+
+    return `${baseUsername}${Date.now()}`;
+};
+
+const getFirstRegisterValidationMessage = ({ username, full_name, email, phone, password, confirm_password, terms_accepted, require_username = true, require_terms = false }) => {
+    if (require_username && !cleanText(username)) return 'กรุณากรอกชื่อผู้ใช้';
     if (!cleanText(full_name)) return 'กรุณากรอกชื่อ-นามสกุล';
     if (!cleanText(email)) return 'กรุณากรอกอีเมล';
     if (!EMAIL_REGEX.test(cleanText(email))) return 'รูปแบบอีเมลไม่ถูกต้อง';
@@ -172,6 +191,7 @@ const getFirstRegisterValidationMessage = ({ username, full_name, email, phone, 
     if (String(password).length < 8) return 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
     if (!String(confirm_password || '')) return 'กรุณากรอกยืนยันรหัสผ่าน';
     if (String(password) !== String(confirm_password)) return 'รหัสผ่านไม่ตรงกัน';
+    if (require_terms && !terms_accepted) return 'กรุณายอมรับข้อกำหนดการใช้งานก่อนสมัครสมาชิก';
     return '';
 };
 
@@ -347,6 +367,33 @@ const normalizeOrderStatus = (status) => {
         ยกเลิก: 'ยกเลิกคำสั่งซื้อ',
     };
     return aliases[value] || value;
+};
+
+const sendRegisterVerificationEmail = async ({ email, fullName, code }) => {
+    const transport = getSmtpTransport();
+    if (!transport) return { sent: false };
+
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+    console.log('ส่ง OTP สมัครสมาชิกจาก:', from);
+
+    await transport.sendMail({
+        from,
+        to: email,
+        subject: 'รหัส OTP สำหรับสมัครสมาชิก SHOP LRU',
+        text: `สวัสดี ${fullName || 'ผู้ใช้งาน'}\n\nรหัส OTP สำหรับสมัครสมาชิกคือ ${code}\nรหัสนี้จะหมดอายุภายใน 10 นาที\n\nหากคุณไม่ได้สมัครสมาชิก กรุณาไม่ต้องดำเนินการใด ๆ`,
+        html: `
+            <div style="font-family: Arial, sans-serif; color: #2b2725; line-height: 1.6;">
+                <h2>รหัส OTP สำหรับสมัครสมาชิก</h2>
+                <p>สวัสดี ${fullName || 'ผู้ใช้งาน'}</p>
+                <p>ใช้รหัสด้านล่างเพื่อยืนยันอีเมลก่อนสร้างบัญชี SHOP LRU</p>
+                <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px; color: #a9472f; margin: 18px 0;">${code}</div>
+                <p>รหัสนี้จะหมดอายุภายใน 10 นาที</p>
+                <p style="color: #6f6a66;">หากคุณไม่ได้สมัครสมาชิก กรุณาไม่ต้องดำเนินการใด ๆ</p>
+            </div>
+        `,
+    });
+
+    return { sent: true };
 };
 
 const normalizeOrder = (order) => ({
@@ -584,6 +631,15 @@ const ORDER_PAYMENT_REVIEW_STATUS = 'รอตรวจสอบการชำ�
 const ORDER_WAITING_PAYMENT_STATUS = 'รอชำระเงิน';
 const ORDER_PREPARING_STATUS = 'กำลังเตรียมสินค้า';
 const ORDER_CANCELLED_STATUS = 'ยกเลิกคำสั่งซื้อ';
+const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
+const STORE_CONTACT_PHONE = '0812345678';
+const STORE_CONTACT_EMAIL = 'admin@example.com';
+const PICKUP_ORDER_FLOW_STATUSES = [
+    ORDER_WAITING_PAYMENT_STATUS,
+    ORDER_PAYMENT_REVIEW_STATUS,
+    ORDER_PREPARING_STATUS,
+    'พร้อมรับสินค้า',
+];
 const ALLOWED_CUSTOMER_PAYMENT_METHODS = new Set(['โอนเงินผ่านธนาคาร']);
 const ALLOWED_SHIPPING_METHODS = new Set(['ส่งสินค้า', 'รับหน้าร้าน']);
 const RECEIPT_UPLOAD_OPTIONS = {
@@ -774,6 +830,8 @@ const initializeDatabase = async () => {
             privacy_notice_acknowledged_at datetime DEFAULT NULL,
             consent_analytics tinyint DEFAULT '0',
             consent_analytics_at datetime DEFAULT NULL,
+            terms_accepted tinyint DEFAULT '0',
+            terms_accepted_at datetime DEFAULT NULL,
             role varchar(50) DEFAULT NULL,
             status_user tinyint DEFAULT '1',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
@@ -917,6 +975,18 @@ const initializeDatabase = async () => {
             KEY idx_password_reset_user (user_id),
             KEY idx_password_reset_expires (expires_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
+        `CREATE TABLE IF NOT EXISTS registration_verification_codes (
+            verification_id int NOT NULL AUTO_INCREMENT,
+            email varchar(150) NOT NULL,
+            code_hash varchar(64) NOT NULL,
+            expires_at datetime NOT NULL,
+            verified_at datetime DEFAULT NULL,
+            used_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (verification_id),
+            KEY idx_registration_verification_email (email),
+            KEY idx_registration_verification_expires (expires_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
     ];
 
     for (const schema of schemas) {
@@ -1046,6 +1116,12 @@ const initializeDatabase = async () => {
     if (!(await columnExists('user', 'consent_analytics_at'))) {
         await query('ALTER TABLE `user` ADD COLUMN consent_analytics_at datetime DEFAULT NULL AFTER consent_analytics');
     }
+    if (!(await columnExists('user', 'terms_accepted'))) {
+        await query("ALTER TABLE `user` ADD COLUMN terms_accepted tinyint DEFAULT 0 AFTER consent_analytics_at");
+    }
+    if (!(await columnExists('user', 'terms_accepted_at'))) {
+        await query('ALTER TABLE `user` ADD COLUMN terms_accepted_at datetime DEFAULT NULL AFTER terms_accepted');
+    }
 
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
     await getDefaultCategoryId();
@@ -1114,14 +1190,36 @@ app.get('/api/categories', async (req, res) => {
 app.get('/api/store/contact', async (req, res) => {
     try {
         const [admins] = await query(
-            `SELECT full_name, email, phone
-             FROM \`user\`
-             WHERE role = 'admin' AND status_user = 1
-             ORDER BY created_at ASC, user_id ASC
+            `SELECT
+                u.full_name,
+                u.email,
+                u.phone,
+                a.receiver_name,
+                a.phone AS store_phone,
+                a.address_detail,
+                a.subdistrict,
+                a.district,
+                a.province,
+                a.postal_code
+             FROM \`user\` u
+             LEFT JOIN address a ON a.address_id = (
+                SELECT address_id
+                FROM address
+                WHERE user_id = u.user_id
+                ORDER BY is_default DESC, address_id DESC
+                LIMIT 1
+             )
+             WHERE u.role = 'admin' AND u.status_user = 1
+             ORDER BY u.created_at ASC, u.user_id ASC
              LIMIT 1`,
         );
 
-        res.json(admins[0] || { full_name: '', email: '', phone: '' });
+        const contact = admins[0] || {};
+        res.json({
+            ...contact,
+            email: contact.email || STORE_CONTACT_EMAIL,
+            phone: contact.phone || STORE_CONTACT_PHONE,
+        });
     } catch (err) {
         respondError(res, err, 'โหลดข้อมูลติดต่อร้านไม่สำเร็จ');
     }
@@ -1310,6 +1408,108 @@ app.post('/api/logout', requireAuth, async (req, res) => {
     }
 });
 
+app.post('/api/register/otp/request', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const fullName = cleanText(req.body.full_name);
+
+        if (!email) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกอีเมลก่อนขอรหัส OTP' });
+        }
+        if (!EMAIL_REGEX.test(email)) {
+            return res.status(400).json({ success: false, message: 'รูปแบบอีเมลไม่ถูกต้อง' });
+        }
+
+        const [existingUsers] = await query(
+            'SELECT user_id FROM `user` WHERE LOWER(email) = ? LIMIT 1',
+            [email],
+        );
+        if (existingUsers.length > 0) {
+            return res.status(400).json({ success: false, message: 'อีเมลนี้มีบัญชีใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้อีเมลอื่น' });
+        }
+
+        const code = String(crypto.randomInt(100000, 1000000));
+        const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
+
+        await query(
+            'UPDATE registration_verification_codes SET used_at = NOW() WHERE email = ? AND used_at IS NULL',
+            [email],
+        );
+        await query(
+            'INSERT INTO registration_verification_codes (email, code_hash, expires_at) VALUES (?, ?, ?)',
+            [email, hashVerificationCode(code), expiresAt],
+        );
+
+        let mailResult = { sent: false };
+        let mailError = '';
+
+        try {
+            mailResult = await sendRegisterVerificationEmail({ email, fullName, code });
+        } catch (err) {
+            mailError = err.message || 'ไม่สามารถเชื่อมต่อ SMTP ได้';
+            console.error('ส่งอีเมล OTP สมัครสมาชิกไม่สำเร็จ:', mailError);
+        }
+
+        const response = {
+            success: true,
+            mail_sent: mailResult.sent,
+            otp_expires_in: Math.floor(VERIFICATION_CODE_EXPIRES_MS / 1000),
+            message: mailResult.sent
+                ? 'ส่งรหัส OTP ไปยังอีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย'
+                : mailError
+                    ? getPublicMailErrorMessage(mailError)
+                    : 'สร้างรหัส OTP แล้ว แต่ยังไม่ได้ตั้งค่า SMTP สำหรับส่งอีเมล',
+        };
+
+        if (!mailResult.sent && process.env.NODE_ENV !== 'production') {
+            response.dev_code = code;
+            if (mailError) response.smtp_error = mailError;
+        }
+
+        res.json(response);
+    } catch (err) {
+        respondError(res, err, 'ส่งรหัส OTP สมัครสมาชิกไม่สำเร็จ');
+    }
+});
+
+const findValidRegistrationCode = async ({ email, code }) => {
+    const [rows] = await query(
+        `SELECT verification_id, email
+         FROM registration_verification_codes
+         WHERE email = ?
+            AND code_hash = ?
+            AND used_at IS NULL
+            AND expires_at > NOW()
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [email, hashVerificationCode(code)],
+    );
+
+    return rows[0] || null;
+};
+
+app.post('/api/register/otp/verify', async (req, res) => {
+    try {
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const code = String(req.body.code || '').trim();
+
+        if (!email || !/^\d{6}$/.test(code)) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกอีเมลและรหัส OTP 6 หลักให้ครบถ้วน' });
+        }
+
+        const verificationCode = await findValidRegistrationCode({ email, code });
+        if (!verificationCode) {
+            return res.status(400).json({ success: false, message: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว' });
+        }
+
+        await query('UPDATE registration_verification_codes SET verified_at = NOW() WHERE verification_id = ?', [verificationCode.verification_id]);
+
+        res.json({ success: true, message: 'ยืนยัน OTP สำเร็จ สามารถสมัครสมาชิกได้' });
+    } catch (err) {
+        respondError(res, err, 'ตรวจสอบรหัส OTP สมัครสมาชิกไม่สำเร็จ');
+    }
+});
+
 app.post('/api/register', async (req, res) => {
     try {
         const {
@@ -1321,15 +1521,19 @@ app.post('/api/register', async (req, res) => {
             phone,
             privacy_notice_acknowledged,
             consent_analytics,
+            terms_accepted,
+            registration_otp,
         } = req.body;
 
         const validationMessage = getFirstRegisterValidationMessage({
-            username,
             full_name,
             email,
             phone,
             password,
             confirm_password: confirm_password ?? req.body.confirmPassword,
+            terms_accepted,
+            require_username: false,
+            require_terms: true,
         });
         if (validationMessage) {
             return res.status(400).json({ success: false, message: validationMessage });
@@ -1339,27 +1543,72 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'กรุณารับทราบประกาศนโยบายความเป็นส่วนตัวก่อนสมัครสมาชิก' });
         }
 
+        const normalizedEmail = cleanText(email).toLowerCase();
+        const otpCode = String(registration_otp || req.body.otp || '').trim();
+        if (!/^\d{6}$/.test(otpCode)) {
+            return res.status(400).json({ success: false, message: 'กรุณากรอกรหัส OTP 6 หลักจากอีเมลก่อนสมัครสมาชิก' });
+        }
+
+        const verificationCode = await findValidRegistrationCode({ email: normalizedEmail, code: otpCode });
+        if (!verificationCode) {
+            return res.status(400).json({ success: false, message: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่' });
+        }
+
+        const addressPayload = normalizeAddressPayload({
+            ...(req.body.address || {}),
+            receiver_name: cleanText(full_name),
+            phone: cleanPhone(phone),
+            address_type: req.body.address?.address_type || 'บ้าน',
+            is_default: true,
+        });
+        const addressValidationMessage = getFirstAddressValidationMessage(addressPayload);
+        if (addressValidationMessage) {
+            return res.status(400).json({ success: false, message: addressValidationMessage });
+        }
+
         const hasAnalyticsConsent = Boolean(consent_analytics);
         const passwordHash = await hashPassword(password);
+        const normalizedUsername = cleanText(username) || await createUsernameFromEmail(normalizedEmail);
 
         const [result] = await query(
             `INSERT INTO \`user\`
-                (username, password, full_name, email, phone, privacy_notice_acknowledged, privacy_notice_acknowledged_at, consent_analytics, consent_analytics_at, role, status_user)
-             VALUES (?, ?, ?, ?, ?, 1, NOW(), ?, ?, ?, 1)`,
+                (username, password, full_name, email, phone, privacy_notice_acknowledged, privacy_notice_acknowledged_at, consent_analytics, consent_analytics_at, terms_accepted, terms_accepted_at, role, status_user)
+             VALUES (?, ?, ?, ?, ?, 1, NOW(), ?, ?, 1, NOW(), ?, 1)`,
             [
-                cleanText(username),
+                normalizedUsername,
                 passwordHash,
                 cleanText(full_name),
-                cleanText(email),
+                normalizedEmail,
                 cleanPhone(phone),
                 hasAnalyticsConsent ? 1 : 0,
                 hasAnalyticsConsent ? new Date() : null,
                 'user',
             ],
         );
-        await writeSystemLog(result.insertId, 'สมัครสมาชิก', `สมัครสมาชิก ${username}`);
+        await query(
+            `INSERT INTO address
+                (user_id, receiver_name, phone, address_detail, subdistrict, district, province, postal_code, address_type, is_default)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [
+                result.insertId,
+                addressPayload.receiver_name,
+                addressPayload.phone,
+                addressPayload.address_detail,
+                addressPayload.subdistrict,
+                addressPayload.district,
+                addressPayload.province,
+                addressPayload.postal_code,
+                addressPayload.address_type,
+            ],
+        );
+        await query('UPDATE registration_verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
+        await writeSystemLog(result.insertId, 'สมัครสมาชิก', `สมัครสมาชิก ${normalizedUsername}`);
 
-        res.json({ success: true, message: 'สมัครสมาชิกสำเร็จ คุณสามารถเข้าสู่ระบบได้เลย' });
+        const createdUserRow = await fetchUserById(result.insertId);
+        const user = mapAuthUser(createdUserRow);
+        const token = signAuthToken(user);
+
+        res.json({ success: true, message: 'สมัครสมาชิกสำเร็จ เข้าสู่ระบบแล้ว', user, token });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ success: false, message: 'ชื่อผู้ใช้นี้มีคนใช้งานแล้ว กรุณาใช้ชื่ออื่น' });
@@ -1394,7 +1643,7 @@ app.post('/api/password-reset/request', async (req, res) => {
 
         const user = users[0];
         const code = String(crypto.randomInt(100000, 1000000));
-        const expiresAt = new Date(Date.now() + (10 * 60 * 1000));
+        const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
 
         await query(
             'UPDATE password_reset_codes SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
@@ -1422,6 +1671,7 @@ app.post('/api/password-reset/request', async (req, res) => {
         const response = {
             success: true,
             mail_sent: mailResult.sent,
+            code_expires_in: Math.floor(VERIFICATION_CODE_EXPIRES_MS / 1000),
             message: mailResult.sent
                 ? 'ส่งรหัสยืนยันไปยังอีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย'
                 : mailError
@@ -2950,7 +3200,7 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
         const shippingAddressPayload = normalizeAddressPayload({
             receiver_name: receiver_name || username || 'ลูกค้า',
             phone,
-            address_detail: shippingMethod === 'รับหน้าร้าน' ? 'รับสินค้าเองที่หน้าร้าน' : address,
+            address_detail: shippingMethod === 'รับหน้าร้าน' ? STORE_PICKUP_ADDRESS : address,
             subdistrict,
             district,
             province,
@@ -3556,7 +3806,7 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         const deliveryType = order.delivery_type || 'ส่งสินค้า';
         const trackingNo = String(tracking_no || '').trim();
         const requestedStatus = normalizeOrderStatus(status);
-        const allowedStatuses = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+        const allowedStatuses = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'];
         const currentStatus = normalizeOrderStatus(order.order_status);
 
         if (normalizeOrderStatus(order.order_status) === ORDER_CANCELLED_STATUS) {
@@ -3576,18 +3826,16 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
 
         const isValidTransition = (() => {
             if (deliveryType === 'รับหน้าร้าน') {
-                const pickupFlowStatuses = [ORDER_WAITING_PAYMENT_STATUS, ORDER_PAYMENT_REVIEW_STATUS, ORDER_PREPARING_STATUS, 'พร้อมรับสินค้า', 'เสร็จสิ้น'];
-                const currentStep = pickupFlowStatuses.indexOf(currentStatus);
-                const requestedStep = pickupFlowStatuses.indexOf(requestedStatus);
+                const currentStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(currentStatus);
+                const requestedStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(requestedStatus);
                 return currentStep !== -1 && requestedStep === currentStep + 1;
             }
 
             const transitionMap = {
                 [ORDER_WAITING_PAYMENT_STATUS]: [ORDER_PREPARING_STATUS],
                 [ORDER_PAYMENT_REVIEW_STATUS]: [ORDER_PREPARING_STATUS],
-                [ORDER_PREPARING_STATUS]: ['กำลังจัดส่ง', 'เสร็จสิ้น'],
-                กำลังจัดส่ง: ['จัดส่งแล้ว', 'เสร็จสิ้น'],
-                จัดส่งแล้ว: ['เสร็จสิ้น'],
+                [ORDER_PREPARING_STATUS]: ['กำลังจัดส่ง', 'จัดส่งแล้ว'],
+                กำลังจัดส่ง: ['จัดส่งแล้ว'],
             };
 
             return transitionMap[currentStatus]?.includes(requestedStatus);
@@ -3608,11 +3856,11 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         }
 
         if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'กำลังจัดส่ง') {
-            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้าหรือเสร็จสิ้น', field: 'status' });
+            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' });
         }
 
         if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'จัดส่งแล้ว') {
-            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้าหรือเสร็จสิ้น', field: 'status' });
+            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' });
         }
 
         if (deliveryType !== 'รับหน้าร้าน' && requestedStatus === 'พร้อมรับสินค้า') {
@@ -3622,7 +3870,7 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         if (requestedStatus === 'กำลังจัดส่ง' && deliveryType !== 'รับหน้าร้าน' && !trackingNo) {
             return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง', field: 'tracking_no' });
         }
-        if (requestedStatus === 'เสร็จสิ้น' && deliveryType !== 'รับหน้าร้าน' && !trackingNo && !String(order.tracking_no || '').trim()) {
+        if (requestedStatus === 'จัดส่งแล้ว' && deliveryType !== 'รับหน้าร้าน' && !trackingNo && !String(order.tracking_no || '').trim()) {
             return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง', field: 'tracking_no' });
         }
 

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { requestPasswordReset, resetPasswordWithCode, verifyPasswordResetCode } from '../api/authApi';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { requestPasswordReset, requestRegisterOtp, resetPasswordWithCode, verifyPasswordResetCode, verifyRegisterOtp } from '../api/authApi';
 import { alertNotification } from '../components/AppNotification';
 
 const EMPTY_FORGOT_FORM = {
@@ -9,6 +9,16 @@ const EMPTY_FORGOT_FORM = {
     confirmPassword: '',
 };
 const EMPTY_RESET_CODE_DIGITS = ['', '', '', '', '', ''];
+const REGISTER_OTP_EXPIRES_SECONDS = 10 * 60;
+const REGISTER_OTP_RESEND_SECONDS = 60;
+const EMPTY_THAI_ADDRESS_DATA = {
+    provinces: [],
+    districts: [],
+    subDistricts: [],
+};
+const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
+const getName = (item) => item?.name_th || '';
+const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
 const PRIVACY_NOTICE_SECTIONS = [
     {
         title: 'ผู้ควบคุมข้อมูลส่วนบุคคล',
@@ -54,21 +64,70 @@ function AuthPage({
     const [forgotStep, setForgotStep] = useState('request');
     const [forgotForm, setForgotForm] = useState(EMPTY_FORGOT_FORM);
     const [forgotCodeDigits, setForgotCodeDigits] = useState(EMPTY_RESET_CODE_DIGITS);
+    const [registerOtpDigits, setRegisterOtpDigits] = useState(EMPTY_RESET_CODE_DIGITS);
     const [forgotMsg, setForgotMsg] = useState({ type: '', text: '' });
     const [isForgotLoading, setIsForgotLoading] = useState(false);
     const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
     const [hasScrolledPrivacyNotice, setHasScrolledPrivacyNotice] = useState(false);
     const [consentNotice, setConsentNotice] = useState('');
+    const [registerOtpMsg, setRegisterOtpMsg] = useState({ type: '', text: '' });
+    const [isRegisterOtpLoading, setIsRegisterOtpLoading] = useState(false);
+    const [isRegisterOtpVerified, setIsRegisterOtpVerified] = useState(false);
+    const [registerOtpRequested, setRegisterOtpRequested] = useState(false);
+    const [registerStep, setRegisterStep] = useState('email');
+    const [registerOtpExpiresAt, setRegisterOtpExpiresAt] = useState(null);
+    const [registerOtpCanResendAt, setRegisterOtpCanResendAt] = useState(null);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
+    const [thaiAddressData, setThaiAddressData] = useState(EMPTY_THAI_ADDRESS_DATA);
+    const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
     const resetCodeInputRefs = useRef([]);
+    const registerOtpInputRefs = useRef([]);
     const registerFieldRefs = useRef({});
     const forgotCode = forgotCodeDigits.join('');
+    const registerOtpRemainingSeconds = registerOtpExpiresAt
+        ? Math.max(0, Math.ceil((registerOtpExpiresAt - currentTime) / 1000))
+        : 0;
+    const registerOtpResendSeconds = registerOtpCanResendAt
+        ? Math.max(0, Math.ceil((registerOtpCanResendAt - currentTime) / 1000))
+        : 0;
+    const hasActiveRegisterOtp = Boolean(registerOtpExpiresAt && registerOtpRemainingSeconds > 0);
+    const registerOtpRequestLabel = registerOtpExpiresAt ? 'ขอ OTP ใหม่' : 'ส่งรหัส OTP';
+
+    const formatOtpTime = (totalSeconds) => {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    };
+
+    const selectedProvince = useMemo(
+        () => thaiAddressData.provinces.find((province) => getName(province) === registerForm.province),
+        [registerForm.province, thaiAddressData.provinces],
+    );
+    const districtChoices = useMemo(
+        () => selectedProvince ? thaiAddressData.districts.filter((district) => district.province_id === selectedProvince.id) : [],
+        [selectedProvince, thaiAddressData.districts],
+    );
+    const selectedDistrict = useMemo(
+        () => districtChoices.find((district) => getName(district) === registerForm.district),
+        [registerForm.district, districtChoices],
+    );
+    const subDistrictChoices = useMemo(
+        () => selectedDistrict ? thaiAddressData.subDistricts.filter((subDistrict) => subDistrict.district_id === selectedDistrict.id) : [],
+        [selectedDistrict, thaiAddressData.subDistricts],
+    );
+    const postalCodeChoices = useMemo(() => {
+        const postalCodes = subDistrictChoices.map(getZipCode).filter(Boolean);
+        return [...new Set(postalCodes)];
+    }, [subDistrictChoices]);
 
     const switchToLogin = () => {
         setIsRegisterView(false);
+        setRegisterStep('email');
     };
 
     const switchToRegister = () => {
         setIsRegisterView(true);
+        if (!isRegisterOtpVerified) setRegisterStep('email');
     };
 
     const closeForgotPassword = () => {
@@ -164,8 +223,73 @@ function AuthPage({
         }, 160);
     }, [registerFieldErrors]);
 
+    useEffect(() => {
+        let isMounted = true;
+
+        Promise.all([
+            fetch(getPublicJsonPath('provinces.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('districts.json')).then((response) => response.json()),
+            fetch(getPublicJsonPath('sub_districts.json')).then((response) => response.json()),
+        ])
+            .then(([provinces, districts, subDistricts]) => {
+                if (!isMounted) return;
+                setThaiAddressData({
+                    provinces: provinces.filter((province) => !province.deleted_at),
+                    districts: districts.filter((district) => !district.deleted_at),
+                    subDistricts: subDistricts.filter((subDistrict) => !subDistrict.deleted_at),
+                });
+            })
+            .catch(() => {
+                if (isMounted) setThaiAddressData(EMPTY_THAI_ADDRESS_DATA);
+            })
+            .finally(() => {
+                if (isMounted) setIsThaiAddressLoading(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!registerOtpExpiresAt && !registerOtpCanResendAt) return undefined;
+
+        const timer = window.setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [registerOtpExpiresAt, registerOtpCanResendAt]);
+
+    useEffect(() => {
+        if (isRegisterView) return;
+
+        setRegisterStep('email');
+        setIsRegisterOtpVerified(false);
+        setRegisterOtpMsg({ type: '', text: '' });
+        setRegisterOtpExpiresAt(null);
+        setRegisterOtpCanResendAt(null);
+        setRegisterOtpRequested(false);
+    }, [isRegisterView]);
+
     const handleRegisterFieldChange = (field, value) => {
-        setRegisterForm({ ...registerForm, [field]: value });
+        const nextValue = field === 'registrationOtp' ? value.replace(/\D/g, '').slice(0, 6) : value;
+        setRegisterForm({ ...registerForm, [field]: nextValue });
+        if (field === 'registrationOtp') {
+            const nextDigits = EMPTY_RESET_CODE_DIGITS.map((_, index) => nextValue[index] || '');
+            setRegisterOtpDigits(nextDigits);
+        }
+        if (field === 'email' || field === 'registrationOtp') {
+            setIsRegisterOtpVerified(false);
+            if (field === 'email') {
+                setRegisterStep('email');
+                setRegisterOtpExpiresAt(null);
+                setRegisterOtpCanResendAt(null);
+                setRegisterOtpRequested(false);
+                setRegisterOtpDigits(EMPTY_RESET_CODE_DIGITS);
+            }
+            setRegisterOtpMsg((message) => (message.type === 'success' ? { type: '', text: '' } : message));
+        }
         if (registerFieldErrors?.[field]) {
             setRegisterFieldErrors((current) => {
                 const nextErrors = { ...current };
@@ -175,11 +299,228 @@ function AuthPage({
         }
     };
 
+    const clearRegisterFieldErrors = (...fields) => {
+        setRegisterFieldErrors((current) => {
+            const nextErrors = { ...current };
+            fields.forEach((field) => {
+                delete nextErrors[field];
+            });
+            return nextErrors;
+        });
+    };
+
+    const handleRegisterProvinceChange = (provinceName) => {
+        setRegisterForm({
+            ...registerForm,
+            province: provinceName,
+            district: '',
+            subdistrict: '',
+            postal_code: '',
+        });
+        clearRegisterFieldErrors('province', 'district', 'subdistrict', 'postal_code');
+    };
+
+    const handleRegisterDistrictChange = (districtName) => {
+        setRegisterForm({
+            ...registerForm,
+            district: districtName,
+            subdistrict: '',
+            postal_code: '',
+        });
+        clearRegisterFieldErrors('district', 'subdistrict', 'postal_code');
+    };
+
+    const handleRegisterSubDistrictChange = (subDistrictName) => {
+        const selectedSubDistrict = subDistrictChoices.find((subDistrict) => getName(subDistrict) === subDistrictName);
+        setRegisterForm({
+            ...registerForm,
+            subdistrict: subDistrictName,
+            postal_code: getZipCode(selectedSubDistrict),
+        });
+        clearRegisterFieldErrors('subdistrict', 'postal_code');
+    };
+
+    const setRegisterOtpCode = (nextDigits) => {
+        const nextCode = nextDigits.join('').slice(0, 6);
+        setRegisterOtpDigits(nextDigits);
+        setRegisterForm((currentForm) => ({ ...currentForm, registrationOtp: nextCode }));
+        setIsRegisterOtpVerified(false);
+        setRegisterOtpMsg((message) => (message.type === 'error' ? { type: '', text: '' } : message));
+        clearRegisterFieldErrors('registrationOtp');
+    };
+
+    const getFirstEmptyRegisterOtpIndex = () => {
+        const firstEmptyIndex = registerOtpDigits.findIndex((digit) => !digit);
+        return firstEmptyIndex === -1 ? 5 : firstEmptyIndex;
+    };
+
+    const keepRegisterOtpFocusInOrder = (index) => {
+        const firstEmptyIndex = getFirstEmptyRegisterOtpIndex();
+        if (index > firstEmptyIndex) {
+            registerOtpInputRefs.current[firstEmptyIndex]?.focus();
+            return false;
+        }
+        return true;
+    };
+
+    const setRegisterOtpAtIndex = (index, value) => {
+        if (!keepRegisterOtpFocusInOrder(index)) return;
+
+        const cleanValue = value.replace(/\D/g, '').slice(0, 6);
+        if (cleanValue.length > 1) {
+            const nextDigits = [...registerOtpDigits];
+            cleanValue.split('').forEach((digit, offset) => {
+                const nextIndex = offset;
+                if (nextIndex < 6) nextDigits[nextIndex] = digit;
+            });
+            setRegisterOtpCode(nextDigits);
+            registerOtpInputRefs.current[Math.min(cleanValue.length, 5)]?.focus();
+            return;
+        }
+
+        const nextDigits = [...registerOtpDigits];
+        nextDigits[index] = cleanValue;
+        setRegisterOtpCode(nextDigits);
+
+        if (cleanValue && index < 5) {
+            registerOtpInputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleRegisterOtpPaste = (event) => {
+        event.preventDefault();
+        const pastedCode = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        if (!pastedCode) return;
+
+        const nextDigits = [...registerOtpDigits];
+        pastedCode.split('').forEach((digit, offset) => {
+            const nextIndex = offset;
+            if (nextIndex < 6) nextDigits[nextIndex] = digit;
+        });
+
+        setRegisterOtpCode(nextDigits);
+        registerOtpInputRefs.current[Math.min(pastedCode.length, 5)]?.focus();
+    };
+
+    const handleRegisterOtpFocus = (index) => {
+        keepRegisterOtpFocusInOrder(index);
+    };
+
+    const handleRegisterOtpKeyDown = (event, index) => {
+        if (event.key === 'Backspace' && !registerOtpDigits[index] && index > 0) {
+            registerOtpInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowLeft' && index > 0) {
+            event.preventDefault();
+            registerOtpInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowRight' && index < 5) {
+            event.preventDefault();
+            registerOtpInputRefs.current[index + 1]?.focus();
+        }
+    };
+
     const setRegisterFieldRef = (field) => (element) => {
         registerFieldRefs.current[field] = element;
     };
 
     const getForgotError = (err, fallback) => err?.response?.data?.message || err?.response?.data?.error || fallback;
+    const getRegisterOtpError = (err, fallback) => err?.response?.data?.message || err?.response?.data?.error || fallback;
+
+    const handleRequestRegisterOtp = async () => {
+        const email = registerForm.email.trim();
+        if (!email) {
+            setRegisterFieldErrors({ email: 'กรุณากรอกอีเมลก่อนขอรหัส OTP' });
+            setRegisterOtpMsg({ type: 'error', text: 'กรุณากรอกอีเมลก่อนขอรหัส OTP' });
+            return;
+        }
+
+        setIsRegisterOtpLoading(true);
+        setIsRegisterOtpVerified(false);
+        setRegisterStep('email');
+        setRegisterOtpMsg({ type: '', text: '' });
+        setRegisterOtpRequested(false);
+        setRegisterOtpDigits(EMPTY_RESET_CODE_DIGITS);
+        setRegisterForm((currentForm) => ({ ...currentForm, registrationOtp: '' }));
+
+        try {
+            const { data } = await requestRegisterOtp({
+                email,
+                full_name: registerForm.full_name.trim(),
+            });
+            const devCodeText = data.dev_code ? ` รหัสทดสอบ: ${data.dev_code}` : '';
+            setRegisterOtpMsg({ type: 'success', text: `${data.message || 'ส่งรหัส OTP แล้ว'}${devCodeText}` });
+            const now = Date.now();
+            const expiresIn = Number(data.otp_expires_in) > 0 ? Number(data.otp_expires_in) : REGISTER_OTP_EXPIRES_SECONDS;
+            setCurrentTime(now);
+            setRegisterOtpExpiresAt(now + (expiresIn * 1000));
+            setRegisterOtpCanResendAt(now + (REGISTER_OTP_RESEND_SECONDS * 1000));
+            setRegisterOtpRequested(true);
+            window.setTimeout(() => {
+                registerOtpInputRefs.current[0]?.focus();
+            }, 80);
+        } catch (err) {
+            setRegisterOtpMsg({ type: 'error', text: getRegisterOtpError(err, 'ส่งรหัส OTP ไม่สำเร็จ') });
+        } finally {
+            setIsRegisterOtpLoading(false);
+        }
+    };
+
+    const handleVerifyRegisterOtp = async () => {
+        const email = registerForm.email.trim();
+        const code = String(registerForm.registrationOtp || '').trim();
+        if (registerOtpExpiresAt && registerOtpRemainingSeconds <= 0) {
+            setRegisterFieldErrors({ registrationOtp: 'รหัส OTP หมดอายุแล้ว กรุณาขอ OTP ใหม่' });
+            setRegisterOtpMsg({ type: 'error', text: 'รหัส OTP หมดอายุแล้ว กรุณาขอ OTP ใหม่' });
+            return;
+        }
+        if (!email || code.length !== 6) {
+            setRegisterFieldErrors({ registrationOtp: 'กรุณากรอกรหัส OTP 6 หลักจากอีเมล' });
+            setRegisterOtpMsg({ type: 'error', text: 'กรุณากรอกอีเมลและรหัส OTP 6 หลักให้ครบถ้วน' });
+            return;
+        }
+
+        setIsRegisterOtpLoading(true);
+        setRegisterOtpMsg({ type: '', text: '' });
+
+        try {
+            const { data } = await verifyRegisterOtp({ email, code });
+            setIsRegisterOtpVerified(true);
+            setRegisterStep('details');
+            setRegisterOtpMsg({ type: 'success', text: data.message || 'ยืนยัน OTP สำเร็จ' });
+            setRegisterFieldErrors((current) => {
+                const nextErrors = { ...current };
+                delete nextErrors.registrationOtp;
+                return nextErrors;
+            });
+        } catch (err) {
+            setIsRegisterOtpVerified(false);
+            setRegisterOtpMsg({ type: 'error', text: getRegisterOtpError(err, 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว') });
+        } finally {
+            setIsRegisterOtpLoading(false);
+        }
+    };
+
+    const handleChangeRegisterEmail = () => {
+        setRegisterStep('email');
+        setIsRegisterOtpVerified(false);
+        setRegisterOtpMsg({ type: '', text: '' });
+        setRegisterOtpExpiresAt(null);
+        setRegisterOtpCanResendAt(null);
+        setRegisterOtpRequested(false);
+        setRegisterOtpDigits(EMPTY_RESET_CODE_DIGITS);
+        setRegisterForm((currentForm) => ({ ...currentForm, registrationOtp: '' }));
+    };
+
+    const handleRegisterFormSubmit = (event) => {
+        if (registerStep !== 'details' || !isRegisterOtpVerified) {
+            event.preventDefault();
+            handleVerifyRegisterOtp();
+            return;
+        }
+
+        onRegister(event);
+    };
 
     const handleRequestResetCode = async (event) => {
         event.preventDefault();
@@ -387,132 +728,323 @@ function AuthPage({
                     </div>
 
                     {isRegisterView ? (
-                        <form className="auth-form" onSubmit={onRegister}>
+                        <form className="auth-form" onSubmit={handleRegisterFormSubmit}>
                             {registerMsg.text && (
                                 <div className={`auth-alert ${registerMsg.type === 'success' ? 'success' : 'error'}`}>
                                     {registerMsg.text}
                                 </div>
                             )}
 
-                            <label className={registerFieldErrors.username ? 'has-error' : ''}>
-                                ชื่อผู้ใช้
-                                <input
-                                    ref={setRegisterFieldRef('username')}
-                                    type="text"
-                                    placeholder="ตั้งชื่อผู้ใช้"
-                                    value={registerForm.username}
-                                    onChange={(e) => handleRegisterFieldChange('username', e.target.value)}
-                                    aria-invalid={Boolean(registerFieldErrors.username)}
-                                    required
-                                />
-                            </label>
-
-                            <label className={registerFieldErrors.full_name ? 'has-error' : ''}>
-                                ชื่อ-นามสกุล
-                                <input
-                                    ref={setRegisterFieldRef('full_name')}
-                                    type="text"
-                                    placeholder="กรอกชื่อสำหรับติดต่อ"
-                                    value={registerForm.full_name}
-                                    onChange={(e) => handleRegisterFieldChange('full_name', e.target.value)}
-                                    aria-invalid={Boolean(registerFieldErrors.full_name)}
-                                    required
-                                />
-                            </label>
-
-                            <label className={registerFieldErrors.email ? 'has-error' : ''}>
-                                อีเมล
-                                <input
-                                    ref={setRegisterFieldRef('email')}
-                                    type="email"
-                                    placeholder="เช่น name@example.com"
-                                    value={registerForm.email}
-                                    onChange={(e) => handleRegisterFieldChange('email', e.target.value)}
-                                    aria-invalid={Boolean(registerFieldErrors.email)}
-                                    required
-                                />
-                            </label>
-
-                            <label className={registerFieldErrors.phone ? 'has-error' : ''}>
-                                เบอร์โทร
-                                <input
-                                    ref={setRegisterFieldRef('phone')}
-                                    type="tel"
-                                    placeholder="เบอร์โทรสำหรับติดต่อ"
-                                    value={registerForm.phone}
-                                    onChange={(e) => handleRegisterFieldChange('phone', e.target.value)}
-                                    aria-invalid={Boolean(registerFieldErrors.phone)}
-                                    required
-                                />
-                            </label>
-
-                            <label className={registerFieldErrors.password ? 'has-error' : ''}>
-                                รหัสผ่าน
-                                <input
-                                    ref={setRegisterFieldRef('password')}
-                                    type="password"
-                                    placeholder="ตั้งรหัสผ่าน"
-                                    value={registerForm.password}
-                                    onChange={(e) => handleRegisterFieldChange('password', e.target.value)}
-                                    minLength="8"
-                                    aria-invalid={Boolean(registerFieldErrors.password)}
-                                    required
-                                />
-                            </label>
-
-                            <label className={registerFieldErrors.confirmPassword ? 'has-error' : ''}>
-                                ยืนยันรหัสผ่าน
-                                <input
-                                    ref={setRegisterFieldRef('confirmPassword')}
-                                    type="password"
-                                    placeholder="กรอกรหัสผ่านอีกครั้ง"
-                                    value={registerForm.confirmPassword}
-                                    onChange={(e) => handleRegisterFieldChange('confirmPassword', e.target.value)}
-                                    minLength="8"
-                                    aria-invalid={Boolean(registerFieldErrors.confirmPassword)}
-                                    required
-                                />
-                            </label>
-
-                            <section
-                                ref={setRegisterFieldRef('privacyNoticeAcknowledged')}
-                                className={`auth-privacy-summary ${registerFieldErrors.privacyNoticeAcknowledged ? 'has-error' : ''}`}
-                                aria-labelledby="auth-privacy-summary-title"
-                            >
-                                <div className="auth-privacy-summary-header">
-                                    <span>Privacy Policy</span>
-                                    <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัวสำหรับการสมัครสมาชิก</h3>
-                                    <p>ข้อมูลที่คุณกรอกจะถูกใช้เท่าที่จำเป็นต่อการสมัครบัญชี การสั่งซื้อ และการให้บริการของร้านค้า</p>
+                            <div className="auth-register-steps" aria-label="ขั้นตอนสมัครสมาชิก">
+                                <div className={registerStep === 'email' ? 'active' : 'done'}>
+                                    <b>1</b>
+                                    <em>ยืนยันตัวตน</em>
+                                    <i aria-hidden="true">●</i>
                                 </div>
-                                <button
-                                    type="button"
-                                    className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
-                                    onClick={openPrivacyNotice}
-                                >
-                                    {registerForm.privacyNoticeAcknowledged ? 'อ่านและรับทราบนโยบายความเป็นส่วนตัวแล้ว' : 'อ่านและรับทราบนโยบายความเป็นส่วนตัว'}
-                                </button>
-                            </section>
+                                <div className={registerStep === 'details' ? 'active' : ''}>
+                                    <b>2</b>
+                                    <em>ข้อมูลส่วนตัว</em>
+                                    <i aria-hidden="true">○</i>
+                                </div>
+                            </div>
 
-                            <section className="auth-consent-box" aria-labelledby="consent-analytics-title">
-                                <label
-                                    className={`auth-consent-row ${!registerForm.privacyNoticeAcknowledged ? 'disabled' : ''}`}
-                                    onClick={requestPrivacyBeforeConsent}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={registerForm.consentAnalytics}
-                                        disabled={!registerForm.privacyNoticeAcknowledged}
-                                        onChange={handleConsentChange}
-                                    />
-                                    <span>
-                                        <strong id="consent-analytics-title">ยินยอมการประมวลผลข้อมูลส่วนบุคคล</strong>
-                                        <small>กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัวด้านบนก่อนเลือกความยินยอม</small>
-                                    </span>
-                                </label>
-                                {consentNotice && <small className="auth-consent-warning">{consentNotice}</small>}
-                            </section>
+                            {registerStep === 'email' ? (
+                                <>
+                                    <label className={registerFieldErrors.email ? 'has-error' : ''}>
+                                        อีเมล
+                                        <input
+                                            ref={setRegisterFieldRef('email')}
+                                            type="email"
+                                            placeholder="เช่น name@example.com"
+                                            value={registerForm.email}
+                                            onChange={(e) => handleRegisterFieldChange('email', e.target.value)}
+                                            aria-invalid={Boolean(registerFieldErrors.email)}
+                                            required
+                                        />
+                                    </label>
 
-                            <button type="submit" className="auth-submit">สร้างบัญชี</button>
+                                    {!registerOtpRequested ? (
+                                        <>
+                                            {registerOtpMsg.text && (
+                                                <small className={`auth-register-otp-message ${registerOtpMsg.type === 'success' ? 'success' : 'error'}`}>
+                                                    {registerOtpMsg.text}
+                                                </small>
+                                            )}
+                                            <button
+                                                type="button"
+                                                className="auth-submit"
+                                                onClick={handleRequestRegisterOtp}
+                                                disabled={isRegisterOtpLoading}
+                                            >
+                                                {isRegisterOtpLoading ? 'กำลังส่ง OTP...' : 'ส่งรหัส OTP'}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <section className={`auth-register-otp ${registerFieldErrors.registrationOtp ? 'has-error' : ''}`}>
+                                                <div className="auth-register-otp-head">
+                                                    <label htmlFor="register-otp">รหัส OTP จากอีเมล</label>
+                                                    {isRegisterOtpVerified && <span>ยืนยันแล้ว</span>}
+                                                </div>
+                                                <div className="auth-register-otp-row">
+                                                    <div className="auth-register-otp-inputs" aria-label="กรอกรหัส OTP 6 หลัก">
+                                                        {registerOtpDigits.map((digit, index) => (
+                                                            <input
+                                                                ref={(element) => {
+                                                                    registerOtpInputRefs.current[index] = element;
+                                                                    if (index === 0) setRegisterFieldRef('registrationOtp')(element);
+                                                                }}
+                                                                id={index === 0 ? 'register-otp' : undefined}
+                                                                key={index}
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                pattern="[0-9]*"
+                                                                maxLength="1"
+                                                                value={digit}
+                                                                onChange={(event) => setRegisterOtpAtIndex(index, event.target.value)}
+                                                                onPaste={handleRegisterOtpPaste}
+                                                                onFocus={() => handleRegisterOtpFocus(index)}
+                                                                onKeyDown={(event) => handleRegisterOtpKeyDown(event, index)}
+                                                                aria-label={`รหัส OTP หลักที่ ${index + 1}`}
+                                                                aria-invalid={Boolean(registerFieldErrors.registrationOtp)}
+                                                                required
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRequestRegisterOtp}
+                                                        disabled={isRegisterOtpLoading || registerOtpResendSeconds > 0}
+                                                    >
+                                                        {registerOtpResendSeconds > 0 ? `ขอใหม่ใน ${registerOtpResendSeconds}s` : registerOtpRequestLabel}
+                                                    </button>
+                                                </div>
+                                                {registerOtpExpiresAt && (
+                                                    <div className={`auth-register-otp-timer ${hasActiveRegisterOtp ? '' : 'expired'}`}>
+                                                        {hasActiveRegisterOtp
+                                                            ? `รหัส OTP จะหมดอายุใน ${formatOtpTime(registerOtpRemainingSeconds)}`
+                                                            : 'รหัส OTP หมดอายุแล้ว กรุณาขอ OTP ใหม่'}
+                                                    </div>
+                                                )}
+                                                {registerOtpMsg.text && (
+                                                    <small className={`auth-register-otp-message ${registerOtpMsg.type === 'success' ? 'success' : 'error'}`}>
+                                                        {registerOtpMsg.text}
+                                                    </small>
+                                                )}
+                                            </section>
+
+                                            <button
+                                                type="submit"
+                                                className="auth-submit"
+                                                disabled={isRegisterOtpLoading || !hasActiveRegisterOtp || String(registerForm.registrationOtp || '').length !== 6}
+                                            >
+                                                {isRegisterOtpLoading ? 'กำลังตรวจ OTP...' : 'ยืนยันอีเมล'}
+                                            </button>
+                                        </>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <section className="auth-verified-email">
+                                        <div>
+                                            <span>อีเมลที่ยืนยันแล้ว</span>
+                                            <strong>{registerForm.email}</strong>
+                                        </div>
+                                        <button type="button" onClick={handleChangeRegisterEmail}>เปลี่ยนอีเมล</button>
+                                    </section>
+
+                                    <label className={registerFieldErrors.full_name ? 'has-error' : ''}>
+                                        ชื่อ-นามสกุล
+                                        <input
+                                            ref={setRegisterFieldRef('full_name')}
+                                            type="text"
+                                            placeholder="กรอกชื่อสำหรับติดต่อ"
+                                            value={registerForm.full_name}
+                                            onChange={(e) => handleRegisterFieldChange('full_name', e.target.value)}
+                                            aria-invalid={Boolean(registerFieldErrors.full_name)}
+                                            required
+                                        />
+                                    </label>
+
+                                    <label className={registerFieldErrors.password ? 'has-error' : ''}>
+                                        รหัสผ่าน
+                                        <input
+                                            ref={setRegisterFieldRef('password')}
+                                            type="password"
+                                            placeholder="ตั้งรหัสผ่าน"
+                                            value={registerForm.password}
+                                            onChange={(e) => handleRegisterFieldChange('password', e.target.value)}
+                                            minLength="8"
+                                            aria-invalid={Boolean(registerFieldErrors.password)}
+                                            required
+                                        />
+                                    </label>
+
+                                    <label className={registerFieldErrors.confirmPassword ? 'has-error' : ''}>
+                                        ยืนยันรหัสผ่าน
+                                        <input
+                                            ref={setRegisterFieldRef('confirmPassword')}
+                                            type="password"
+                                            placeholder="กรอกรหัสผ่านอีกครั้ง"
+                                            value={registerForm.confirmPassword}
+                                            onChange={(e) => handleRegisterFieldChange('confirmPassword', e.target.value)}
+                                            minLength="8"
+                                            aria-invalid={Boolean(registerFieldErrors.confirmPassword)}
+                                            required
+                                        />
+                                    </label>
+
+                                    <label className={registerFieldErrors.phone ? 'has-error' : ''}>
+                                        เบอร์โทรศัพท์
+                                        <input
+                                            ref={setRegisterFieldRef('phone')}
+                                            type="tel"
+                                            placeholder="เบอร์โทรสำหรับติดต่อ"
+                                            value={registerForm.phone}
+                                            onChange={(e) => handleRegisterFieldChange('phone', e.target.value)}
+                                            aria-invalid={Boolean(registerFieldErrors.phone)}
+                                            required
+                                        />
+                                    </label>
+
+                                    <section className="auth-register-address" aria-labelledby="register-address-title">
+                                        <div className="auth-register-address-head">
+                                            <span id="register-address-title">ที่อยู่</span>
+                                            {isThaiAddressLoading && <small>กำลังโหลดข้อมูลพื้นที่...</small>}
+                                        </div>
+                                        <label className={registerFieldErrors.address_detail ? 'has-error' : ''}>
+                                            บ้านเลขที่ / รายละเอียดที่อยู่
+                                            <textarea
+                                                ref={setRegisterFieldRef('address_detail')}
+                                                placeholder="บ้านเลขที่ อาคาร ถนน หรือจุดสังเกต"
+                                                value={registerForm.address_detail || ''}
+                                                onChange={(e) => handleRegisterFieldChange('address_detail', e.target.value)}
+                                                aria-invalid={Boolean(registerFieldErrors.address_detail)}
+                                                required
+                                            />
+                                        </label>
+                                        <div className="auth-register-address-grid">
+                                            <label className={registerFieldErrors.province ? 'has-error' : ''}>
+                                                จังหวัด
+                                                <select
+                                                    ref={setRegisterFieldRef('province')}
+                                                    value={registerForm.province || ''}
+                                                    onChange={(e) => handleRegisterProvinceChange(e.target.value)}
+                                                    aria-invalid={Boolean(registerFieldErrors.province)}
+                                                    required
+                                                >
+                                                    <option value="">เลือกจังหวัด</option>
+                                                    {thaiAddressData.provinces.map((province) => (
+                                                        <option key={province.id} value={getName(province)}>{getName(province)}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label className={registerFieldErrors.district ? 'has-error' : ''}>
+                                                อำเภอ/เขต
+                                                <select
+                                                    ref={setRegisterFieldRef('district')}
+                                                    value={registerForm.district || ''}
+                                                    onChange={(e) => handleRegisterDistrictChange(e.target.value)}
+                                                    aria-invalid={Boolean(registerFieldErrors.district)}
+                                                    required
+                                                >
+                                                    <option value="">เลือกอำเภอ/เขต</option>
+                                                    {districtChoices.map((district) => (
+                                                        <option key={district.id} value={getName(district)}>{getName(district)}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label className={registerFieldErrors.subdistrict ? 'has-error' : ''}>
+                                                ตำบล/แขวง
+                                                <select
+                                                    ref={setRegisterFieldRef('subdistrict')}
+                                                    value={registerForm.subdistrict || ''}
+                                                    onChange={(e) => handleRegisterSubDistrictChange(e.target.value)}
+                                                    aria-invalid={Boolean(registerFieldErrors.subdistrict)}
+                                                    required
+                                                >
+                                                    <option value="">เลือกตำบล/แขวง</option>
+                                                    {subDistrictChoices.map((subDistrict) => (
+                                                        <option key={subDistrict.id} value={getName(subDistrict)}>{getName(subDistrict)}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label className={registerFieldErrors.postal_code ? 'has-error' : ''}>
+                                                รหัสไปรษณีย์
+                                                <select
+                                                    ref={setRegisterFieldRef('postal_code')}
+                                                    value={registerForm.postal_code || ''}
+                                                    onChange={(e) => handleRegisterFieldChange('postal_code', e.target.value)}
+                                                    aria-invalid={Boolean(registerFieldErrors.postal_code)}
+                                                    required
+                                                >
+                                                    <option value="">เลือกรหัสไปรษณีย์</option>
+                                                    {postalCodeChoices.map((postalCode) => (
+                                                        <option key={postalCode} value={postalCode}>{postalCode}</option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                        </div>
+                                    </section>
+
+                                    <section
+                                        ref={setRegisterFieldRef('termsAccepted')}
+                                        className={`auth-terms-box ${registerFieldErrors.termsAccepted ? 'has-error' : ''}`}
+                                    >
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(registerForm.termsAccepted)}
+                                                onChange={(e) => handleRegisterFieldChange('termsAccepted', e.target.checked)}
+                                            />
+                                            <span>
+                                                <strong>ข้อกำหนดการใช้งาน</strong>
+                                                <small>ยอมรับการใช้งานระบบสั่งซื้อ การชำระเงิน การจัดส่ง และการติดต่อจากร้านค้า</small>
+                                            </span>
+                                        </label>
+                                    </section>
+
+                                    <section
+                                        ref={setRegisterFieldRef('privacyNoticeAcknowledged')}
+                                        className={`auth-privacy-summary ${registerFieldErrors.privacyNoticeAcknowledged ? 'has-error' : ''}`}
+                                        aria-labelledby="auth-privacy-summary-title"
+                                    >
+                                        <div className="auth-privacy-summary-header">
+                                            <span>Privacy Policy</span>
+                                            <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัวสำหรับการสมัครสมาชิก</h3>
+                                            <p>ข้อมูลที่คุณกรอกจะถูกใช้เท่าที่จำเป็นต่อการสมัครบัญชี การสั่งซื้อ และการให้บริการของร้านค้า</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className={`auth-privacy-open ${registerForm.privacyNoticeAcknowledged ? 'accepted' : ''}`}
+                                            onClick={openPrivacyNotice}
+                                        >
+                                            {registerForm.privacyNoticeAcknowledged ? 'อ่านและรับทราบนโยบายความเป็นส่วนตัวแล้ว' : 'อ่านและรับทราบนโยบายความเป็นส่วนตัว'}
+                                        </button>
+                                    </section>
+
+                                    <section className="auth-consent-box" aria-labelledby="consent-analytics-title">
+                                        <label
+                                            className={`auth-consent-row ${!registerForm.privacyNoticeAcknowledged ? 'disabled' : ''}`}
+                                            onClick={requestPrivacyBeforeConsent}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={registerForm.consentAnalytics}
+                                                disabled={!registerForm.privacyNoticeAcknowledged}
+                                                onChange={handleConsentChange}
+                                            />
+                                            <span>
+                                                <strong id="consent-analytics-title">ยินยอมการประมวลผลข้อมูลส่วนบุคคล</strong>
+                                                <small>กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัวด้านบนก่อนเลือกความยินยอม</small>
+                                            </span>
+                                        </label>
+                                        {consentNotice && <small className="auth-consent-warning">{consentNotice}</small>}
+                                    </section>
+
+                                    <button type="submit" className="auth-submit">สร้างบัญชี</button>
+                                </>
+                            )}
                         </form>
                     ) : (
                         <form className="auth-form" onSubmit={onLogin}>
@@ -566,7 +1098,7 @@ function AuthPage({
                                         checked={rememberLogin}
                                         onChange={(e) => setRememberLogin(e.target.checked)}
                                     />
-                                    <span>จดจำการเข้าสู่ระบบ</span>
+                                    <span>จดจำรหัส</span>
                                 </label>
                                 <button type="button" className="auth-forgot" onClick={openForgotPassword}>
                                     ลืมรหัสผ่าน?

@@ -34,17 +34,32 @@ const orderStatusOptions = [
     { value: 'กำลังจัดส่ง', label: 'กำลังจัดส่ง' },
     { value: 'พร้อมรับสินค้า', label: 'พร้อมรับสินค้า' },
     { value: 'จัดส่งแล้ว', label: 'จัดส่งแล้ว' },
-    { value: 'เสร็จสิ้น', label: 'เสร็จสิ้น' },
     { value: 'ยกเลิกคำสั่งซื้อ', label: 'ยกเลิกคำสั่งซื้อ' },
 ];
 const paidPaymentStatuses = ['ชำระเงินแล้ว', 'ชำระแล้ว'];
 const blockedFulfillmentStatuses = ['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const completedOrderStatuses = ['พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+const pickupOrderFlowStatuses = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', 'กำลังเตรียมสินค้า', 'พร้อมรับสินค้า'];
 const rejectionReasons = ['ยอดเงินไม่ถูกต้อง', 'รูปไม่ชัด', 'ไม่พบหลักฐาน', 'อื่น ๆ'];
-const isPickupOrder = (order) => order.shipping_method === 'รับหน้าร้าน';
+const isPickupOrder = (order) => (order?.shipping_method || order?.delivery_type) === 'รับหน้าร้าน';
+const isShippingOrder = (order) => (order?.shipping_method || order?.delivery_type) === 'ส่งสินค้า';
 const isPaidOrder = (order) => paidPaymentStatuses.includes(order.payment_status);
 const isCancelledOrder = (order) => normalizeOrderStatus(order?.status) === 'ยกเลิกคำสั่งซื้อ' || normalizeOrderStatus(order?.payment_status) === 'ยกเลิกคำสั่งซื้อ';
-const isCompletedOrder = (order) => normalizeOrderStatus(order?.status) === 'เสร็จสิ้น';
+const isCompletedOrder = (order) => completedOrderStatuses.includes(normalizeOrderStatus(order?.status));
 const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
+const getOrderStatusBadgeClass = (status) => {
+    const normalizedStatus = normalizeOrderStatus(status || 'รอชำระเงิน');
+    if (normalizedStatus === 'รอตรวจสอบการชำระเงิน') return 'review';
+    if (normalizedStatus === 'กำลังเตรียมสินค้า') return 'preparing';
+    if (normalizedStatus === 'กำลังจัดส่ง') return 'shipping';
+    if (['พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'].includes(normalizedStatus)) return 'done';
+    if (normalizedStatus === 'ยกเลิกคำสั่งซื้อ') return 'cancelled';
+    return 'waiting';
+};
+const getPickupNextOrderStatus = (status) => {
+    const currentStep = pickupOrderFlowStatuses.indexOf(normalizeOrderStatus(status));
+    return currentStep >= 0 ? pickupOrderFlowStatuses[currentStep + 1] || '' : '';
+};
 const matchesOrderStatusFilter = (order, statusFilter) => {
     const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
     const paymentStatus = order.payment_status || '';
@@ -556,6 +571,7 @@ function AdminDashboardPage({
     systemLogs = [],
     onCancelOrder,
     onUpdateOrderStatus,
+    onBulkUpdateOrderStatus,
     onReviewOrderPayment,
     onBulkReviewOrderPayments,
     setAdminPage,
@@ -626,6 +642,7 @@ function AdminDashboardPage({
     const [quickReportDateTo, setQuickReportDateTo] = useState('');
     const [quickReportError, setQuickReportError] = useState('');
     const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
+    const [bulkReadySaving, setBulkReadySaving] = useState(false);
     const orderManagementRef = useRef(null);
     const paymentReviewRequestRef = useRef('');
     const printStatusFilterRef = useRef(DEFAULT_ORDER_STATUS_FILTER);
@@ -761,6 +778,12 @@ function AdminDashboardPage({
     )).length;
     const visiblePaidOrderIds = visibleOrders.filter(isPaidOrder).map((order) => String(order.id));
     const allVisiblePaidSelected = visiblePaidOrderIds.length > 0 && visiblePaidOrderIds.every((id) => selectedPrintOrderIds.includes(id));
+    const selectedPickupReadyOrders = orders.filter((order) => (
+        selectedPrintOrderIds.includes(String(order.id))
+        && isPaidOrder(order)
+        && isPickupOrder(order)
+        && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า'
+    ));
     const showPrintSelectionColumn = orderViewTab === 'print';
     const orderReportConfig = useMemo(
         () => getOrderReportConfig(orderViewTab, activeOrderRows, orderRange, slipPageTab),
@@ -842,7 +865,7 @@ function AdminDashboardPage({
             .filter((order) => order.payment_status === 'รอตรวจสอบ')
             .sort((a, b) => new Date(a.payment_date || a.created_at || 0) - new Date(b.payment_date || b.created_at || 0));
         const stuckOrders = orders
-            .filter((order) => !isCancelledOrder(order) && ['รอชำระเงิน', 'กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า'].includes(normalizeOrderStatus(order.status || 'รอชำระเงิน')))
+            .filter((order) => !isCancelledOrder(order) && ['รอชำระเงิน', 'กำลังเตรียมสินค้า', 'กำลังจัดส่ง'].includes(normalizeOrderStatus(order.status || 'รอชำระเงิน')))
             .sort((a, b) => getOrderDate(a) - getOrderDate(b));
         const readyToPrintOrders = orders
             .filter((order) => isPaidOrder(order) && normalizeOrderStatus(order.status) === 'กำลังเตรียมสินค้า')
@@ -1199,6 +1222,47 @@ function AdminDashboardPage({
 
     const openSelectedPrintPage = async () => {
         await openPrintPage(selectedPrintOrderIds);
+    };
+
+    const markSelectedPickupOrdersReady = async () => {
+        if (bulkReadySaving) return;
+        if (selectedPickupReadyOrders.length === 0) {
+            notify({ type: 'warning', title: 'ยังไม่มีออเดอร์รับหน้าร้านที่เลือก', message: 'เลือกออเดอร์รับหน้าร้านที่กำลังเตรียมสินค้าอย่างน้อย 1 รายการก่อนเปลี่ยนสถานะ' });
+            return;
+        }
+        if (!onBulkUpdateOrderStatus) {
+            notify({ type: 'error', title: 'เปลี่ยนสถานะไม่สำเร็จ', message: 'ระบบยังไม่รองรับการอัปเดตสถานะแบบกลุ่ม' });
+            return;
+        }
+
+        setBulkReadySaving(true);
+        try {
+            const result = await onBulkUpdateOrderStatus(
+                selectedPickupReadyOrders.map((order) => ({ id: order.id })),
+                'พร้อมรับสินค้า',
+            );
+            if (result?.updated > 0) {
+                const updatedIds = new Set(selectedPickupReadyOrders.map((order) => String(order.id)));
+                setSelectedPrintOrderIds((current) => current.filter((id) => !updatedIds.has(id)));
+            }
+            if (result?.success) {
+                notify({
+                    type: 'success',
+                    title: 'เปลี่ยนสถานะพร้อมรับแล้ว',
+                    message: `อัปเดตออเดอร์รับหน้าร้าน ${Number(result.updated || 0).toLocaleString('th-TH')} รายการ`,
+                });
+            } else {
+                notify({
+                    type: result?.updated > 0 ? 'warning' : 'error',
+                    title: result?.updated > 0 ? 'อัปเดตได้บางรายการ' : 'เปลี่ยนสถานะไม่สำเร็จ',
+                    message: result?.message || `สำเร็จ ${Number(result?.updated || 0).toLocaleString('th-TH')} รายการ · ไม่สำเร็จ ${Number(result?.failed || 0).toLocaleString('th-TH')} รายการ`,
+                });
+            }
+        } catch (err) {
+            notify({ type: 'error', title: 'เปลี่ยนสถานะไม่สำเร็จ', message: err.response?.data?.error || err.message || 'ไม่สามารถเปลี่ยนสถานะเป็นพร้อมรับได้' });
+        } finally {
+            setBulkReadySaving(false);
+        }
     };
 
     const openSinglePrintPage = async (order) => {
@@ -2191,7 +2255,7 @@ function AdminDashboardPage({
             return;
         }
 
-        if (!isPickupOrder(order) && nextStatus === 'เสร็จสิ้น' && !trackingNo.trim()) {
+        if (!isPickupOrder(order) && nextStatus === 'จัดส่งแล้ว' && !trackingNo.trim()) {
             setTrackingErrors((current) => ({
                 ...current,
                 [order.id]: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง',
@@ -2236,8 +2300,10 @@ function AdminDashboardPage({
     const detailHistory = Array.isArray(orderDetails?.history) ? orderDetails.history : [];
     const detailPaymentStatus = formatPaymentStatus(detailOrder?.payment_status) || 'รอชำระ';
     const detailOrderIsPaid = isPaidOrder(detailOrder || selectedOrder || {});
-    const selectedOrderStatus = normalizeOrderStatus(selectedOrder?.status);
     const detailOrderStatus = normalizeOrderStatus(detailOrder?.status);
+    const selectedOrderStatus = normalizeOrderStatus(detailOrder?.status || selectedOrder?.status);
+    const selectedOrderIsPickup = isPickupOrder(detailOrder || selectedOrder || {});
+    const selectedPickupNextStatus = selectedOrderIsPickup ? getPickupNextOrderStatus(selectedOrderStatus) : '';
     const paymentReviewDisabled = !detailOrder?.receipt_image || Boolean(paymentReviewSaving) || detailPaymentStatus !== 'รอตรวจสอบ';
     const paymentReviewReady = Boolean(String(paymentReviewForm.verified_amount || '').trim() && String(paymentReviewForm.transaction_ref || '').trim());
     const canShowPaymentReviewActions = Boolean(detailOrder?.receipt_image) && detailPaymentStatus === 'รอตรวจสอบ';
@@ -2565,7 +2631,7 @@ function AdminDashboardPage({
                                 onClick={() => { setDeliveryFilter('ส่งสินค้า'); setOrderPage(1); }}
                                 disabled={prepareOrderCounts.shipping === 0}
                             >
-                                <span>กรอกรหัสจัดส่ง</span>
+                                <span>รหัสจัดส่ง</span>
                                 <strong>{prepareOrderCounts.shipping.toLocaleString('th-TH')}</strong>
                             </button>
                         </div>
@@ -2730,11 +2796,16 @@ function AdminDashboardPage({
                 <div className="order-print-bulk-bar">
                     <div>
                         <strong>พิมพ์ใบจัดส่งพร้อมกัน</strong>
-                        <span>เลือกได้เฉพาะออเดอร์ที่ชำระแล้ว ระบบจะเปิดหน้า PDF/Print รวมเป็นชุดเดียว</span>
+                        <span>เลือกออเดอร์ที่ต้องทำต่อ เพื่อพิมพ์ใบจัดส่งหรือเปลี่ยนรับหน้าร้านเป็นพร้อมรับสินค้า</span>
                     </div>
-                    <button type="button" onClick={openSelectedPrintPage} disabled={selectedPrintOrderIds.length === 0}>
-                        สร้าง PDF / พิมพ์ {selectedPrintOrderIds.length > 0 ? `(${selectedPrintOrderIds.length})` : ''}
-                    </button>
+                    <div className="order-print-bulk-actions">
+                        <button type="button" onClick={markSelectedPickupOrdersReady} disabled={selectedPickupReadyOrders.length === 0 || bulkReadySaving}>
+                            {bulkReadySaving ? 'กำลังบันทึก...' : `พร้อมรับทั้งหมด ${selectedPickupReadyOrders.length > 0 ? `(${selectedPickupReadyOrders.length})` : ''}`}
+                        </button>
+                        <button type="button" onClick={openSelectedPrintPage} disabled={selectedPrintOrderIds.length === 0}>
+                            สร้าง PDF / พิมพ์ {selectedPrintOrderIds.length > 0 ? `(${selectedPrintOrderIds.length})` : ''}
+                        </button>
+                    </div>
                 </div>
                 )}
 
@@ -2957,7 +3028,7 @@ function AdminDashboardPage({
                                     <th>ชื่อคำอธิบาย</th>
                                     <th><button type="button" onClick={() => changeOrderSort('amount')}>ราคา{orderSortMarker('amount')}</button></th>
                                     <th>ชิ้น</th>
-                                    <th>รูปสลิป</th>
+                                    <th>{orderViewTab === 'print' ? 'รหัสจัดส่ง' : 'รูปสลิป'}</th>
                                     <th>จัดการ</th>
                                 </tr>
                             </thead>
@@ -2969,7 +3040,6 @@ function AdminDashboardPage({
                                     const trackingSummary = formatOrderTrackingSummary(order);
                                     const orderIdText = String(order.id);
                                     const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
-                                    const paymentStatus = formatPaymentStatus(order.payment_status) || 'รอชำระ';
                                     const productTotal = Number(order.total_price ?? order.final_price ?? 0);
                                     const shippingFee = Number(order.shipping_fee || 0);
                                     const discount = Number(order.discount || 0);
@@ -2987,7 +3057,7 @@ function AdminDashboardPage({
                                                         <strong>คำสั่งซื้อ #{order.id}</strong>
                                                         <span>{formatThaiDateTime(order.created_at)}</span>
                                                     </div>
-                                                    <span className={`payment-badge ${orderIsPaid ? 'paid' : paymentStatus === 'รอตรวจสอบ' ? 'review' : 'waiting'}`}>{paymentStatus}</span>
+                                                    <span className={`order-status-badge ${getOrderStatusBadgeClass(orderStatus)}`}>{orderStatus}</span>
                                                 </div>
                                             </td>
                                         </tr>,
@@ -3070,22 +3140,39 @@ function AdminDashboardPage({
                                                     })}
                                                 </div>
                                             </td>
-                                            <td data-label="รูปสลิป">
-                                                <div className="order-history-customer-slip-cell">
-                                                    {order.receipt_image ? (
-                                                        <button
-                                                            type="button"
-                                                            className="order-history-action-slip-preview"
-                                                            onClick={(event) => openReceiptLightbox(order, event)}
-                                                            aria-label={`ดูสลิปออเดอร์ #${order.id}`}
-                                                        >
-                                                            <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
-                                                            <span>สลิป</span>
-                                                        </button>
-                                                    ) : (
-                                                        <span className="order-history-customer-slip-empty">ยังไม่มีสลิป</span>
-                                                    )}
-                                                </div>
+                                            <td data-label={orderViewTab === 'print' ? 'รหัสจัดส่ง' : 'รูปสลิป'}>
+                                                {orderViewTab === 'print' ? (
+                                                    <div className="order-inline-tracking-cell" onClick={(event) => event.stopPropagation()}>
+                                                        {isShippingOrder(order) ? (
+                                                            <>
+                                                                <input
+                                                                    value={trackingInputs[order.id] ?? order.tracking_no ?? ''}
+                                                                    onChange={(event) => updateTrackingInput(order.id, event.target.value)}
+                                                                    placeholder="กรอกรหัสจัดส่ง"
+                                                                />
+                                                                {trackingErrors[order.id] && <small>{trackingErrors[order.id]}</small>}
+                                                            </>
+                                                        ) : (
+                                                            <span>N/A</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="order-history-customer-slip-cell">
+                                                        {order.receipt_image ? (
+                                                            <button
+                                                                type="button"
+                                                                className="order-history-action-slip-preview"
+                                                                onClick={(event) => openReceiptLightbox(order, event)}
+                                                                aria-label={`ดูสลิปออเดอร์ #${order.id}`}
+                                                            >
+                                                                <img src={resolveMediaUrl(order.receipt_image)} alt={`สลิปออเดอร์ ${order.id}`} />
+                                                                <span>สลิป</span>
+                                                            </button>
+                                                        ) : (
+                                                            <span className="order-history-customer-slip-empty">ยังไม่มีสลิป</span>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td data-label="จัดการ">
                                                 <div className="order-row-actions order-history-customer-actions">
@@ -3095,15 +3182,17 @@ function AdminDashboardPage({
                                                             className="order-print-trigger"
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
-                                                                if (deliveryFilter === 'ส่งสินค้า') {
-                                                                    loadOrderDetails(order);
+                                                                if (isShippingOrder(order)) {
+                                                                    runOrderStep(order, 'จัดส่งแล้ว');
+                                                                } else if (isPickupOrder(order) && orderStatus === 'กำลังเตรียมสินค้า') {
+                                                                    runOrderStep(order, 'พร้อมรับสินค้า');
                                                                 } else {
                                                                     openSinglePrintPage(order);
                                                                 }
                                                             }}
-                                                            disabled={!orderIsPaid}
+                                                            disabled={!orderIsPaid || savingOrderId === order.id}
                                                         >
-                                                            {deliveryFilter === 'ส่งสินค้า' ? 'กรอกรหัส' : 'พิมพ์'}
+                                                            {savingOrderId === order.id ? 'กำลังบันทึก...' : isShippingOrder(order) ? 'บันทึก' : isPickupOrder(order) && orderStatus === 'กำลังเตรียมสินค้า' ? 'พร้อมรับ' : 'พิมพ์'}
                                                         </button>
                                                     )}
                                                     <button type="button" className="order-detail-trigger" onClick={(event) => { event.stopPropagation(); loadOrderDetails(order); }}>ดูรายละเอียด</button>
@@ -3363,10 +3452,9 @@ function AdminDashboardPage({
                                         </div>
                                     )}
                                     <div>
-                                        {selectedOrderStatus === 'รอชำระเงิน' && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'กำลังเตรียมสินค้า')}>กำลังเตรียมสินค้า</button>}
-                                        {['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'จัดส่งแล้ว'].includes(selectedOrderStatus) && !isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>บันทึกเลขพัสดุและเสร็จสิ้น</button>}
-                                        {selectedOrderStatus === 'กำลังเตรียมสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'พร้อมรับสินค้า')}>พร้อมรับสินค้า</button>}
-                                        {selectedOrderStatus === 'พร้อมรับสินค้า' && isPickupOrder(selectedOrder) && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'เสร็จสิ้น')}>เสร็จสิ้น</button>}
+                                        {selectedOrderStatus === 'รอชำระเงิน' && !selectedOrderIsPickup && <button type="button" className="success" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'กำลังเตรียมสินค้า')}>กำลังเตรียมสินค้า</button>}
+                                        {['กำลังเตรียมสินค้า', 'กำลังจัดส่ง'].includes(selectedOrderStatus) && !selectedOrderIsPickup && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, 'จัดส่งแล้ว')}>บันทึกเลขพัสดุและจัดส่งแล้ว</button>}
+                                        {selectedOrderIsPickup && selectedPickupNextStatus === 'พร้อมรับสินค้า' && <button type="button" className="primary" disabled={!detailOrderIsPaid || savingOrderId === selectedOrder.id} onClick={() => runOrderStep(selectedOrder, selectedPickupNextStatus)}>{selectedPickupNextStatus}</button>}
                                         {!isPaidOrder(detailOrder) && !isCancelledOrder(detailOrder || selectedOrder) && (
                                             <button type="button" className="danger" onClick={() => onCancelOrder(selectedOrder.id, { onCancelled: closeOrderDetailModal })}>ยกเลิกคำสั่งซื้อ</button>
                                         )}
