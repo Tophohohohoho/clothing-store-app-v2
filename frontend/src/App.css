@@ -16362,6 +16362,405 @@ body {
     }
 }
 
+/* Public and member mobile experience */
+@media (max-width: 860px) {
+    .bg-light > .container.mt-4 {
+        max-width: 100%;
+        margin-top: 0.85rem !important;
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+
+    .app-navbar-toprow {
+        flex-wrap: wrap;
+    }
+
+    .app-navbar-panel {
+        flex-basis: 100%;
+    }
+
+    .nav-user-card {
+        justify-content: flex-start;
+        max-width: none;
+    }
+
+    .nav-user-meta {
+        min-width: 0;
+    }
+
+    .nav-user-meta strong,
+    .nav-user-meta small,
+    .store-card-body h3,
+    .store-card-body p {
+        overflow-wrap: anywhere;
+    }
+
+    .store-page {
+        gap: 18px;
+    }
+
+    .store-hero {
+        min-height: 260px;
+        background-position: center;
+    }
+
+    .store-hero h1 {
+        font-size: clamp(1.72rem, 9vw, 2.5rem);
+        line-height: 1.12;
+    }
+
+    .store-hero p {
+        font-size: 0.9rem;
+        line-height: 1.58;
+    }
+
+    .store-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .store-stats div {
+        min-width: 0;
+    }
+
+    .store-toolbar {
+        gap: 14px;
+    }
+
+    .store-toolbar > div:first-child {
+        width: 100%;
+    }
+
+    .store-search input,
+    .store-filter-field select,
+    .store-search button,
+    .auth-form input,
+    .auth-form select,
+    .auth-form textarea {
+        font-size: 16px;
+    }
+
+    .store-card {
+        border-radius: 18px;
+    }
+
+    .store-card-body {
+        min-height: auto;
+        padding: 16px;
+    }
+
+    .store-card-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .store-card-footer button {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .product-detail-dialog {
+        grid-template-columns: 1fr;
+        width: min(100%, 560px);
+    }
+
+    .product-detail-image {
+        min-height: 0;
+        aspect-ratio: 4 / 3;
+    }
+
+    .auth-shell {
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .auth-panel {
+        min-width: 0;
+    }
+
+    .auth-form,
+    .auth-register-otp,
+    .auth-register-address,
+    .auth-terms-box,
+    .auth-privacy-summary,
+    .auth-consent-box {
+        min-width: 0;
+    }
+}
+
+@media (max-width: 520px) {
+    .bg-light > .container.mt-4 {
+        margin-top: 0.65rem !important;
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .app-navbar-inner {
+        width: calc(100% - 16px);
+        padding: 8px 0;
+    }
+
+    .app-brand {
+        gap: 9px;
+    }
+
+    .app-brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+
+    .app-brand-copy strong {
+        max-width: 52vw;
+        overflow: hidden;
+        font-size: 0.92rem;
+        text-overflow: ellipsis;
+    }
+
+    .nav-menu-toggle {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+    }
+
+    .store-hero {
+        min-height: 154px;
+        padding: 18px 14px;
+        border-radius: 16px;
+    }
+
+    .store-admin-member-button {
+        width: 100%;
+        border-radius: 14px;
+    }
+
+    .store-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .store-toolbar h2 {
+        font-size: 1.18rem;
+    }
+
+    .store-search {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .store-filter-field,
+    .store-search-field,
+    .store-search button {
+        width: 100%;
+    }
+
+    .store-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .store-card-image {
+        aspect-ratio: 4 / 3;
+    }
+
+    .store-card {
+        border-radius: 14px;
+    }
+
+    .store-card-body {
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .store-card-body h3 {
+        font-size: 0.86rem;
+        line-height: 1.35;
+    }
+
+    .store-card-body p {
+        -webkit-line-clamp: 1;
+        min-height: 0;
+        margin-top: 4px;
+        font-size: 0.74rem;
+        line-height: 1.4;
+    }
+
+    .store-card-footer {
+        gap: 8px;
+    }
+
+    .store-card-footer strong {
+        font-size: 0.9rem;
+    }
+
+    .store-card-footer button {
+        height: 36px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+    }
+
+    .store-stock-badge {
+        top: 10px;
+        left: 10px;
+        max-width: calc(100% - 20px);
+        font-size: 0.72rem;
+    }
+
+    .product-detail-modal {
+        align-items: end;
+        padding: 0;
+    }
+
+    .product-detail-dialog {
+        width: 100%;
+        max-height: 94dvh;
+        border-radius: 18px 18px 0 0;
+    }
+
+    .product-detail-content {
+        gap: 14px;
+        padding: 22px 16px 18px;
+    }
+
+    .product-detail-add {
+        min-height: 46px;
+        border-radius: 14px;
+    }
+
+    .auth-visual {
+        min-height: 198px;
+        justify-content: flex-end;
+        padding: 14px 16px;
+    }
+
+    .auth-visual h1 {
+        max-width: 290px;
+        font-size: 1.42rem;
+        line-height: 1.16;
+    }
+
+    .auth-visual-top {
+        position: absolute;
+        top: 14px;
+        left: 16px;
+        gap: 8px;
+        font-size: 0.74rem;
+    }
+
+    .auth-brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+    }
+
+    .auth-hero-copy {
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    .auth-kicker {
+        margin-bottom: 6px;
+        font-size: 0.72rem;
+    }
+
+    .auth-hero-description,
+    .auth-benefits small,
+    .auth-preview {
+        display: none;
+    }
+
+    .auth-panel {
+        padding: 22px 16px 28px;
+    }
+
+    .auth-panel-header {
+        margin-bottom: 18px;
+    }
+
+    .auth-panel-header h2 {
+        font-size: 1.48rem;
+    }
+
+    .auth-form {
+        gap: 14px;
+    }
+
+    .auth-form input,
+    .auth-form select {
+        min-height: 48px;
+    }
+
+    .auth-register-otp-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .auth-register-otp-inputs,
+    .auth-code-inputs {
+        gap: 5px;
+    }
+
+    .auth-register-otp-inputs input,
+    .auth-forgot-form .auth-code-inputs input {
+        min-height: 42px;
+        border-radius: 10px;
+    }
+
+    .auth-terms-box label,
+    .auth-consent-row {
+        align-items: flex-start;
+    }
+
+    .auth-privacy-open,
+    .auth-submit,
+    .auth-forgot-dialog .auth-submit,
+    .auth-forgot-secondary {
+        width: 100%;
+    }
+}
+
+@media (max-width: 360px) {
+    .store-hero h1,
+    .auth-visual h1 {
+        font-size: 1.3rem;
+    }
+
+    .auth-visual {
+        min-height: 184px;
+    }
+
+    .store-card-body {
+        padding: 9px;
+    }
+
+    .store-card-footer button {
+        height: 34px;
+        font-size: 0.74rem;
+    }
+
+    .product-detail-content h2 {
+        font-size: 1.26rem;
+    }
+
+    .product-quantity-control {
+        width: 100%;
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
+    }
+
+    .auth-register-steps em {
+        font-size: 0.68rem;
+    }
+
+    .auth-register-otp-inputs,
+    .auth-code-inputs {
+        gap: 4px;
+    }
+}
+
 @media print {
     @page {
         size: A4;
