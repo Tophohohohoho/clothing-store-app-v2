@@ -112,6 +112,7 @@ const ADMIN_PAGES = ['admin-dashboard', 'admin-products', 'admin-categories', 'a
 const MEMBER_ROLES = ['member', 'customer', 'user'];
 const emptyAdminUserForm = {
     username: '',
+    registrationOtp: '',
     password: '',
     confirmPassword: '',
     full_name: '',
@@ -123,6 +124,15 @@ const emptyAdminUserForm = {
 const isAdminUser = (currentUser) => currentUser?.role === 'admin';
 const isMemberUser = (currentUser) => MEMBER_ROLES.includes(currentUser?.role);
 const cleanPhone = (value) => String(value || '').trim().replace(/[\s-]/g, '');
+const createUsernameFromEmailValue = (email) => {
+    const emailName = String(email || '').split('@')[0] || '';
+    return emailName
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '')
+        .replace(/^[._-]+|[._-]+$/g, '')
+        || `user${Date.now()}`;
+};
 const getCheckoutContactFallback = (currentUser) => ({
     receiver_name: currentUser?.full_name || currentUser?.username || '',
     phone: currentUser?.phone || '',
@@ -164,6 +174,23 @@ const getRegisterValidationErrors = (form) => {
     else if (!form.termsAccepted) errors.termsAccepted = 'กรุณายอมรับข้อกำหนดการใช้งาน';
     else if (!form.privacyNoticeAcknowledged) errors.privacyNoticeAcknowledged = 'กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัว';
     else if (!/^\d{6}$/.test(String(form.registrationOtp || '').trim())) errors.registrationOtp = 'กรุณากรอกรหัส OTP 6 หลักจากอีเมล';
+
+    return errors;
+};
+
+const getAdminUserCreateValidationErrors = (form) => {
+    const errors = {};
+
+    if (!form.email.trim()) errors.email = 'กรุณากรอกอีเมล';
+    else if (!EMAIL_REGEX.test(form.email.trim())) errors.email = 'รูปแบบอีเมลไม่ถูกต้อง';
+    else if (!/^\d{6}$/.test(String(form.registrationOtp || '').trim())) errors.registrationOtp = 'กรุณากรอกรหัส OTP 6 หลักจากอีเมล';
+    else if (!form.full_name.trim()) errors.full_name = 'กรุณากรอกชื่อ-นามสกุล';
+    else if (!form.phone.trim()) errors.phone = 'กรุณากรอกเบอร์โทร';
+    else if (!PHONE_REGEX.test(cleanPhone(form.phone))) errors.phone = 'รูปแบบเบอร์โทรไม่ถูกต้อง';
+    else if (!form.password) errors.password = 'กรุณากรอกรหัสผ่าน';
+    else if (form.password.length < 8) errors.password = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+    else if (!form.confirmPassword) errors.confirmPassword = 'กรุณากรอกยืนยันรหัสผ่าน';
+    else if (form.password !== form.confirmPassword) errors.confirmPassword = 'รหัสผ่านไม่ตรงกัน';
 
     return errors;
 };
@@ -1713,7 +1740,7 @@ function App() {
 
     const handleCreateUser = async () => {
         const form = adminUserCreate.form;
-        const validationErrors = getRegisterValidationErrors(form);
+        const validationErrors = getAdminUserCreateValidationErrors(form);
         if (Object.keys(validationErrors).length > 0) {
             const firstError = Object.values(validationErrors)[0];
             notify({ type: 'warning', title: 'ข้อมูลสมาชิกยังไม่ครบ', message: firstError });
@@ -1722,12 +1749,13 @@ function App() {
 
         try {
             await adminApi.createUser({
-                username: form.username,
+                username: createUsernameFromEmailValue(form.email),
                 password: form.password,
                 confirm_password: form.confirmPassword,
                 full_name: form.full_name,
                 email: form.email,
                 phone: form.phone,
+                registration_otp: form.registrationOtp,
                 role: form.role,
             });
 
@@ -1788,10 +1816,6 @@ function App() {
     };
 
     const handleSaveProfile = async () => {
-        if (!profileUsername.trim()) {
-            return { success: false, error: 'กรุณากรอกชื่อผู้ใช้' };
-        }
-
         if (profilePassword && profilePassword.length < 8) {
             return { success: false, error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' };
         }

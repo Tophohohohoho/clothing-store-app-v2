@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
+import { requestRegisterOtp, verifyRegisterOtp } from '../api/authApi';
 import { notify } from '../components/AppNotification';
 import { formatThaiDateTime } from '../utils/date';
 
 const EMPTY_EDIT = { id: null, username: '', password: '', full_name: '', email: '', phone: '' };
-const EMPTY_CREATE = { username: '', password: '', confirmPassword: '', full_name: '', email: '', phone: '', role: 'user' };
+const EMPTY_CREATE = {
+    username: '',
+    registrationOtp: '',
+    password: '',
+    confirmPassword: '',
+    full_name: '',
+    email: '',
+    phone: '',
+    role: 'user',
+};
 const STATUS = {
     0: ['ระงับการใช้งาน', 'suspended'],
     1: ['ใช้งาน', 'active'],
@@ -70,7 +80,15 @@ function AdminCustomersPage({
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
+    const [createStep, setCreateStep] = useState('identity');
+    const [createOtpMsg, setCreateOtpMsg] = useState({ type: '', text: '' });
+    const [isCreateOtpLoading, setIsCreateOtpLoading] = useState(false);
+    const [isCreateOtpVerified, setIsCreateOtpVerified] = useState(false);
+    const [isCreateOtpRequested, setIsCreateOtpRequested] = useState(false);
     const loadRef = useRef(onLoadCustomers);
+    const createOtpInputRefs = useRef([]);
+    const createForm = adminUserCreate?.form || EMPTY_CREATE;
+    const createOtpDigits = String(createForm.registrationOtp || '').padEnd(6, ' ').slice(0, 6).split('').map((digit) => (/\d/.test(digit) ? digit : ''));
     const clearFilters = () => {
         setSearchText('');
         setRoleFilter('all');
@@ -85,6 +103,14 @@ function AdminCustomersPage({
     };
 
     useEffect(() => { loadRef.current = onLoadCustomers; }, [onLoadCustomers]);
+    useEffect(() => {
+        if (!adminUserCreate?.isOpen) return;
+        setCreateStep('identity');
+        setCreateOtpMsg({ type: '', text: '' });
+        setIsCreateOtpLoading(false);
+        setIsCreateOtpVerified(false);
+        setIsCreateOtpRequested(false);
+    }, [adminUserCreate?.isOpen]);
     useEffect(() => {
         const timer = setTimeout(() => loadRef.current({
             page,
@@ -211,6 +237,101 @@ function AdminCustomersPage({
     const saveEdit = async () => {
         await onUpdateUser();
         await loadRef.current(currentQuery);
+    };
+
+    const updateCreateForm = (field, value) => {
+        setAdminUserCreate((current) => ({
+            ...current,
+            form: { ...(current.form || EMPTY_CREATE), [field]: value },
+        }));
+        if (field === 'email') {
+            setCreateOtpMsg({ type: '', text: '' });
+            setIsCreateOtpVerified(false);
+            setIsCreateOtpRequested(false);
+            setAdminUserCreate((current) => ({
+                ...current,
+                form: { ...(current.form || EMPTY_CREATE), registrationOtp: '' },
+            }));
+        }
+        if (field === 'registrationOtp') {
+            setIsCreateOtpVerified(false);
+        }
+    };
+
+    const setCreateOtpCode = (code) => {
+        updateCreateForm('registrationOtp', String(code || '').replace(/\D/g, '').slice(0, 6));
+    };
+
+    const setCreateOtpAtIndex = (index, value) => {
+        const nextDigits = [...createOtpDigits];
+        nextDigits[index] = String(value || '').replace(/\D/g, '').slice(-1);
+        setCreateOtpCode(nextDigits.join(''));
+        if (nextDigits[index] && index < 5) {
+            createOtpInputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleCreateOtpPaste = (event) => {
+        event.preventDefault();
+        const pastedCode = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        setCreateOtpCode(pastedCode);
+        createOtpInputRefs.current[Math.min(pastedCode.length, 5)]?.focus();
+    };
+
+    const handleCreateOtpKeyDown = (event, index) => {
+        if (event.key === 'Backspace' && !createOtpDigits[index] && index > 0) {
+            createOtpInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowLeft' && index > 0) {
+            event.preventDefault();
+            createOtpInputRefs.current[index - 1]?.focus();
+        }
+        if (event.key === 'ArrowRight' && index < 5) {
+            event.preventDefault();
+            createOtpInputRefs.current[index + 1]?.focus();
+        }
+    };
+
+    const requestCreateOtp = async () => {
+        const email = String(createForm.email || '').trim();
+        if (!email) {
+            notify({ type: 'warning', title: 'กรุณากรอกอีเมล', message: 'ต้องกรอกอีเมลก่อนส่งรหัส OTP' });
+            return;
+        }
+        setIsCreateOtpLoading(true);
+        setCreateOtpMsg({ type: '', text: '' });
+        try {
+            const { data } = await requestRegisterOtp({ email });
+            setIsCreateOtpRequested(true);
+            setIsCreateOtpVerified(false);
+            setCreateOtpMsg({ type: data.mail_sent ? 'success' : 'error', text: data.message || 'ส่งรหัส OTP แล้ว' });
+        } catch (err) {
+            setCreateOtpMsg({ type: 'error', text: err.response?.data?.message || 'ส่งรหัส OTP ไม่สำเร็จ' });
+        } finally {
+            setIsCreateOtpLoading(false);
+        }
+    };
+
+    const verifyCreateOtp = async () => {
+        const email = String(createForm.email || '').trim();
+        const code = String(createForm.registrationOtp || '').trim();
+        if (!email || !/^\d{6}$/.test(code)) {
+            notify({ type: 'warning', title: 'ข้อมูล OTP ยังไม่ครบ', message: 'กรุณากรอกอีเมลและรหัส OTP 6 หลัก' });
+            return;
+        }
+        setIsCreateOtpLoading(true);
+        setCreateOtpMsg({ type: '', text: '' });
+        try {
+            const { data } = await verifyRegisterOtp({ email, code });
+            setIsCreateOtpVerified(true);
+            setCreateOtpMsg({ type: 'success', text: data.message || 'ยืนยัน OTP สำเร็จ' });
+            setCreateStep('details');
+        } catch (err) {
+            setIsCreateOtpVerified(false);
+            setCreateOtpMsg({ type: 'error', text: err.response?.data?.message || 'ตรวจสอบ OTP ไม่สำเร็จ' });
+        } finally {
+            setIsCreateOtpLoading(false);
+        }
     };
 
     const exportCustomersReport = async (format) => {
@@ -479,16 +600,75 @@ function AdminCustomersPage({
 
             {adminUserCreate?.isOpen && <div className="member-modal-backdrop"><div className="member-edit-modal">
                 <header><div><span>เพิ่มสมาชิกใหม่</span><h5>สร้างบัญชีผู้ใช้งานจากแอดมิน</h5></div><button onClick={onCloseCreateUser}>×</button></header>
-                <div className="member-form">
-                    <label><span>Username</span><input value={adminUserCreate.form?.username || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), username: e.target.value } }))} /></label>
-                    <label><span>ชื่อ-นามสกุล</span><input value={adminUserCreate.form?.full_name || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), full_name: e.target.value } }))} /></label>
-                    <label><span>อีเมล</span><input type="email" value={adminUserCreate.form?.email || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), email: e.target.value } }))} /></label>
-                    <label><span>เบอร์โทร</span><input value={adminUserCreate.form?.phone || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), phone: e.target.value } }))} /></label>
-                    <label><span>รหัสผ่าน</span><input type="password" value={adminUserCreate.form?.password || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), password: e.target.value } }))} /></label>
-                    <label><span>ยืนยันรหัสผ่าน</span><input type="password" value={adminUserCreate.form?.confirmPassword || ''} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), confirmPassword: e.target.value } }))} /></label>
-                    <label className="wide"><span>สิทธิ์การใช้งาน</span><select value={adminUserCreate.form?.role || 'user'} onChange={(e) => setAdminUserCreate((current) => ({ ...current, form: { ...(current.form || EMPTY_CREATE), role: e.target.value } }))}><option value="user">User</option><option value="admin">Admin</option></select></label>
+                <div className="member-create-steps" aria-label="ขั้นตอนเพิ่มสมาชิก">
+                    <div className={createStep === 'identity' ? 'active' : 'done'}>
+                        <b>1</b>
+                        <em>ยืนยันตัวตน</em>
+                        <i aria-hidden="true">●</i>
+                    </div>
+                    <div className={createStep === 'details' ? 'active' : ''}>
+                        <b>2</b>
+                        <em>ข้อมูลส่วนตัว</em>
+                        <i aria-hidden="true">○</i>
+                    </div>
                 </div>
-                <footer><button onClick={onCloseCreateUser}>ยกเลิก</button><button className="primary" onClick={onCreateUser}>เพิ่มสมาชิก</button></footer>
+                <div className="member-form">
+                    {createStep === 'identity' ? (
+                        <>
+                            <label><span>อีเมล</span><input type="email" value={createForm.email || ''} onChange={(e) => updateCreateForm('email', e.target.value)} /></label>
+                            {!isCreateOtpRequested ? (
+                                <button type="button" className="member-create-verify-button" onClick={requestCreateOtp} disabled={isCreateOtpLoading}>
+                                    ยืนยันอีเมล
+                                </button>
+                            ) : (
+                                <div className="member-create-otp-row">
+                                    <label>
+                                        <span>รหัส OTP จากอีเมล</span>
+                                        <div className="member-create-otp-inputs" aria-label="กรอกรหัส OTP 6 หลัก">
+                                            {createOtpDigits.map((digit, index) => (
+                                                <input
+                                                    key={index}
+                                                    ref={(element) => {
+                                                        createOtpInputRefs.current[index] = element;
+                                                    }}
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength="1"
+                                                    value={digit}
+                                                    onChange={(event) => setCreateOtpAtIndex(index, event.target.value)}
+                                                    onPaste={handleCreateOtpPaste}
+                                                    onKeyDown={(event) => handleCreateOtpKeyDown(event, index)}
+                                                    aria-label={`OTP หลักที่ ${index + 1}`}
+                                                />
+                                            ))}
+                                        </div>
+                                    </label>
+                                    <button type="button" onClick={requestCreateOtp} disabled={isCreateOtpLoading}>ส่ง OTP ใหม่</button>
+                                </div>
+                            )}
+                            {createOtpMsg.text && <small className={`member-create-otp-message ${createOtpMsg.type}`}>{createOtpMsg.text}</small>}
+                            {isCreateOtpRequested && (
+                                <button type="button" className="member-create-verify-button" onClick={verifyCreateOtp} disabled={isCreateOtpLoading || String(createForm.registrationOtp || '').length !== 6}>
+                                    {isCreateOtpVerified ? 'ยืนยัน OTP แล้ว' : 'ยืนยัน OTP'}
+                                </button>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <label><span>ชื่อ-นามสกุล</span><input value={createForm.full_name || ''} onChange={(e) => updateCreateForm('full_name', e.target.value)} /></label>
+                            <label><span>เบอร์โทร</span><input value={createForm.phone || ''} onChange={(e) => updateCreateForm('phone', e.target.value)} /></label>
+                            <label><span>รหัสผ่าน</span><input type="password" value={createForm.password || ''} onChange={(e) => updateCreateForm('password', e.target.value)} /></label>
+                            <label><span>ยืนยันรหัสผ่าน</span><input type="password" value={createForm.confirmPassword || ''} onChange={(e) => updateCreateForm('confirmPassword', e.target.value)} /></label>
+                            <label className="wide"><span>สิทธิ์การใช้งาน</span><select value={createForm.role || 'user'} onChange={(e) => updateCreateForm('role', e.target.value)}><option value="user">User</option><option value="admin">Admin</option></select></label>
+                        </>
+                    )}
+                </div>
+                {createStep === 'details' && (
+                    <footer>
+                        <button onClick={() => setCreateStep('identity')}>ย้อนกลับ</button>
+                        <button className="primary" onClick={onCreateUser}>เพิ่มสมาชิก</button>
+                    </footer>
+                )}
             </div></div>}
 
             {confirmAction && <div className="member-modal-backdrop"><div className="member-confirm-modal">

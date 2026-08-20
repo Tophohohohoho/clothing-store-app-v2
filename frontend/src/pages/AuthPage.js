@@ -671,11 +671,6 @@ function AuthPage({
                         <p className="auth-hero-description">
                             เลือกช้อปเสื้อผ้าดีไซน์ทันสมัย พร้อมระบบสั่งซื้อที่รวดเร็วและติดตามสถานะได้ในที่เดียว
                         </p>
-                        <div className="auth-benefits" aria-label="จุดเด่นของร้านค้า">
-                            <div><span aria-hidden="true">✓</span><strong>สินค้าคัดสรร</strong><small>สไตล์ร่วมสมัย อัปเดตคอลเลกชันเสมอ</small></div>
-                            <div><span aria-hidden="true">✓</span><strong>ชำระเงินสะดวก</strong><small>ขั้นตอนสั่งซื้อชัดเจนและปลอดภัย</small></div>
-                            <div><span aria-hidden="true">✓</span><strong>ติดตามคำสั่งซื้อ</strong><small>ตรวจสอบสถานะได้จากบัญชีของคุณ</small></div>
-                        </div>
                     </div>
                     <div className="auth-preview">
                         <div className="auth-preview-row">

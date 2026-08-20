@@ -205,11 +205,6 @@ function ProfileModal({
         event.preventDefault();
         setAccountNotice({ type: '', text: '' });
 
-        if (!username.trim()) {
-            setAccountNotice({ type: 'error', text: 'กรุณากรอกชื่อผู้ใช้' });
-            return;
-        }
-
         if (password && password.length < 8) {
             setAccountNotice({ type: 'error', text: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
             return;

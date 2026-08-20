@@ -51,11 +51,14 @@ const AUTH_TOKEN_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 const VERIFICATION_CODE_EXPIRES_MS = 10 * 60 * 1000;
+const SMTP_REQUIRED_ENV_KEYS = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
 
 const cleanText = (value) => String(value ?? '').trim();
 const cleanPhone = (value) => cleanText(value).replace(/[\s-]/g, '');
 const isBcryptHash = (value) => /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
 const hashPassword = (password) => bcrypt.hash(String(password), PASSWORD_HASH_ROUNDS);
+const getMissingSmtpEnvKeys = () => SMTP_REQUIRED_ENV_KEYS.filter((key) => !cleanText(process.env[key]));
+const hasSmtpConfig = () => getMissingSmtpEnvKeys().length === 0;
 const verifyPassword = async (password, storedPassword) => {
     if (isBcryptHash(storedPassword)) return bcrypt.compare(String(password), storedPassword);
     return String(password) === String(storedPassword || '');
@@ -258,7 +261,7 @@ const getFirstAddressValidationMessage = (payload) => {
 };
 
 const getSmtpTransport = () => {
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) return null;
+    if (!hasSmtpConfig()) return null;
 
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
@@ -297,10 +300,31 @@ const sendPasswordResetEmail = async ({ email, fullName, code }) => {
 
 const getPublicMailErrorMessage = (errorMessage = '') => {
     const message = String(errorMessage || '');
+    const isGmail = /gmail/i.test(String(process.env.SMTP_HOST || '')) || /gmail/i.test(String(process.env.SMTP_USER || ''));
     if (/Invalid login|BadCredentials|Username and Password not accepted/i.test(message)) {
-        return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ SMTP_USER และ SMTP_PASS โดย Gmail ต้องใช้ App password';
+        if (isGmail) {
+            return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ SMTP_USER และ SMTP_PASS โดย Gmail ต้องใช้ App password';
+        }
+        return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบ SMTP_USER และ SMTP_PASS';
     }
     return 'ส่งอีเมลไม่สำเร็จ กรุณาตรวจสอบการตั้งค่า SMTP';
+};
+
+const logRuntimeWarnings = () => {
+    const missingSmtpKeys = getMissingSmtpEnvKeys();
+    if (missingSmtpKeys.length > 0) {
+        console.warn(`[startup] SMTP ยังตั้งค่าไม่ครบ ระบบจะสร้าง OTP ได้ แต่จะยังส่งอีเมลไม่ได้: ${missingSmtpKeys.join(', ')}`);
+    } else {
+        console.log(`[startup] SMTP พร้อมใช้งาน: ${process.env.SMTP_HOST}:${Number(process.env.SMTP_PORT) || 587}`);
+    }
+
+    if (AUTH_TOKEN_SECRET === 'dev-auth-secret-change-me') {
+        console.warn('[startup] กำลังใช้ AUTH_TOKEN_SECRET ค่าเริ่มต้น ควรตั้ง JWT_SECRET หรือ AUTH_TOKEN_SECRET ก่อนใช้งานจริง');
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+        console.warn('[startup] NODE_ENV ไม่ใช่ production หากส่งเมลไม่สำเร็จ API อาจส่ง dev_code กลับมาเพื่อใช้ทดสอบ');
+    }
 };
 
 const respondError = (res, err, fallback = 'เกิดข้อผิดพลาดที่ฐานข้อมูล') => {
@@ -403,6 +427,8 @@ const normalizeOrder = (order) => ({
     status: normalizeOrderStatus(order.order_status),
     shipping_method: order.delivery_type,
     created_at: order.order_date,
+    payment_expires_at: order.payment_expires_at,
+    payment_expired: Boolean(order.payment_expires_at && new Date(order.payment_expires_at).getTime() <= Date.now()),
 });
 
 const snapshotProduct = (product = {}) => ({
@@ -631,6 +657,9 @@ const ORDER_PAYMENT_REVIEW_STATUS = 'รอตรวจสอบการชำ�
 const ORDER_WAITING_PAYMENT_STATUS = 'รอชำระเงิน';
 const ORDER_PREPARING_STATUS = 'กำลังเตรียมสินค้า';
 const ORDER_CANCELLED_STATUS = 'ยกเลิกคำสั่งซื้อ';
+const PAYMENT_PENDING_STATUS = 'รอชำระ';
+const ORDER_PAYMENT_EXPIRY_HOURS = 24;
+const AUTO_CANCEL_PAYMENT_STATUSES = [PAYMENT_PENDING_STATUS, PAYMENT_REJECTED_STATUS, 'ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
 const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
 const STORE_CONTACT_PHONE = '0812345678';
 const STORE_CONTACT_EMAIL = 'admin@example.com';
@@ -649,6 +678,88 @@ const RECEIPT_UPLOAD_OPTIONS = {
     maxSizeMessage: 'ไฟล์สลิปต้องมีขนาดไม่เกิน 5 MB',
 };
 const BLOCKED_FULFILLMENT_STATUSES = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
+
+const autoCancelExpiredPendingOrders = async () => {
+    const [expiredOrders] = await query(`
+        SELECT o.order_id, o.user_id, o.order_status, o.payment_status, o.delivery_type, o.tracking_no, o.final_price
+        FROM orders o
+        LEFT JOIN payment pay ON pay.payment_id = (
+            SELECT MAX(payment_id)
+            FROM payment
+            WHERE order_id = o.order_id
+        )
+        WHERE o.payment_expires_at IS NOT NULL
+            AND o.payment_expires_at <= NOW()
+            AND o.order_status = ?
+            AND o.payment_status IN (?)
+            AND (
+                o.payment_status <> ?
+                OR pay.receipt_image IS NULL
+                OR TRIM(pay.receipt_image) = ''
+            )
+    `, [ORDER_WAITING_PAYMENT_STATUS, AUTO_CANCEL_PAYMENT_STATUSES, PAYMENT_PENDING_STATUS]);
+
+    for (const order of expiredOrders) {
+        await dbp.beginTransaction();
+        try {
+            const [lockedOrders] = await dbp.query(
+                `SELECT order_id, user_id, order_status, payment_status, delivery_type, tracking_no, final_price
+                 FROM orders
+                 WHERE order_id = ? AND order_status = ? AND payment_status IN (?) AND payment_expires_at <= NOW()
+                 FOR UPDATE`,
+                [order.order_id, ORDER_WAITING_PAYMENT_STATUS, AUTO_CANCEL_PAYMENT_STATUSES],
+            );
+            if (lockedOrders.length === 0) {
+                await dbp.rollback();
+                continue;
+            }
+
+            const [payments] = await dbp.query(
+                `SELECT receipt_image
+                 FROM payment
+                 WHERE order_id = ?
+                 ORDER BY payment_id DESC
+                 LIMIT 1`,
+                [order.order_id],
+            );
+            if (lockedOrders[0].payment_status === PAYMENT_PENDING_STATUS && payments[0]?.receipt_image) {
+                await dbp.rollback();
+                continue;
+            }
+
+            const [items] = await dbp.query(
+                'SELECT order_detail_id, product_id, quantity FROM order_detail WHERE order_id = ?',
+                [order.order_id],
+            );
+
+            for (const item of items) {
+                await applyStockChange({
+                    productId: item.product_id,
+                    changeType: 'คืนสินค้า',
+                    changeQuantity: item.quantity,
+                    reason: `ยกเลิกอัตโนมัติ: ไม่ส่งสลิปภายใน ${ORDER_PAYMENT_EXPIRY_HOURS} ชั่วโมง #${order.order_id}`,
+                    userId: order.user_id,
+                    orderDetailId: item.order_detail_id,
+                });
+            }
+
+            await dbp.query(
+                'UPDATE orders SET order_status = ?, payment_status = ?, payment_expires_at = NULL WHERE order_id = ?',
+                [ORDER_CANCELLED_STATUS, ORDER_CANCELLED_STATUS, order.order_id],
+            );
+            await dbp.query(
+                'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
+                [order.order_id, ORDER_CANCELLED_STATUS, null, `ระบบยกเลิกอัตโนมัติ เนื่องจากไม่ส่งสลิปภายใน ${ORDER_PAYMENT_EXPIRY_HOURS} ชั่วโมง`],
+            );
+            await dbp.commit();
+        } catch (err) {
+            await dbp.rollback();
+            console.error(`Auto-cancel order #${order.order_id} failed`, err);
+        }
+    }
+
+    return expiredOrders.length;
+};
 
 const normalizeCheckoutItem = (item, index) => {
     const productId = Number(item?.id ?? item?.product_id ?? item?.p_id);
@@ -887,6 +998,7 @@ const initializeDatabase = async () => {
             order_status varchar(50) DEFAULT NULL,
             payment_method varchar(50) DEFAULT NULL,
             payment_status varchar(50) DEFAULT NULL,
+            payment_expires_at datetime DEFAULT NULL,
             delivery_type varchar(50) DEFAULT NULL,
             receiver_name varchar(255) DEFAULT NULL,
             shipping_phone varchar(20) DEFAULT NULL,
@@ -1089,6 +1201,17 @@ const initializeDatabase = async () => {
     if (!(await columnExists('orders', 'shipping_phone'))) {
         await query('ALTER TABLE orders ADD COLUMN shipping_phone varchar(20) DEFAULT NULL AFTER receiver_name');
     }
+    if (!(await columnExists('orders', 'payment_expires_at'))) {
+        await query('ALTER TABLE orders ADD COLUMN payment_expires_at datetime DEFAULT NULL AFTER payment_status');
+    }
+    await query(
+        `UPDATE orders
+         SET payment_expires_at = DATE_ADD(order_date, INTERVAL ? HOUR)
+         WHERE payment_expires_at IS NULL
+            AND order_status = ?
+            AND payment_status IN (?)`,
+        [ORDER_PAYMENT_EXPIRY_HOURS, ORDER_WAITING_PAYMENT_STATUS, AUTO_CANCEL_PAYMENT_STATUSES],
+    );
     await query(`
         UPDATE orders o
         LEFT JOIN address a ON a.address_id = (
@@ -1145,10 +1268,20 @@ db.connect((err) => {
     }
 
     console.log('เชื่อมต่อฐานข้อมูล MySQL สำเร็จ');
-    initializeDatabase().catch((schemaErr) => {
-        console.error('ตั้งค่าโครงสร้างฐานข้อมูลไม่สำเร็จ:', schemaErr);
-    });
+    initializeDatabase()
+        .then(() => autoCancelExpiredPendingOrders().catch((autoCancelErr) => {
+            console.error('ยกเลิกคำสั่งซื้อหมดเวลาอัตโนมัติไม่สำเร็จ:', autoCancelErr);
+        }))
+        .catch((schemaErr) => {
+            console.error('ตั้งค่าโครงสร้างฐานข้อมูลไม่สำเร็จ:', schemaErr);
+        });
 });
+
+setInterval(() => {
+    autoCancelExpiredPendingOrders().catch((err) => {
+        console.error('ยกเลิกคำสั่งซื้อหมดเวลาอัตโนมัติไม่สำเร็จ:', err);
+    });
+}, 60 * 1000);
 
 app.get('/api/products', async (req, res) => {
     try {
@@ -1938,6 +2071,7 @@ app.get('/api/admin/dashboard', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/orders', requireAdmin, async (req, res) => {
     try {
+        await autoCancelExpiredPendingOrders();
         const [results] = await query(`
             SELECT
                 o.*,
@@ -2020,6 +2154,7 @@ app.get('/api/admin/orders', requireAdmin, async (req, res) => {
 
 app.get('/api/admin/orders/:id/details', requireAdmin, async (req, res) => {
     try {
+        await autoCancelExpiredPendingOrders();
         const { id } = req.params;
         const [orders] = await query(
             `SELECT
@@ -2420,24 +2555,35 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
             full_name,
             email,
             phone,
+            registration_otp,
             role,
         } = req.body;
 
         const validationMessage = getFirstRegisterValidationMessage({
-            username,
             full_name,
             email,
             phone,
             password,
             confirm_password: confirm_password ?? req.body.confirmPassword,
+            require_username: false,
         });
         if (validationMessage) {
             return res.status(400).json({ success: false, error: validationMessage });
         }
 
-        const normalizedUsername = cleanText(username);
+        const normalizedEmail = cleanText(email).toLowerCase();
+        const otpCode = String(registration_otp || req.body.otp || '').trim();
+        if (!/^\d{6}$/.test(otpCode)) {
+            return res.status(400).json({ success: false, error: 'กรุณากรอกรหัส OTP 6 หลักจากอีเมลก่อนเพิ่มสมาชิก' });
+        }
+
+        const verificationCode = await findValidRegistrationCode({ email: normalizedEmail, code: otpCode });
+        if (!verificationCode) {
+            return res.status(400).json({ success: false, error: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาขอรหัสใหม่' });
+        }
+
+        const normalizedUsername = cleanText(username) || await createUsernameFromEmail(normalizedEmail);
         const normalizedFullName = cleanText(full_name) || normalizedUsername;
-        const normalizedEmail = cleanText(email) || null;
         const normalizedPhone = cleanText(phone) ? cleanPhone(phone) : null;
         const normalizedRole = role === 'admin' ? 'admin' : 'user';
         const passwordHash = await hashPassword(password);
@@ -2445,7 +2591,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
         const [result] = await query(
             `INSERT INTO \`user\`
                 (username, password, full_name, email, phone, privacy_notice_acknowledged, privacy_notice_acknowledged_at, consent_analytics, consent_analytics_at, role, status_user)
-             VALUES (?, ?, ?, ?, ?, 1, NOW(), 0, NULL, ?, 1)`,
+             VALUES (?, ?, ?, ?, ?, 0, NULL, 0, NULL, ?, 1)`,
             [
                 normalizedUsername,
                 passwordHash,
@@ -2455,6 +2601,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
                 normalizedRole,
             ],
         );
+        await query('UPDATE registration_verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
 
         const [createdUsers] = await query(
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
@@ -2484,9 +2631,6 @@ app.put('/api/users/:id/profile', requireSelfOrAdmin('id'), async (req, res) => 
         );
         if (users.length === 0) return res.status(404).json({ error: 'ไม่พบผู้ใช้งานนี้' });
 
-        if (!username || !username.trim()) {
-            return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้' });
-        }
         if (email && !EMAIL_REGEX.test(cleanText(email))) {
             return res.status(400).json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' });
         }
@@ -2499,9 +2643,9 @@ app.put('/api/users/:id/profile', requireSelfOrAdmin('id'), async (req, res) => 
             return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
         }
         const passwordHash = hasPassword ? await hashPassword(password) : '';
-        const normalizedUsername = cleanText(username);
-        const normalizedFullName = cleanText(full_name) || normalizedUsername;
         const normalizedEmail = cleanText(email) || null;
+        const normalizedUsername = cleanText(username) || users[0].username || (normalizedEmail ? await createUsernameFromEmail(normalizedEmail) : '');
+        const normalizedFullName = cleanText(full_name) || normalizedUsername;
         const normalizedPhone = cleanText(phone) ? cleanPhone(phone) : null;
 
         const sql = hasPassword
@@ -3195,7 +3339,7 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
         const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts', RECEIPT_UPLOAD_OPTIONS);
         const receiptUrl = receiptPath ? `${req.protocol}://${req.get('host')}${receiptPath}` : null;
         const initialOrderStatus = receiptUrl ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
-        const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : 'รอชำระ';
+        const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : PAYMENT_PENDING_STATUS;
         const shippingFee = shippingMethod === 'รับหน้าร้าน' ? 0 : 50;
         const shippingAddressPayload = normalizeAddressPayload({
             receiver_name: receiver_name || username || 'ลูกค้า',
@@ -3309,8 +3453,8 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
 
         const [orderResult] = await query(
             `INSERT INTO orders
-                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, receiver_name, shipping_phone, tracking_no)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, payment_expires_at, delivery_type, receiver_name, shipping_phone, tracking_no)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${receiptUrl ? 'NULL' : `DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR)`}, ?, ?, ?, ?)`,
             [
                 user_id,
                 totalPrice,
@@ -3393,11 +3537,15 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
 
 app.put('/api/orders/:id/receipt', requireOrderOwnerOrAdmin, async (req, res) => {
     try {
+        await autoCancelExpiredPendingOrders();
         const { id } = req.params;
         const { receipt_image_data, receipt_file_name, note } = req.body;
         const cleanNote = String(note || '').trim();
         const [orders] = await query('SELECT order_id, user_id, final_price, payment_method, payment_status, order_status FROM orders WHERE order_id = ?', [id]);
         const order = orders[0];
+        if (normalizeOrderStatus(order.order_status) === ORDER_CANCELLED_STATUS || normalizeOrderStatus(order.payment_status) === ORDER_CANCELLED_STATUS) {
+            return res.status(400).json({ error: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถส่งสลิปได้' });
+        }
         if ([PAID_PAYMENT_STATUS, 'ชำระแล้ว'].includes(order.payment_status)) {
             return res.status(403).json({ error: 'ออเดอร์นี้ชำระเงินแล้ว ไม่สามารถแทนที่สลิปได้' });
         }
@@ -3429,7 +3577,7 @@ app.put('/api/orders/:id/receipt', requireOrderOwnerOrAdmin, async (req, res) =>
         }
 
         await query(
-            'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
+            'UPDATE orders SET order_status = ?, payment_status = ?, payment_expires_at = NULL WHERE order_id = ?',
             [ORDER_PAYMENT_REVIEW_STATUS, PAYMENT_REVIEW_STATUS, id],
         );
         await writeOrderStatusHistory(id, ORDER_PAYMENT_REVIEW_STATUS, order.user_id, cleanNote || 'ลูกค้าแนบหลักฐานการชำระเงิน รอแอดมินตรวจสอบ');
@@ -3507,8 +3655,8 @@ app.put('/api/orders/:id/receipt/cancel', requireOrderOwnerOrAdmin, async (req, 
             ['ลูกค้ายกเลิกสลิปเดิมก่อนส่งใหม่', payments[0].payment_id],
         );
         await query(
-            'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
-            [ORDER_WAITING_PAYMENT_STATUS, 'รอชำระ', id],
+            `UPDATE orders SET order_status = ?, payment_status = ?, payment_expires_at = DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR) WHERE order_id = ?`,
+            [ORDER_WAITING_PAYMENT_STATUS, PAYMENT_PENDING_STATUS, id],
         );
         await writeOrderStatusHistory(id, ORDER_WAITING_PAYMENT_STATUS, user_id || order.user_id, 'ลูกค้ายกเลิกสลิปเดิมก่อนส่งใหม่');
         await writeSystemLog(user_id || order.user_id, 'ยกเลิกสลิปการชำระเงิน', `คำสั่งซื้อ #${id}: ลูกค้ายกเลิกสลิปเดิม`, {
@@ -3520,7 +3668,7 @@ app.put('/api/orders/:id/receipt/cancel', requireOrderOwnerOrAdmin, async (req, 
             },
             afterData: {
                 order_status: ORDER_WAITING_PAYMENT_STATUS,
-                payment_status: 'รอชำระ',
+                payment_status: PAYMENT_PENDING_STATUS,
                 receipt_image: null,
                 receipt_file_name: null,
             },
@@ -3530,7 +3678,7 @@ app.put('/api/orders/:id/receipt/cancel', requireOrderOwnerOrAdmin, async (req, 
             success: true,
             message: 'ยกเลิกสลิปเดิมแล้ว สามารถอัปโหลดสลิปใหม่ได้',
             order_status: ORDER_WAITING_PAYMENT_STATUS,
-            payment_status: 'รอชำระ',
+            payment_status: PAYMENT_PENDING_STATUS,
         });
     } catch (err) {
         respondError(res, err, 'ยกเลิกสลิปไม่สำเร็จ');
@@ -3597,7 +3745,11 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         ? ORDER_PREPARING_STATUS
         : ORDER_WAITING_PAYMENT_STATUS;
     await query(
-        'UPDATE orders SET payment_status = ?, order_status = ? WHERE order_id = ?',
+        `UPDATE orders
+         SET payment_status = ?,
+             order_status = ?,
+             payment_expires_at = ${cleanAction === 'approve' ? 'NULL' : `DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR)`}
+         WHERE order_id = ?`,
         [review.paymentStatus, nextOrderStatus, id],
     );
     await writeOrderStatusHistory(
@@ -3771,7 +3923,7 @@ app.put('/api/orders/:id/cancel', requireOrderOwnerOrAdmin, async (req, res) => 
         }
 
         await query(
-            'UPDATE orders SET order_status = ?, payment_status = ? WHERE order_id = ?',
+            'UPDATE orders SET order_status = ?, payment_status = ?, payment_expires_at = NULL WHERE order_id = ?',
             [ORDER_CANCELLED_STATUS, ORDER_CANCELLED_STATUS, id],
         );
         await writeOrderStatusHistory(id, ORDER_CANCELLED_STATUS, isAdmin ? actorId : order.user_id, isAdmin ? 'แอดมินยกเลิกคำสั่งซื้อ' : 'ลูกค้ายกเลิกคำสั่งซื้อ');
@@ -3906,6 +4058,7 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
 
 app.get('/api/orders/history', requireAuth, async (req, res) => {
     try {
+        await autoCancelExpiredPendingOrders();
         const userId = req.authUser.id;
         const [rows] = await query(`
             SELECT
@@ -3921,6 +4074,7 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                 o.order_status AS status,
                 o.payment_method,
                 o.payment_status,
+                o.payment_expires_at,
                 o.delivery_type AS shipping_method,
                 COALESCE(NULLIF(TRIM(o.receiver_name), ''), a.receiver_name, u.full_name, u.username) AS receiver_name,
                 COALESCE(NULLIF(TRIM(o.shipping_phone), ''), a.phone, u.phone) AS shipping_phone,
@@ -3977,6 +4131,7 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
                     status: normalizeOrderStatus(row.status),
                     payment_method: row.payment_method,
                     payment_status: row.payment_status,
+                    payment_expires_at: row.payment_expires_at,
                     shipping_method: row.shipping_method,
                     receiver_name: row.receiver_name,
                     shipping_phone: row.shipping_phone,
@@ -4032,4 +4187,5 @@ app.get('/api/orders/history', requireAuth, async (req, res) => {
 
 app.listen(port, () => {
     console.log(`Server กำลังทำงานที่ http://localhost:${port}`);
+    logRuntimeWarnings();
 });

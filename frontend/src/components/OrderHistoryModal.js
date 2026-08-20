@@ -99,6 +99,7 @@ function OrderHistoryModal({
     const [customerDeliveryFilter, setCustomerDeliveryFilter] = useState('all');
     const [customerDatePreset, setCustomerDatePreset] = useState('30');
     const [receiptUploadOrder, setReceiptUploadOrder] = useState(null);
+    const [expiryNow, setExpiryNow] = useState(Date.now());
     const cancelableStatuses = ['รอชำระเงิน', 'รอตรวจสอบการชำระเงิน', ...PREPARING_ORDER_STATUSES];
     const completedHistoryStatuses = COMPLETED_ORDER_STATUSES;
     const cancelledHistoryStatuses = CANCELLED_ORDER_STATUSES;
@@ -217,6 +218,11 @@ function OrderHistoryModal({
         }
     }, [customerPage, customerTotalPages, isCompactCustomerPage]);
 
+    useEffect(() => {
+        const timer = window.setInterval(() => setExpiryNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+
     const stopCardToggle = (event) => {
         event.stopPropagation();
     };
@@ -233,6 +239,34 @@ function OrderHistoryModal({
 
     const formatDateTime = (value) => {
         return formatThaiDateTime(value, 'ไม่ระบุวันที่ขาย');
+    };
+
+    const getPaymentExpiryMeta = (order) => {
+        const createdAt = order?.created_at || order?.order_date;
+        const fallbackExpiresAt = createdAt ? new Date(new Date(createdAt).getTime() + (24 * 60 * 60 * 1000)) : null;
+        const expiresAt = order?.payment_expires_at || fallbackExpiresAt;
+        if (!expiresAt || normalizeOrderStatus(order?.status) !== 'รอชำระเงิน') {
+            return null;
+        }
+        const expiresDate = new Date(expiresAt);
+        if (Number.isNaN(expiresDate.getTime())) return null;
+        const remainingMs = expiresDate.getTime() - expiryNow;
+        const remainingMinutes = Math.max(0, Math.ceil(remainingMs / 60000));
+        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+        const hours = Math.floor(remainingMinutes / 60);
+        const minutes = remainingMinutes % 60;
+        const seconds = remainingSeconds % 60;
+        const remainingText = remainingMs <= 0
+            ? 'หมดเวลาแล้ว'
+            : hours > 0
+            ? `เหลือ ${hours.toLocaleString('th-TH')} ชม. ${minutes.toLocaleString('th-TH')} นาที ${seconds.toLocaleString('th-TH')} วิ`
+            : `เหลือ ${minutes.toLocaleString('th-TH')} นาที ${seconds.toLocaleString('th-TH')} วิ`;
+        return {
+            isExpired: remainingMs <= 0,
+            expiresAt,
+            label: `หมดอายุ ${formatThaiDateTime(expiresAt)}`,
+            remainingText,
+        };
     };
 
     const exportCustomerOrders = (format) => {
@@ -791,9 +825,11 @@ function OrderHistoryModal({
                                             const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
                                             const isReceiptApproved = PAID_PAYMENT_STATUSES.includes(item.payment_status);
                                             const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(item.payment_status);
+                                            const paymentExpiry = getPaymentExpiryMeta(item);
                                             const canSendReceipt = canUploadReceipt
                                                 && !isReceiptWaitingReview
                                                 && !isReceiptApproved
+                                                && !paymentExpiry?.isExpired
                                                 && (isReceiptRejected || reuploadPaymentStatuses.includes(item.payment_status) || itemStatus === 'รอชำระเงิน');
                                             const receiptDraft = receiptDrafts[item.id];
                                             const shouldShowReceiptInActions = Boolean(item.receipt_image);
@@ -810,6 +846,11 @@ function OrderHistoryModal({
                                                                 <span className={`payment-badge order-history-customer-badge ${compactStatusTone}`}>
                                                                     {orderStatusLabel}
                                                                 </span>
+                                                                {paymentExpiry && (
+                                                                    <span className={`order-payment-expiry-badge ${paymentExpiry.isExpired ? 'is-expired' : ''}`}>
+                                                                        {paymentExpiry.remainingText}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -934,6 +975,7 @@ function OrderHistoryModal({
                                                             <span>ค่าส่ง ฿{formatMoney(shippingFee)}</span>
                                                             {discount > 0 && <span>ส่วนลด ฿{formatMoney(discount)}</span>}
                                                             {item.tracking_no && <span>เลขพัสดุ {item.tracking_no}</span>}
+                                                            {paymentExpiry && <span>{paymentExpiry.label}</span>}
                                                             <strong>รวมสุทธิ ฿{formatMoney(finalPrice)}</strong>
                                                         </div>
                                                     </td>
@@ -983,9 +1025,11 @@ function OrderHistoryModal({
                             const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
                             const isReceiptApproved = PAID_PAYMENT_STATUSES.includes(item.payment_status);
                             const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(item.payment_status);
+                            const paymentExpiry = getPaymentExpiryMeta(item);
                             const canSendReceipt = canUploadReceipt
                                 && !isReceiptWaitingReview
                                 && !isReceiptApproved
+                                && !paymentExpiry?.isExpired
                                 && (isReceiptRejected || reuploadPaymentStatuses.includes(item.payment_status) || itemStatus === 'รอชำระเงิน');
                             const canCancelSubmittedReceipt = canCancelReceipt && isReceiptWaitingReview && hasSubmittedReceipt;
                             const uploadInputId = `receipt-upload-${item.id || index}`;
@@ -1040,6 +1084,11 @@ function OrderHistoryModal({
                                                 </div>
                                             ) : (
                                                 <span className={`order-history-status ${compactStatusTone}`}>{orderStatusLabel}</span>
+                                            )}
+                                            {paymentExpiry && (
+                                                <small className={`order-payment-expiry-text ${paymentExpiry.isExpired ? 'is-expired' : ''}`}>
+                                                    {paymentExpiry.remainingText} · {paymentExpiry.label}
+                                                </small>
                                             )}
                                             {item.tracking_no && (
                                                 <small className="order-history-tracking-code">
@@ -1166,6 +1215,12 @@ function OrderHistoryModal({
                                             {!isSalesMode && item.payment_status === 'รอตรวจสอบ' && (
                                                 <div className="order-history-payment-alert is-warning">
                                                     ส่งหลักฐานการชำระเงินเรียบร้อย กรุณารอแอดมินตรวจสอบ ถ้าส่งรูปผิดให้ ยกเลิกสลิปเดิม ก่อนอัปโหลดใหม่
+                                                </div>
+                                            )}
+
+                                            {!isSalesMode && paymentExpiry && (
+                                                <div className={`order-history-payment-alert ${paymentExpiry.isExpired ? 'is-danger' : 'is-warning'}`}>
+                                                    กรุณาส่งสลิปภายใน 1 วัน {paymentExpiry.remainingText} ระบบจะยกเลิกคำสั่งซื้ออัตโนมัติเมื่อ {formatThaiDateTime(paymentExpiry.expiresAt)}
                                                 </div>
                                             )}
 
@@ -1404,9 +1459,11 @@ function OrderHistoryModal({
                 const isReceiptWaitingReview = detailOrder.payment_status === 'รอตรวจสอบ';
                 const isReceiptApproved = PAID_PAYMENT_STATUSES.includes(detailOrder.payment_status);
                 const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(detailOrder.payment_status);
+                const paymentExpiry = getPaymentExpiryMeta(detailOrder);
                 const canSendReceipt = canUploadReceipt
                     && !isReceiptWaitingReview
                     && !isReceiptApproved
+                    && !paymentExpiry?.isExpired
                     && (isReceiptRejected || reuploadPaymentStatuses.includes(detailOrder.payment_status) || detailOrderStatus === 'รอชำระเงิน');
                 const canCancelSubmittedReceipt = canCancelReceipt && isReceiptWaitingReview && hasSubmittedReceipt;
                 const uploadInputId = `receipt-upload-detail-${detailOrder.id}`;
@@ -1443,6 +1500,11 @@ function OrderHistoryModal({
                                 </div>
                                 <div className="order-detail-popup-statuses">
                                     <strong>{detailOrderDisplayStatus}</strong>
+                                    {paymentExpiry && (
+                                        <small className={`order-payment-expiry-text ${paymentExpiry.isExpired ? 'is-expired' : ''}`}>
+                                            {paymentExpiry.remainingText}
+                                        </small>
+                                    )}
                                 </div>
                                 <button type="button" onClick={() => setDetailOrder(null)} aria-label="ปิดรายละเอียดคำสั่งซื้อ">×</button>
                             </header>
@@ -1545,6 +1607,12 @@ function OrderHistoryModal({
                                 {isReceiptWaitingReview && (
                                     <div className="order-history-payment-alert is-warning">
                                         ส่งหลักฐานการชำระเงินเรียบร้อย กรุณารอแอดมินตรวจสอบ
+                                    </div>
+                                )}
+
+                                {paymentExpiry && (
+                                    <div className={`order-history-payment-alert ${paymentExpiry.isExpired ? 'is-danger' : 'is-warning'}`}>
+                                        กรุณาส่งสลิปภายใน 1 วัน {paymentExpiry.remainingText} ระบบจะยกเลิกคำสั่งซื้ออัตโนมัติเมื่อ {formatThaiDateTime(paymentExpiry.expiresAt)}
                                     </div>
                                 )}
 
@@ -1671,6 +1739,7 @@ function OrderHistoryModal({
             {receiptUploadOrder && (() => {
                 const uploadInputId = `receipt-upload-popup-${receiptUploadOrder.id}`;
                 const receiptDraft = receiptDrafts[receiptUploadOrder.id];
+                const paymentExpiry = getPaymentExpiryMeta(receiptUploadOrder);
 
                 return (
                     <div
@@ -1691,6 +1760,7 @@ function OrderHistoryModal({
                                     <h2 id="order-receipt-upload-title">คำสั่งซื้อ #{receiptUploadOrder.id}</h2>
                                 </div>
                                 <strong>{formatPaymentStatus(receiptUploadOrder.payment_status || receiptUploadOrder.status || 'รอชำระเงิน')}</strong>
+                                {paymentExpiry && <small className="order-payment-expiry-text">{paymentExpiry.remainingText}</small>}
                                 <button type="button" onClick={() => setReceiptUploadOrder(null)} aria-label="ปิดอัปโหลดสลิป">×</button>
                             </header>
 
@@ -1713,6 +1783,12 @@ function OrderHistoryModal({
                                             </button>
                                         </div>
                                     </div>
+
+                                    {paymentExpiry && (
+                                        <div className={`order-history-payment-alert ${paymentExpiry.isExpired ? 'is-danger' : 'is-warning'}`}>
+                                            กรุณาส่งสลิปภายใน 1 วัน {paymentExpiry.remainingText} ระบบจะยกเลิกคำสั่งซื้ออัตโนมัติเมื่อ {formatThaiDateTime(paymentExpiry.expiresAt)}
+                                        </div>
+                                    )}
 
                                     <input
                                         id={uploadInputId}

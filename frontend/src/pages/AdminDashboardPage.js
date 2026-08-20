@@ -129,6 +129,34 @@ const formatDateTime = (value) => {
     return formatThaiDateTime(value, '-');
 };
 
+const getPaymentExpiryMeta = (order, now = Date.now()) => {
+    const createdAt = order?.created_at || order?.order_date;
+    const fallbackExpiresAt = createdAt ? new Date(new Date(createdAt).getTime() + (24 * 60 * 60 * 1000)) : null;
+    const expiresAt = order?.payment_expires_at || fallbackExpiresAt;
+    if (!expiresAt || normalizeOrderStatus(order?.status) !== 'รอชำระเงิน') {
+        return null;
+    }
+    const expiresDate = new Date(expiresAt);
+    if (Number.isNaN(expiresDate.getTime())) return null;
+    const remainingMs = expiresDate.getTime() - now;
+    const remainingMinutes = Math.max(0, Math.ceil(remainingMs / 60000));
+    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const hours = Math.floor(remainingMinutes / 60);
+    const minutes = remainingMinutes % 60;
+    const seconds = remainingSeconds % 60;
+    const remainingText = remainingMs <= 0
+        ? 'หมดเวลาแล้ว'
+        : hours > 0
+        ? `เหลือ ${hours.toLocaleString('th-TH')} ชม. ${minutes.toLocaleString('th-TH')} นาที ${seconds.toLocaleString('th-TH')} วิ`
+        : `เหลือ ${minutes.toLocaleString('th-TH')} นาที ${seconds.toLocaleString('th-TH')} วิ`;
+    return {
+        isExpired: remainingMs <= 0,
+        expiresAt,
+        label: `หมดอายุ ${formatThaiDateTime(expiresAt)}`,
+        remainingText,
+    };
+};
+
 const getOrderDate = (order = {}) => new Date(order.created_at || order.order_date || order.payment_date || 0);
 const getOrderAmount = (order = {}) => Number(order.final_price ?? order.total_price ?? 0) || 0;
 const getPersonName = (item = {}, fallback = 'ผู้ใช้งานทั่วไป') => item.full_name || item.username || item.name || fallback;
@@ -643,6 +671,7 @@ function AdminDashboardPage({
     const [quickReportError, setQuickReportError] = useState('');
     const [selectedPrintOrderIds, setSelectedPrintOrderIds] = useState([]);
     const [bulkReadySaving, setBulkReadySaving] = useState(false);
+    const [expiryNow, setExpiryNow] = useState(Date.now());
     const orderManagementRef = useRef(null);
     const paymentReviewRequestRef = useRef('');
     const printStatusFilterRef = useRef(DEFAULT_ORDER_STATUS_FILTER);
@@ -955,6 +984,11 @@ function AdminDashboardPage({
     useEffect(() => {
         setOrderPage(1);
     }, [orderSearch, statusFilter, deliveryFilter, orderDatePreset, orderDateFrom, orderDateTo, orderPageSize, orderViewTab, slipPageTab]);
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setExpiryNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         if (orderPage > orderTotalPages) setOrderPage(orderTotalPages);
@@ -2308,6 +2342,7 @@ function AdminDashboardPage({
     const paymentReviewReady = Boolean(String(paymentReviewForm.verified_amount || '').trim() && String(paymentReviewForm.transaction_ref || '').trim());
     const canShowPaymentReviewActions = Boolean(detailOrder?.receipt_image) && detailPaymentStatus === 'รอตรวจสอบ';
     const shouldWarnPaymentReview = detailOrder && !detailOrderIsPaid && ['ไม่พบหลักฐาน', 'ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม', 'รอตรวจสอบ'].includes(detailPaymentStatus);
+    const detailPaymentExpiry = getPaymentExpiryMeta(detailOrder || selectedOrder, expiryNow);
 
     return (
         <div className="commerce-dashboard">
@@ -3048,6 +3083,7 @@ function AdminDashboardPage({
                                     const colSpan = showPrintSelectionColumn ? 7 : 6;
                                     const canCancelInlineOrder = Boolean(onCancelOrder) && !orderIsPaid && !isCancelledOrder(order);
                                     const productRows = orderItems.length ? orderItems : [order];
+                                    const paymentExpiry = getPaymentExpiryMeta(order, expiryNow);
 
                                     return [
                                         <tr className="order-history-customer-order-head order-admin-member-order-head" key={`${order.id}-head`} onClick={() => loadOrderDetails(order)}>
@@ -3057,7 +3093,10 @@ function AdminDashboardPage({
                                                         <strong>คำสั่งซื้อ #{order.id}</strong>
                                                         <span>{formatThaiDateTime(order.created_at)}</span>
                                                     </div>
-                                                    <span className={`order-status-badge ${getOrderStatusBadgeClass(orderStatus)}`}>{orderStatus}</span>
+                                                    <div className="order-status-stack">
+                                                        <span className={`order-status-badge ${getOrderStatusBadgeClass(orderStatus)}`}>{orderStatus}</span>
+                                                        {paymentExpiry && <span className={`order-payment-expiry-text ${paymentExpiry.isExpired ? 'is-expired' : ''}`}>{paymentExpiry.remainingText} · {paymentExpiry.label}</span>}
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>,
@@ -3211,6 +3250,7 @@ function AdminDashboardPage({
                                                     <span>ค่าส่ง <strong>฿{formatMoney(shippingFee)}</strong></span>
                                                     {discount > 0 && <span>ส่วนลด <strong>-฿{formatMoney(discount)}</strong></span>}
                                                     <span>สถานะออเดอร์ <strong>{orderStatus}</strong></span>
+                                                    {paymentExpiry && <span>ชำระภายใน <strong>{paymentExpiry.label}</strong></span>}
                                                     <strong>รวมสุทธิ ฿{formatMoney(finalPrice)}</strong>
                                                 </div>
                                             </td>
@@ -3340,7 +3380,16 @@ function AdminDashboardPage({
                         ) : (
                             <div className="order-modal-body">
                                 <section className="order-detail-summary">
-                                    <div><span>สถานะออเดอร์</span><strong>{detailOrderStatus || '-'}</strong><small>{isPickupOrder(detailOrder || selectedOrder) ? 'เลขพัสดุ N/A' : (detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ')}</small></div>
+                                    <div>
+                                        <span>สถานะออเดอร์</span>
+                                        <strong>{detailOrderStatus || '-'}</strong>
+                                        {detailPaymentExpiry && (
+                                            <small className={`order-payment-expiry-text ${detailPaymentExpiry.isExpired ? 'is-expired' : ''}`}>
+                                                {detailPaymentExpiry.remainingText} · {detailPaymentExpiry.label}
+                                            </small>
+                                        )}
+                                        <small>{isPickupOrder(detailOrder || selectedOrder) ? 'เลขพัสดุ N/A' : (detailOrder.tracking_no || 'ยังไม่มีเลขพัสดุ')}</small>
+                                    </div>
                                 </section>
 
                                 <div className="order-modal-grid">
@@ -3413,6 +3462,11 @@ function AdminDashboardPage({
                                         {shouldWarnPaymentReview && (
                                             <div className="payment-review-warning">
                                                 {['ไม่พบหลักฐาน', 'ถูกปฏิเสธ'].includes(detailPaymentStatus) ? `ไม่พบหลักฐาน${detailOrder.review_note ? `: ${detailOrder.review_note}` : ''}` : 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง'}
+                                            </div>
+                                        )}
+                                        {detailPaymentExpiry && (
+                                            <div className={`payment-review-warning ${detailPaymentExpiry.isExpired ? 'is-danger' : ''}`}>
+                                                รอชำระ: ต้องส่งสลิปภายใน 1 วัน {detailPaymentExpiry.remainingText} ระบบจะยกเลิกอัตโนมัติเมื่อ {formatThaiDateTime(detailPaymentExpiry.expiresAt)}
                                             </div>
                                         )}
                                         <div className="payment-review-box">
