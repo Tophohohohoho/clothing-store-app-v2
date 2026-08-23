@@ -6,6 +6,10 @@ const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
 });
+const formatDiscountMoney = (value) => {
+    const amount = Number(value) || 0;
+    return `${amount > 0 ? '-' : ''}฿${formatMoney(amount)}`;
+};
 
 const formatDate = (value) => {
     if (!value) return '-';
@@ -181,7 +185,7 @@ function AdminOrderPrintPage({ orderIds }) {
                     <section className="print-order-total">
                         <div><span>ยอดสินค้า</span><strong>฿{formatMoney(order.total_price)}</strong></div>
                         <div><span>ค่าส่ง</span><strong>฿{formatMoney(order.shipping_fee)}</strong></div>
-                        <div><span>ส่วนลด</span><strong>-฿{formatMoney(order.discount)}</strong></div>
+                        <div><span>ส่วนลด</span><strong>{formatDiscountMoney(order.discount)}</strong></div>
                         <div className="grand-total"><span>ยอดรวมทั้งหมด</span><strong>฿{formatMoney(order.final_price ?? order.total_price)}</strong></div>
                     </section>
                 </section>

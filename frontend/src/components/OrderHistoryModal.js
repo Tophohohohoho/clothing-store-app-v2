@@ -104,7 +104,6 @@ function OrderHistoryModal({
     const completedHistoryStatuses = COMPLETED_ORDER_STATUSES;
     const cancelledHistoryStatuses = CANCELLED_ORDER_STATUSES;
     const historyStatuses = [...completedHistoryStatuses, ...cancelledHistoryStatuses];
-    const completedSaleStatuses = COMPLETED_ORDER_STATUSES;
     const MAX_RECEIPT_SIZE = 5 * 1024 * 1024;
     const reuploadPaymentStatuses = ['รอชำระ', ...REJECTED_PAYMENT_STATUSES];
     const orderList = Array.isArray(orders) ? orders : [];
@@ -123,7 +122,7 @@ function OrderHistoryModal({
     const reviewPaymentOrders = activeOrders.filter((order) => order.payment_status === 'รอตรวจสอบ');
     const paidActiveOrders = activeOrders.filter((order) => PAID_PAYMENT_STATUSES.includes(order.payment_status));
     const historyOrders = isSalesMode
-        ? orderList.filter((order) => !isStoreSale(order) && completedSaleStatuses.includes(order.status))
+        ? []
         : orderList.filter((order) => isHistoryOrder(order));
     const completedHistoryOrders = isSalesMode
         ? historyOrders
@@ -231,6 +230,10 @@ function OrderHistoryModal({
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+    const formatDiscountMoney = (value) => {
+        const amount = Number(value) || 0;
+        return `${amount > 0 ? '-' : ''}฿${formatMoney(amount)}`;
+    };
 
     const formatPaymentStatus = (status) => (status === 'ชำระแล้ว' ? 'ชำระเงินแล้ว' : status);
     const isPaidStatus = (status) => PAID_PAYMENT_STATUSES.includes(status);
@@ -766,7 +769,7 @@ function OrderHistoryModal({
                                     ? 'ไม่พบคำสั่งซื้อที่ค้นหา'
                                     : activeView === 'active'
                                     ? (isSalesMode ? 'ยังไม่มีประวัติการขายหน้าร้าน' : (activePaymentView === 'pending' ? 'ยังไม่มีออเดอร์ที่ต้องชำระ' : activePaymentView === 'review' ? 'ยังไม่มีออเดอร์รอตรวจสอบ' : 'ยังไม่มีออเดอร์ที่ชำระแล้วและกำลังดำเนินการ'))
-                                    : (isSalesMode ? 'ยังไม่มีรายการขายออนไลน์' : 'ยังไม่มีประวัติคำสั่งซื้อย้อนหลัง')}
+                                    : 'ยังไม่มีประวัติคำสั่งซื้อย้อนหลัง'}
                             </strong>
                             <span>
                                 {isCompactCustomerPage
@@ -775,7 +778,7 @@ function OrderHistoryModal({
                                     ? 'ลองตรวจสอบเลขออเดอร์ หรือกดล้างเพื่อดูรายการทั้งหมด'
                                     : activeView === 'active'
                                         ? (isSalesMode ? 'รายการ POS หรือรายการที่ขายผ่านหน้าร้านจะแสดงที่นี่' : (activePaymentView === 'pending' ? 'ออเดอร์สถานะรอชำระเงินหรือรอตรวจสอบการชำระเงินจะแสดงที่นี่' : activePaymentView === 'review' ? 'ออเดอร์ที่แนบสลิปแล้วและรอแอดมินยืนยันจะแสดงที่นี่' : 'ออเดอร์ที่ชำระแล้วแต่ยังไม่จบกระบวนการจะแสดงที่นี่'))
-                                    : (isSalesMode ? 'รายการที่ลูกค้าสั่งผ่านหน้าร้านออนไลน์จะแสดงที่นี่' : (activeHistoryView === 'completed' ? 'ออเดอร์ที่จบกระบวนการแล้วจะแสดงในแท็บนี้' : 'ออเดอร์ที่ถูกยกเลิกจะแสดงในแท็บนี้'))}
+                                    : (activeHistoryView === 'completed' ? 'ออเดอร์ที่จบกระบวนการแล้วจะแสดงในแท็บนี้' : 'ออเดอร์ที่ถูกยกเลิกจะแสดงในแท็บนี้')}
                             </span>
                         </div>
                     ) : isCompactCustomerPage ? (
@@ -1065,7 +1068,7 @@ function OrderHistoryModal({
                                 >
                                     <div className="order-history-card-header">
                                         <div>
-                                            <span>{isCompactCustomerPage ? 'คำสั่งซื้อ' : 'รหัสคำสั่งซื้อ'}</span>
+                                            <span>{isSalesMode ? orderTitle : isCompactCustomerPage ? 'คำสั่งซื้อ' : 'รหัสคำสั่งซื้อ'}</span>
                                             <strong>#{item.id}</strong>
                                             {isCompactCustomerPage ? (
                                                 <small className="order-history-sale-date">
@@ -1075,6 +1078,9 @@ function OrderHistoryModal({
                                                 <small className="order-history-sale-date">
                                                     {formatDateTime(saleDateTime)}
                                                 </small>
+                                            )}
+                                            {isSalesMode && isStoreSale(item) && (
+                                                <small className="order-history-header-seller">ขายโดย: {sellerName}</small>
                                             )}
                                         </div>
                                         <div className="order-history-card-header-side">
@@ -1100,7 +1106,7 @@ function OrderHistoryModal({
 
                                     <div className={`order-history-product ${isCompactCustomerPage ? 'is-compact' : ''}`}>
                                         <div className="order-history-product-main">
-                                            <h3>{orderTitle}</h3>
+                                            {!isSalesMode && <h3>{orderTitle}</h3>}
                                             {isCompactCustomerPage ? (
                                                 <div className="order-history-compact-stats">
                                                     <span>{`สินค้า ${orderItems.length || 0} รายการ`}</span>
@@ -1109,7 +1115,6 @@ function OrderHistoryModal({
                                                 </div>
                                             ) : item.detail && <p>{item.detail}</p>}
                                             <div className={`order-history-tags ${isCompactCustomerPage ? 'is-compact' : ''}`}>
-                                                {isSalesMode && isStoreSale(item) && <span className="order-history-seller-badge">ขายโดย: {sellerName}</span>}
                                                 {isSalesMode && !isStoreSale(item) && item.username && <span>ลูกค้า {item.username}</span>}
                                                 {isSalesMode && getPaymentMethod(item) && <span>{getPaymentMethod(item)}</span>}
                                                 {!isCompactCustomerPage && <span>สินค้า {orderItems.length || 1} รายการ</span>}
@@ -1122,30 +1127,7 @@ function OrderHistoryModal({
                                                 <strong>{item.tracking_no}</strong>
                                             </div>
                                         )}
-                                        {isSalesMode && !isCompactCustomerPage && (
-                                            <div className="order-history-price">
-                                                <span>ยอดขาย</span>
-                                                <strong>฿{formatMoney(finalPrice)}</strong>
-                                            </div>
-                                        )}
                                     </div>
-
-                                    {isSalesMode && (item.tracking_no || item.payment_status) && (
-                                        <div className="order-history-meta">
-                                            {item.tracking_no && (
-                                                <div>
-                                                    <span>เลขพัสดุ</span>
-                                                    <strong>{item.tracking_no}</strong>
-                                                </div>
-                                            )}
-                                            {item.payment_status && (
-                                                <div>
-                                                    <span>สถานะชำระเงิน</span>
-                                                    <strong>{formatPaymentStatus(item.payment_status)}</strong>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
 
                                     {(!isCompactCustomerPage || showExpandedDetails) && (
                                         <div className={isSalesMode ? 'order-history-sale-items' : 'order-history-item-list'}>
@@ -1153,23 +1135,41 @@ function OrderHistoryModal({
                                             {orderItems.length === 0 && (
                                                 <div className="order-history-item-empty">ไม่พบรายการสินค้าในออเดอร์นี้</div>
                                             )}
-                                            {orderItems.map((orderItem, itemIndex) => {
+                                            {isSalesMode && orderItems.length > 0 ? (
+                                                <div className="order-history-sale-table-wrap">
+                                                    <table className="order-history-sale-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>รูป</th>
+                                                                <th>ชื่อสินค้า</th>
+                                                                <th>จำนวนชิ้น</th>
+                                                                <th>ราคา</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {orderItems.map((orderItem, itemIndex) => {
+                                                                const qty = Number(orderItem.qty || orderItem.quantity || 1);
+                                                                const unitPrice = Number(orderItem.price || 0);
+                                                                const productName = orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น';
+                                                                return (
+                                                                    <tr key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
+                                                                        <td>
+                                                                            <div className="order-history-sale-thumb">
+                                                                                {renderProductThumb(orderItem, productName.charAt(0))}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td><strong>{productName}</strong></td>
+                                                                        <td>{qty.toLocaleString('th-TH')} ชิ้น</td>
+                                                                        <td><b>฿{formatMoney(unitPrice * qty)}</b></td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : orderItems.map((orderItem, itemIndex) => {
                                                 const qty = Number(orderItem.qty || orderItem.quantity || 1);
                                                 const unitPrice = Number(orderItem.price || 0);
-
-                                                if (isSalesMode) {
-                                                    return (
-                                                        <div className="order-history-sale-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
-                                                            <div>
-                                                                <strong>{orderItem.product_name || orderItem.name || 'สินค้าแฟชั่น'}</strong>
-                                                            </div>
-                                                            <span>x{qty}</span>
-                                                            <span>฿{formatMoney(unitPrice)}</span>
-                                                            <b>฿{formatMoney(unitPrice * qty)}</b>
-                                                        </div>
-                                                    );
-                                                }
-
                                                 return (
                                                     <div className="order-history-item-row" key={`${item.id || index}-${orderItem.product_id || itemIndex}`}>
                                                         <div className={`order-history-item-identity ${isCompactCustomerPage ? 'is-image-only' : ''}`}>
@@ -1364,24 +1364,16 @@ function OrderHistoryModal({
                                             )}
 
                                             <div className="order-history-summary">
-                                                <div>
-                                                    <span>ยอดสินค้า</span>
-                                                    <strong>฿{formatMoney(productTotal)}</strong>
-                                                </div>
-                                                <div>
-                                                    <span>ค่าส่ง</span>
-                                                    <strong>฿{formatMoney(shippingFee)}</strong>
-                                                </div>
-                                                <div>
-                                                    <span>ส่วนลด</span>
-                                                    <strong className="is-discount">-฿{formatMoney(discount)}</strong>
-                                                </div>
-                                                <div className="is-total">
-                                                    <span>ยอดสุทธิ</span>
-                                                    <strong>฿{formatMoney(finalPrice)}</strong>
-                                                </div>
-                                                {isSalesMode && (
+                                                {isSalesMode ? (
                                                     <>
+                                                        <div>
+                                                            <span>รวมชิ้น</span>
+                                                            <strong>{Number(itemCount || 0).toLocaleString('th-TH')} ชิ้น</strong>
+                                                        </div>
+                                                        <div className="is-total">
+                                                            <span>รวมยอด</span>
+                                                            <strong>฿{formatMoney(finalPrice)}</strong>
+                                                        </div>
                                                         <div>
                                                             <span>รับเงิน</span>
                                                             <strong>฿{formatMoney(cashReceived)}</strong>
@@ -1389,6 +1381,25 @@ function OrderHistoryModal({
                                                         <div>
                                                             <span>เงินทอน</span>
                                                             <strong>฿{formatMoney(change)}</strong>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div>
+                                                            <span>ยอดสินค้า</span>
+                                                            <strong>฿{formatMoney(productTotal)}</strong>
+                                                        </div>
+                                                        <div>
+                                                            <span>ค่าส่ง</span>
+                                                            <strong>฿{formatMoney(shippingFee)}</strong>
+                                                        </div>
+                                                        <div>
+                                                            <span>ส่วนลด</span>
+                                                            <strong className={discount > 0 ? 'is-discount' : ''}>{formatDiscountMoney(discount)}</strong>
+                                                        </div>
+                                                        <div className="is-total">
+                                                            <span>ยอดสุทธิ</span>
+                                                            <strong>฿{formatMoney(finalPrice)}</strong>
                                                         </div>
                                                     </>
                                                 )}
@@ -1434,11 +1445,6 @@ function OrderHistoryModal({
                     )}
                 </div>
 
-                {!isPageView && (
-                    <footer className="order-history-footer">
-                        <button type="button" onClick={onClose}>ปิดหน้าต่าง</button>
-                    </footer>
-                )}
             </section>
 
             {detailOrder && (() => {

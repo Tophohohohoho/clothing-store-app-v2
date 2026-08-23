@@ -13,8 +13,13 @@ const formatMoney = (value) => {
         maximumFractionDigits: 2,
     });
 };
+const formatDiscountMoney = (value) => {
+    const amount = Number(value) || 0;
+    return `${amount > 0 ? '-' : ''}฿${formatMoney(amount)}`;
+};
 
 const DEFAULT_ORDER_STATUS_FILTER = '__active_orders__';
+const COMPLETED_ORDER_STATUS_FILTER = '__completed_orders__';
 const normalizeOrderStatus = (status) => {
     const value = String(status || '').trim();
     const aliases = {
@@ -26,15 +31,37 @@ const normalizeOrderStatus = (status) => {
     };
     return aliases[value] || value;
 };
-const orderStatusOptions = [
-    { value: DEFAULT_ORDER_STATUS_FILTER, label: 'ออเดอร์ที่ยังดำเนินการ' },
-    { value: 'รอชำระเงิน', label: 'รอชำระเงิน' },
-    { value: 'รอตรวจสอบการชำระเงิน', label: 'รอตรวจสอบการชำระเงิน' },
-    { value: 'กำลังเตรียมสินค้า', label: 'กำลังเตรียมสินค้า' },
-    { value: 'กำลังจัดส่ง', label: 'กำลังจัดส่ง' },
-    { value: 'พร้อมรับสินค้า', label: 'พร้อมรับสินค้า' },
-    { value: 'จัดส่งแล้ว', label: 'จัดส่งแล้ว' },
-    { value: 'ยกเลิกคำสั่งซื้อ', label: 'ยกเลิกคำสั่งซื้อ' },
+const orderStatusOptionGroups = [
+    {
+        label: 'ภาพรวม',
+        options: [
+            { value: DEFAULT_ORDER_STATUS_FILTER, label: 'ออเดอร์ที่ต้องดำเนินการ' },
+            { value: COMPLETED_ORDER_STATUS_FILTER, label: 'ออเดอร์ที่เสร็จสิ้นแล้ว' },
+        ],
+    },
+    {
+        label: 'การชำระเงิน',
+        options: [
+            { value: 'รอชำระเงิน', label: 'รอชำระเงิน' },
+            { value: 'รอตรวจสอบการชำระเงิน', label: 'รอตรวจสอบการชำระเงิน' },
+        ],
+    },
+    {
+        label: 'การจัดเตรียมและส่งมอบ',
+        options: [
+            { value: 'กำลังเตรียมสินค้า', label: 'กำลังเตรียมสินค้า' },
+            { value: 'กำลังจัดส่ง', label: 'กำลังจัดส่ง' },
+            { value: 'พร้อมรับสินค้า', label: 'พร้อมรับสินค้า' },
+            { value: 'จัดส่งแล้ว', label: 'จัดส่งแล้ว' },
+            { value: 'เสร็จสิ้น', label: 'เสร็จสิ้น' },
+        ],
+    },
+    {
+        label: 'ยกเลิก',
+        options: [
+            { value: 'ยกเลิกคำสั่งซื้อ', label: 'ยกเลิกคำสั่งซื้อ' },
+        ],
+    },
 ];
 const paidPaymentStatuses = ['ชำระเงินแล้ว', 'ชำระแล้ว'];
 const blockedFulfillmentStatuses = ['กำลังเตรียมสินค้า', 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว', 'เสร็จสิ้น'];
@@ -64,6 +91,7 @@ const matchesOrderStatusFilter = (order, statusFilter) => {
     const orderStatus = normalizeOrderStatus(order.status || 'รอชำระเงิน');
     const paymentStatus = order.payment_status || '';
     if (statusFilter === DEFAULT_ORDER_STATUS_FILTER) return !isCompletedOrder(order) && !isCancelledOrder(order);
+    if (statusFilter === COMPLETED_ORDER_STATUS_FILTER) return isCompletedOrder(order);
     if (statusFilter === 'รอชำระเงิน') return orderStatus === 'รอชำระเงิน' || paymentStatus === 'รอชำระ';
     if (statusFilter === 'รอตรวจสอบการชำระเงิน') return orderStatus === 'รอตรวจสอบการชำระเงิน' || paymentStatus === 'รอตรวจสอบ';
     if (statusFilter === 'ยกเลิกคำสั่งซื้อ') return isCancelledOrder(order);
@@ -115,6 +143,23 @@ const formatChartLabel = (value, interval) => {
     if (interval === 'month') return date.toLocaleDateString('th-TH', { month: 'short', year: '2-digit' });
     if (interval === 'week') return `สัปดาห์ ${date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}`;
     return date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+};
+
+const getDemoSalesSeries = () => {
+    const today = new Date();
+    const samples = [
+        { revenue: 820, order_count: 8 },
+        { revenue: 2450, order_count: 2 },
+        { revenue: 430, order_count: 9 },
+        { revenue: 1850, order_count: 4 },
+        { revenue: 620, order_count: 11 },
+        { revenue: 3100, order_count: 3 },
+        { revenue: 960, order_count: 7 },
+    ];
+    return samples.map((item, index) => {
+        const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (samples.length - 1 - index));
+        return { ...item, period: date.toISOString().slice(0, 10) };
+    });
 };
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
@@ -343,7 +388,7 @@ const renderOrderReportGroupedHtml = (orders = []) => orders.map((order) => {
                 <div><span>เลขพัสดุ</span><strong>${escapeHtml(trackingSummary)}</strong></div>
                 <div><span>ยอดสินค้า</span><strong>฿${escapeHtml(formatMoney(productTotal))}</strong></div>
                 <div><span>ค่าส่ง</span><strong>฿${escapeHtml(formatMoney(shippingFee))}</strong></div>
-                <div><span>ส่วนลด</span><strong>-฿${escapeHtml(formatMoney(discount))}</strong></div>
+                <div><span>ส่วนลด</span><strong>${escapeHtml(formatDiscountMoney(discount))}</strong></div>
                 <div class="grand-total"><span>ยอดสุทธิ</span><strong>฿${escapeHtml(formatMoney(finalPrice))}</strong></div>
             </footer>
         </section>
@@ -368,7 +413,7 @@ const flattenOrderReportRows = (orders = []) => orders.flatMap((order) => {
             const price = Number(item.price || 0);
             return ['รายการสินค้า', item.product_name || item.name || 'สินค้า', quantity, `฿${formatMoney(price)}`, `฿${formatMoney(quantity * price)}`, '', '', ''];
         }),
-        ['ท้ายออเดอร์', 'ยอดสินค้า', `฿${formatMoney(productTotal)}`, 'ค่าส่ง', `฿${formatMoney(shippingFee)}`, 'ส่วนลด', `-฿${formatMoney(discount)}`, `ยอดสุทธิ ฿${formatMoney(finalPrice)}`],
+        ['ท้ายออเดอร์', 'ยอดสินค้า', `฿${formatMoney(productTotal)}`, 'ค่าส่ง', `฿${formatMoney(shippingFee)}`, 'ส่วนลด', formatDiscountMoney(discount), `ยอดสุทธิ ฿${formatMoney(finalPrice)}`],
         [],
     ];
 });
@@ -536,7 +581,7 @@ const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
         <section class="total">
             <div><span>ยอดสินค้า</span><strong>฿${formatMoney(order.total_price)}</strong></div>
             <div><span>ค่าส่ง</span><strong>฿${formatMoney(order.shipping_fee)}</strong></div>
-            <div><span>ส่วนลด</span><strong>-฿${formatMoney(order.discount)}</strong></div>
+            <div><span>ส่วนลด</span><strong>${formatDiscountMoney(order.discount)}</strong></div>
             <div class="grand"><span>ยอดรวมทั้งหมด</span><strong>฿${formatMoney(order.final_price ?? order.total_price)}</strong></div>
         </section>
     </section>`;
@@ -618,6 +663,7 @@ function AdminDashboardPage({
     const [dateTo, setDateTo] = useState('');
     const [showChartDatePicker, setShowChartDatePicker] = useState(false);
     const [chartInterval, setChartInterval] = useState('day');
+    const [chartDisplayMode, setChartDisplayMode] = useState('barLine');
     const [dashboardLoading, setDashboardLoading] = useState(true);
     const [dashboardError, setDashboardError] = useState('');
     const [dashboardData, setDashboardData] = useState({
@@ -822,15 +868,63 @@ function AdminDashboardPage({
         () => getDateRange(datePreset, dateFrom, dateTo),
         [datePreset, dateFrom, dateTo],
     );
-    const chartMaxRevenue = Math.max(1, ...dashboardData.sales_series.map((item) => Number(item.revenue) || 0));
-    const chartMaxOrders = Math.max(1, ...dashboardData.sales_series.map((item) => Number(item.order_count) || 0));
-    const chartPoints = dashboardData.sales_series.map((item, index, list) => {
-        const width = 740;
-        const x = list.length <= 1 ? 390 : 20 + ((index / (list.length - 1)) * width);
-        const y = 210 - ((Number(item.revenue) || 0) / chartMaxRevenue) * 170;
-        return { ...item, x, y };
+    const salesSeries = dashboardData.sales_series || [];
+    const showingChartExample = salesSeries.length === 0;
+    const chartSeries = showingChartExample ? getDemoSalesSeries() : salesSeries;
+    const chartMaxRevenue = Math.max(1, ...chartSeries.map((item) => Number(item.revenue) || 0));
+    const chartMaxOrders = Math.max(1, ...chartSeries.map((item) => Number(item.order_count) || 0));
+    const chartPoints = chartSeries.map((item, index, list) => {
+        const width = 700;
+        const x = list.length <= 1 ? 390 : 50 + ((index / (list.length - 1)) * width);
+        const pairedBars = chartDisplayMode === 'barBar';
+        const revenueX = pairedBars ? Math.max(48, x - 12) : x;
+        const orderX = pairedBars ? Math.min(752, x + 12) : x;
+        const revenue = Number(item.revenue) || 0;
+        const orderCount = Number(item.order_count) || 0;
+        const revenueBarHeight = (revenue / chartMaxRevenue) * 136;
+        const revenueBarY = 210 - revenueBarHeight;
+        const orderBarHeight = (orderCount / chartMaxOrders) * 136;
+        const orderBarY = 210 - orderBarHeight;
+        const revenueLineY = 210 - (revenue / chartMaxRevenue) * 156;
+        const orderY = 210 - (orderCount / chartMaxOrders) * 156;
+        const revenueLabelX = Math.max(52, Math.min(748, revenueX));
+        const orderLabelX = Math.max(52, Math.min(748, orderX));
+        const labelGap = 24;
+        const revenueAnchorY = chartDisplayMode === 'lineLine' ? revenueLineY : revenueBarY;
+        const orderAnchorY = chartDisplayMode === 'barBar' ? orderBarY : orderY;
+        const revenueLabelY = Math.max(30, revenueAnchorY - labelGap);
+        const orderLabelY = Math.max(30, orderAnchorY - labelGap);
+        return {
+            ...item,
+            revenue,
+            order_count: orderCount,
+            x,
+            revenueX,
+            orderX,
+            revenueBarHeight,
+            revenueBarY,
+            orderBarHeight,
+            orderBarY,
+            revenueLineY,
+            orderY,
+            revenueLabelX,
+            orderLabelX,
+            revenueLabelY,
+            orderLabelY,
+        };
     });
-    const chartPath = chartPoints.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ');
+    const chartPath = chartPoints.map((point, index) => `${index ? 'L' : 'M'} ${point.orderX} ${point.orderY}`).join(' ');
+    const revenueChartPath = chartPoints.map((point, index) => `${index ? 'L' : 'M'} ${point.revenueX} ${point.revenueLineY}`).join(' ');
+    const chartValueStep = Math.max(1, Math.ceil(chartPoints.length / 7));
+    const chartDateStep = Math.max(1, Math.ceil(chartPoints.length / 7));
+    const resetChartFilters = () => {
+        setChartInterval('day');
+        setDatePreset('30');
+        setDateFrom('');
+        setDateTo('');
+        setShowChartDatePicker(false);
+    };
+    const hasChartFilters = chartInterval !== 'day' || datePreset !== '30' || Boolean(dateFrom || dateTo);
     const selectedRangeBounds = useMemo(() => getRangeBounds(selectedRange), [selectedRange]);
     const previousRangeBounds = useMemo(() => getPreviousRange(selectedRange), [selectedRange]);
     const rangeOrders = useMemo(
@@ -2423,6 +2517,11 @@ function AdminDashboardPage({
                                 >
                                     กำหนดวัน
                                 </button>
+                                {hasChartFilters && (
+                                    <button type="button" className="reset-trigger" onClick={resetChartFilters}>
+                                        ล้างตัวกรอง
+                                    </button>
+                                )}
                             </div>
                             {showChartDatePicker ? (
                                 <div className="commerce-chart-date-picker">
@@ -2450,19 +2549,88 @@ function AdminDashboardPage({
                             ) : null}
                         </div>
                     </header>
-                    {dashboardLoading ? <div className="commerce-chart-skeleton"><i /><i /><i /><i /></div> : dashboardData.sales_series?.length ? (
+                    {dashboardLoading ? <div className="commerce-chart-skeleton"><i /><i /><i /><i /></div> : chartPoints.length ? (
                         <div className="commerce-chart">
-                            <div className="commerce-chart-legend"><span><i className="revenue" /> ยอดขาย</span><span><i className="orders" /> จำนวนออเดอร์</span></div>
+                            <div className="commerce-chart-legend">
+                                {showingChartExample && <b>ตัวอย่างข้อมูล 7 วัน</b>}
+                                <span><i className="revenue" /> ยอดขาย</span>
+                                <span><i className="orders" /> จำนวนออเดอร์</span>
+                            </div>
                             <svg viewBox="0 0 800 260" role="img" aria-label="กราฟยอดขายและจำนวนออเดอร์">
                                 {[40, 82, 124, 166, 208].map((y) => <line key={y} x1="20" y1={y} x2="780" y2={y} className="commerce-grid-line" />)}
-                                {chartPoints.map((point) => (
-                                    <rect key={`bar-${point.period}`} x={point.x + 14} y={210 - ((Number(point.order_count) || 0) / chartMaxOrders) * 120} width="14" height={((Number(point.order_count) || 0) / chartMaxOrders) * 120} rx="5" className="commerce-order-bar" />
+                                {chartDisplayMode !== 'lineLine' && chartPoints.map((point) => (
+                                    <g key={`revenue-bar-${point.period}`}>
+                                        <rect x={point.revenueX - 8} y={point.revenueBarY} width="16" height={Math.max(4, point.revenueBarHeight)} rx="5" className="commerce-revenue-bar">
+                                            <title>{formatChartLabel(point.period, chartInterval)}: ยอดขาย ฿{formatMoney(point.revenue)} · {point.order_count.toLocaleString('th-TH')} ออเดอร์</title>
+                                        </rect>
+                                    </g>
                                 ))}
-                                <path d={chartPath} className="commerce-revenue-line" />
-                                {chartPoints.map((point) => <circle key={`dot-${point.period}`} cx={point.x} cy={point.y} r="5" className="commerce-revenue-dot"><title>{formatChartLabel(point.period, chartInterval)}: ฿{formatMoney(point.revenue)} · {point.order_count} ออเดอร์</title></circle>)}
+                                {chartDisplayMode === 'barBar' && chartPoints.map((point) => (
+                                    <g key={`order-bar-${point.period}`}>
+                                        <rect x={point.orderX - 8} y={point.orderBarY} width="16" height={Math.max(4, point.orderBarHeight)} rx="5" className="commerce-order-bar">
+                                            <title>{formatChartLabel(point.period, chartInterval)}: {point.order_count.toLocaleString('th-TH')} ออเดอร์ · ยอดขาย ฿{formatMoney(point.revenue)}</title>
+                                        </rect>
+                                    </g>
+                                ))}
+                                {chartDisplayMode === 'lineLine' && (
+                                    <>
+                                        <path d={revenueChartPath} className="commerce-revenue-line" />
+                                        {chartPoints.map((point) => (
+                                            <circle key={`revenue-dot-${point.period}`} cx={point.revenueX} cy={point.revenueLineY} r="5" className="commerce-revenue-dot">
+                                                <title>{formatChartLabel(point.period, chartInterval)}: ยอดขาย ฿{formatMoney(point.revenue)}</title>
+                                            </circle>
+                                        ))}
+                                    </>
+                                )}
+                                {chartDisplayMode !== 'barBar' && (
+                                    <>
+                                        <path d={chartPath} className="commerce-orders-line" />
+                                        {chartPoints.map((point) => (
+                                            <circle key={`dot-${point.period}`} cx={point.orderX} cy={point.orderY} r="5" className="commerce-orders-dot">
+                                                <title>{formatChartLabel(point.period, chartInterval)}: {point.order_count.toLocaleString('th-TH')} ออเดอร์ · ยอดขาย ฿{formatMoney(point.revenue)}</title>
+                                            </circle>
+                                        ))}
+                                    </>
+                                )}
+                                {chartPoints.map((point, index) => {
+                                    const showValue = chartPoints.length <= 7 || index % chartValueStep === 0 || index === chartPoints.length - 1;
+                                    return showValue ? (
+                                        <g key={`value-${point.period}`} className="commerce-chart-value-group">
+                                            <rect x={point.revenueLabelX - 31} y={point.revenueLabelY - 12} width="62" height="18" rx="6" className="revenue" />
+                                            <text x={point.revenueLabelX} y={point.revenueLabelY} className="commerce-chart-value revenue">
+                                                ฿{formatMoney(point.revenue)}
+                                            </text>
+                                            <rect x={point.orderLabelX - 33} y={point.orderLabelY - 12} width="66" height="18" rx="6" className="orders" />
+                                            <text x={point.orderLabelX} y={point.orderLabelY} className="commerce-chart-value orders">
+                                                {point.order_count.toLocaleString('th-TH')} ออเดอร์
+                                            </text>
+                                        </g>
+                                    ) : null;
+                                })}
+                                {chartPoints.map((point, index) => {
+                                    const showDate = chartPoints.length <= 7 || index % chartDateStep === 0 || index === chartPoints.length - 1;
+                                    return showDate ? (
+                                        <text key={`date-${point.period}`} x={point.x} y="245" className="commerce-chart-date-label">
+                                            {formatChartLabel(point.period, chartInterval)}
+                                        </text>
+                                    ) : null;
+                                })}
+                                {chartDisplayMode !== 'barBar' && chartPoints.map((point) => (
+                                    <circle key={`dot-top-${point.period}`} cx={point.orderX} cy={point.orderY} r="6" className="commerce-orders-dot top">
+                                        <title>{formatChartLabel(point.period, chartInterval)}: {point.order_count.toLocaleString('th-TH')} ออเดอร์</title>
+                                    </circle>
+                                ))}
                             </svg>
-                            <div className="commerce-chart-labels">
-                                {chartPoints.slice(-7).map((point) => <span key={point.period}>{formatChartLabel(point.period, chartInterval)}</span>)}
+                            <div className="commerce-chart-mode-tabs" aria-label="รูปแบบกราฟ">
+                                {[
+                                    ['barLine', 'แท่ง+เส้น'],
+                                    ['barBar', 'แท่งคู่'],
+                                    ['lineLine', 'เส้นคู่'],
+                                ].map(([value, label]) => (
+                                    <button key={value} type="button" className={chartDisplayMode === value ? 'active' : ''} onClick={() => setChartDisplayMode(value)}>
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     ) : <div className="commerce-empty-chart">ยังไม่มียอดขายในช่วงเวลาที่เลือก</div>}
@@ -2727,7 +2895,13 @@ function AdminDashboardPage({
                             </div>
                         ) : (
                             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                                {orderStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+                                {orderStatusOptionGroups.map((group) => (
+                                    <optgroup key={group.label} label={group.label}>
+                                        {group.options.map((status) => (
+                                            <option key={status.value} value={status.value}>{status.label}</option>
+                                        ))}
+                                    </optgroup>
+                                ))}
                             </select>
                         )}
                         <select value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)}>

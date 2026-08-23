@@ -25,7 +25,6 @@ import { getCartItemKey, getCartTotal } from './utils/cart';
 const AUTH_STORAGE_KEY = 'clothingStoreUser';
 const AUTH_TOKEN_KEY = 'clothingStoreToken';
 const CART_STORAGE_PREFIX = 'clothingStoreCart';
-const POS_COMPAT_PHONE = '0800000000';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 
@@ -1409,15 +1408,13 @@ function App() {
         setSelectedCartKeys((currentKeys) => currentKeys.filter((key) => !paidKeySet.has(key)));
     };
 
-    const handleConfirmPosPayment = async ({ user_code, payment_method, cash_received }) => {
+    const handleConfirmPosPayment = async ({ user_phone, payment_method, cash_received }) => {
         if (!redirectUnauthorizedPage('pos')) throw new Error('กรุณาเข้าสู่ระบบด้วยสิทธิ์แอดมิน');
         if (selectedCartItems.length === 0) throw new Error('กรุณาเลือกสินค้าที่ต้องการชำระเงิน');
 
         const res = await ordersApi.checkoutPosOrder({
             user_id: user?.id,
-            user_code,
-            receiver_name: user_code,
-            phone: POS_COMPAT_PHONE,
+            user_phone,
             payment_method,
             cash_received,
             cart_items: selectedCartItems,
@@ -2211,9 +2208,8 @@ function App() {
                     mode="sales"
                     eyebrow="Sales History"
                     title="ประวัติการขาย"
-                    description="ตรวจสอบรายการขายทั้งหมด สถานะออเดอร์ และยอดขายของร้าน"
+                    description="ตรวจสอบรายการขายหน้าร้าน สถานะออเดอร์ และยอดขายของร้าน"
                     activeTabLabel="ประวัติการขายหน้าร้าน"
-                    historyTabLabel="ออนไลน์"
                     onClose={() => setIsSalesHistoryOpen(false)}
                 />
             )}

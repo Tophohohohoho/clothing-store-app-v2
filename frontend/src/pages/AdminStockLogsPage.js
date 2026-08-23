@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatThaiDateTime } from '../utils/date';
+import { resolveMediaUrl } from '../utils/media';
 
 const PAGE_SIZES = [10, 20, 50, 100];
 const DATE_PRESETS = [
@@ -95,7 +96,7 @@ const formatAuditJson = (value, fallback) => {
     }
 };
 
-function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoading = false }) {
+function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoading = false, products = [] }) {
     const [activityView, setActivityView] = useState('stock');
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [sort, setSort] = useState({ key: 'date', direction: 'desc' });
@@ -111,6 +112,19 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
         }
     }, []);
 
+    const productImages = useMemo(() => {
+        const byId = new Map();
+        const byName = new Map();
+        products.forEach((product) => {
+            const id = product.id ?? product.product_id;
+            const image = product.image_url || product.product_image;
+            const name = String(product.name || product.product_name || '').trim();
+            if (id && image) byId.set(String(id), image);
+            if (name && image) byName.set(name, image);
+        });
+        return { byId, byName };
+    }, [products]);
+
     const rows = useMemo(() => (
         (activityView === 'stock' ? stockLogs : systemLogs).map((log) => ({
             ...log,
@@ -118,10 +132,16 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             auditDate: log.created_at || log.log_date,
             auditUser: log.actor_name || log.admin_name || log.full_name || log.username || 'ระบบ',
             auditProduct: log.product_name || '-',
+            auditProductImage: resolveMediaUrl(
+                log.product_image
+                || log.image_url
+                || productImages.byId.get(String(log.product_id))
+                || productImages.byName.get(String(log.product_name || ''))
+            ),
             auditNote: log.reason || log.remark || '-',
             auditAmount: Number(log.change_quantity ?? log.amount ?? log.quantity ?? 0),
         }))
-    ), [activityView, stockLogs, systemLogs]);
+    ), [activityView, stockLogs, systemLogs, productImages]);
 
     const users = useMemo(() => [...new Set(rows.map((row) => row.auditUser))].sort((a, b) => a.localeCompare(b, 'th')), [rows]);
     const availableTypes = useMemo(() => {
@@ -190,6 +210,9 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
             } else if (sort.key === 'amount') {
                 left = a.auditAmount;
                 right = b.auditAmount;
+            } else if (sort.key === 'product') {
+                left = a.auditProduct;
+                right = b.auditProduct;
             } else {
                 left = ACTIVITY_LABELS[a.auditType];
                 right = ACTIVITY_LABELS[b.auditType];
@@ -328,6 +351,11 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
         }
     };
 
+    const hasSessionDetail = (log) => Boolean(
+        log?.duration
+        || log?.session_duration
+    );
+
     return (
         <section className="audit-dashboard">
             <header className="audit-heading admin-hero">
@@ -406,12 +434,13 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                 </div>
 
                 <div className="audit-table-wrap">
-                    <table className="audit-table">
+                    <table className={`audit-table ${activityView === 'stock' ? 'stock-log-table' : 'system-log-table'}`}>
                         <thead>
                             <tr>
                                 <th><button type="button" onClick={() => changeSort('date')}>วันที่/เวลา{sortMarker('date')}</button></th>
                                 <th><button type="button" onClick={() => changeSort('user')}>ผู้ใช้งาน{sortMarker('user')}</button></th>
-                                {activityView === 'stock' && <th>สินค้า</th>}
+                                {activityView === 'stock' && <th className="activity-image-col">รูปสินค้า</th>}
+                                {activityView === 'stock' && <th><button type="button" onClick={() => changeSort('product')}>สินค้า{sortMarker('product')}</button></th>}
                                 <th><button type="button" onClick={() => changeSort('type')}>ประเภทกิจกรรม{sortMarker('type')}</button></th>
                                 {activityView === 'stock' && <th className="text-center"><button type="button" onClick={() => changeSort('amount')}>จำนวน{sortMarker('amount')}</button></th>}
                                 {activityView === 'system' && <th>การทำงาน</th>}
@@ -423,7 +452,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                             {activityLogsLoading ? (
                                 [...Array(6)].map((_, index) => (
                                     <tr key={`skeleton-${index}`} className="audit-skeleton-row">
-                                        <td colSpan={activityView === 'stock' ? 7 : 6}><i /></td>
+                                        <td colSpan={activityView === 'stock' ? 8 : 6}><i /></td>
                                     </tr>
                                 ))
                             ) : paginatedRows.length > 0 ? paginatedRows.map((log) => {
@@ -435,6 +464,17 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                                             <strong>{log.auditUser}</strong>
                                             {log.username && log.username !== log.auditUser && <small>@{log.username}</small>}
                                         </td>
+                                        {activityView === 'stock' && (
+                                            <td>
+                                                <div className="audit-product-thumb">
+                                                    {log.auditProductImage ? (
+                                                        <img src={log.auditProductImage} alt={log.auditProduct} />
+                                                    ) : (
+                                                        <span>{String(log.auditProduct || 'P').charAt(0)}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        )}
                                         {activityView === 'stock' && <td><strong>{log.auditProduct}</strong></td>}
                                         <td><span className={`audit-badge ${log.auditType}`}>{ACTIVITY_LABELS[log.auditType]}</span></td>
                                         {activityView === 'stock' && <td className={`audit-amount ${outgoing ? 'out' : 'in'}`}>{outgoing ? '-' : '+'}{Math.abs(log.auditAmount).toLocaleString('th-TH')}</td>}
@@ -445,7 +485,7 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                                 );
                             }) : (
                                 <tr>
-                                    <td colSpan={activityView === 'stock' ? 7 : 6}>
+                                    <td colSpan={activityView === 'stock' ? 8 : 6}>
                                         <div className="audit-empty">
                                             <b>⌕</b>
                                             <strong>ไม่พบประวัติการเคลื่อนไหวในช่วงวันที่นี้</strong>
@@ -489,38 +529,51 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                             </div>
                             <button type="button" onClick={() => setSelectedLog(null)}>×</button>
                         </header>
-                        <div className="audit-modal-grid">
+                        <div className={`audit-modal-grid ${activityView === 'stock' || !hasSessionDetail(selectedLog) ? 'stock-detail-grid' : 'system-detail-grid'}`}>
                             <div><span>ผู้ใช้งาน</span><strong>{selectedLog.auditUser}</strong></div>
                             <div><span>วันที่และเวลา</span><strong>{formatDate(selectedLog.auditDate)}</strong></div>
-                            <div><span>IP Address</span><strong>{selectedLog.ip_address || 'ไม่มีข้อมูล'}</strong></div>
-                            <div><span>เวลาใช้งาน</span><strong>{selectedLog.duration || selectedLog.session_duration || 'ไม่มีข้อมูล'}</strong></div>
-                            <div><span>Device</span><strong>{selectedLog.device || 'ไม่มีข้อมูล'}</strong></div>
-                            <div><span>Browser</span><strong>{selectedLog.browser || 'ไม่มีข้อมูล'}</strong></div>
+                            {activityView === 'system' && hasSessionDetail(selectedLog) && (
+                                <>
+                                    {(selectedLog.duration || selectedLog.session_duration) && <div><span>เวลาใช้งาน</span><strong>{selectedLog.duration || selectedLog.session_duration}</strong></div>}
+                                </>
+                            )}
                         </div>
                         {activityView === 'stock' && (
                             <>
                                 <div className="audit-modal-highlight">
-                                    <span>สินค้า</span>
-                                    <strong>{selectedLog.auditProduct}</strong>
+                                    <div className="audit-modal-product">
+                                        <div className="audit-product-thumb audit-modal-product-thumb">
+                                            {selectedLog.auditProductImage ? (
+                                                <img src={selectedLog.auditProductImage} alt={selectedLog.auditProduct} />
+                                            ) : (
+                                                <span>{String(selectedLog.auditProduct || 'P').charAt(0)}</span>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <span>สินค้า</span>
+                                            <strong>{selectedLog.auditProduct}</strong>
+                                        </div>
+                                    </div>
                                     <b className={selectedLog.auditType === 'stock-out' ? 'out' : 'in'}>
                                         {selectedLog.auditAmount < 0 ? '-' : '+'}
                                         {Math.abs(selectedLog.auditAmount).toLocaleString('th-TH')}
                                     </b>
                                 </div>
-                                <div className="audit-modal-grid">
-                                    <div><span>ประเภท</span><strong>{selectedLog.change_type || '-'}</strong></div>
+                                <div className="audit-modal-grid stock-quantity-grid">
+                                    <div className="stock-type-detail"><span>ประเภท</span><strong>{selectedLog.change_type || '-'}</strong></div>
                                     <div><span>จำนวนก่อนแก้ไข</span><strong>{selectedLog.before_quantity ?? '-'}</strong></div>
                                     <div><span>จำนวนที่เปลี่ยน</span><strong>{selectedLog.change_quantity ?? selectedLog.auditAmount}</strong></div>
                                     <div><span>จำนวนหลังแก้ไข</span><strong>{selectedLog.after_quantity ?? '-'}</strong></div>
                                 </div>
                             </>
                         )}
-                        <div className="audit-change-grid">
-                            <section><span>ข้อมูลก่อนแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.before_quantity ?? 'ไม่มีข้อมูลก่อนแก้ไข') : formatAuditJson(selectedLog.before_data || selectedLog.old_data, 'ไม่มีข้อมูลก่อนแก้ไข')}</pre></section>
-                            <section><span>ข้อมูลหลังแก้ไข</span><pre>{activityView === 'stock' ? (selectedLog.after_quantity ?? 'ไม่มีข้อมูลหลังแก้ไข') : formatAuditJson(selectedLog.after_data || selectedLog.new_data, 'ไม่มีข้อมูลหลังแก้ไข')}</pre></section>
-                        </div>
+                        {activityView === 'system' && (
+                            <div className="audit-change-grid">
+                                <section><span>ข้อมูลก่อนแก้ไข</span><pre>{formatAuditJson(selectedLog.before_data || selectedLog.old_data, 'ไม่มีข้อมูลก่อนแก้ไข')}</pre></section>
+                                <section><span>ข้อมูลหลังแก้ไข</span><pre>{formatAuditJson(selectedLog.after_data || selectedLog.new_data, 'ไม่มีข้อมูลหลังแก้ไข')}</pre></section>
+                            </div>
+                        )}
                         <div className="audit-modal-note"><span>หมายเหตุ</span><p>{selectedLog.auditNote}</p></div>
-                        <footer><button type="button" onClick={() => setSelectedLog(null)}>ปิดหน้าต่าง</button></footer>
                     </div>
                 </div>
             )}

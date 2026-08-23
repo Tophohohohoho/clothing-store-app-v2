@@ -2877,6 +2877,7 @@ app.get('/api/admin/stock-logs', requireAdmin, async (req, res) => {
             SELECT
                 l.stock_log_id AS id,
                 l.stock_log_id,
+                l.product_id,
                 l.change_type,
                 l.quantity AS amount,
                 l.quantity,
@@ -2889,6 +2890,7 @@ app.get('/api/admin/stock-logs', requireAdmin, async (req, res) => {
                 l.actor_name,
                 l.created_at,
                 p.product_name AS product_name,
+                p.product_image AS product_image,
                 COALESCE(
                     l.actor_name,
                     CASE WHEN stock_user.role = 'admin' THEN COALESCE(stock_user.full_name, stock_user.username) END,
@@ -3140,16 +3142,15 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
     try {
         const {
             user_code,
+            user_phone,
             receiver_name,
             phone,
             payment_method,
             cash_received,
             cart_items,
         } = req.body;
-        const user_id = req.authUser.id;
-        const userCode = cleanText(user_code);
-        const receiverName = userCode || cleanText(receiver_name) || req.authUser.full_name || req.authUser.username || 'ลูกค้าหน้าร้าน';
-        const shippingPhone = userCode ? '' : cleanPhone(phone);
+        const adminUserId = req.authUser.id;
+        const memberPhone = cleanPhone(user_phone ?? user_code ?? phone);
 
         if (!Array.isArray(cart_items) || cart_items.length === 0) {
             return res.status(400).json({ error: 'ไม่มีสินค้าในรายการขาย' });
@@ -3157,18 +3158,31 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
         if (!['เงินสด', 'QR'].includes(payment_method)) {
             return res.status(400).json({ error: 'รองรับการชำระเงินสดหรือ QR เท่านั้น' });
         }
-        if (!receiverName) {
-            return res.status(400).json({ error: 'กรุณากรอกรหัสผู้ใช้งาน' });
-        }
-        if (shippingPhone && !PHONE_REGEX.test(shippingPhone)) {
-            return res.status(400).json({ error: 'รูปแบบเบอร์โทรผู้รับไม่ถูกต้อง' });
+        if (memberPhone && !PHONE_REGEX.test(memberPhone)) {
+            return res.status(400).json({ error: 'รูปแบบเบอร์สมาชิกไม่ถูกต้อง' });
         }
 
         const [admins] = await query(
             'SELECT user_id, username, full_name FROM `user` WHERE user_id = ? AND role = ? AND status_user = 1 LIMIT 1',
-            [user_id, 'admin'],
+            [adminUserId, 'admin'],
         );
         if (admins.length === 0) return res.status(403).json({ error: 'เฉพาะแอดมินเท่านั้นที่บันทึกการขายหน้าร้านได้' });
+
+        let orderUserId = adminUserId;
+        let receiverName = cleanText(receiver_name) || req.authUser.full_name || req.authUser.username || 'ลูกค้าหน้าร้าน';
+        let shippingPhone = '';
+
+        if (memberPhone) {
+            const [members] = await query(
+                "SELECT user_id, username, full_name, phone FROM `user` WHERE REPLACE(REPLACE(phone, '-', ''), ' ', '') = ? AND role <> 'admin' AND status_user = 1 LIMIT 1",
+                [memberPhone],
+            );
+            if (members.length === 0) return res.status(404).json({ error: 'ไม่พบสมาชิกที่ใช้เบอร์โทรนี้' });
+            const member = members[0];
+            orderUserId = member.user_id;
+            receiverName = cleanText(receiver_name) || member.full_name || member.username || 'สมาชิก';
+            shippingPhone = member.phone || memberPhone;
+        }
 
         await dbp.beginTransaction();
         transactionStarted = true;
@@ -3216,7 +3230,7 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
             `INSERT INTO orders
                 (user_id, total_price, shipping_fee, discount, final_price, order_status, payment_method, payment_status, delivery_type, receiver_name, shipping_phone, tracking_no)
              VALUES (?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-            [user_id, totalPrice, totalPrice, 'เสร็จสิ้น', payment_method, PAID_PAYMENT_STATUS, 'ขายหน้าร้าน', receiverName, shippingPhone],
+            [orderUserId, totalPrice, totalPrice, 'เสร็จสิ้น', payment_method, PAID_PAYMENT_STATUS, 'ขายหน้าร้าน', receiverName, shippingPhone],
         );
         const orderId = orderResult.insertId;
 
@@ -3230,7 +3244,7 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
                 changeType: 'ขายสินค้า',
                 changeQuantity: -item.quantity,
                 reason: `ขายหน้าร้าน #${orderId}`,
-                userId: user_id,
+                userId: adminUserId,
                 orderDetailId: detailResult.insertId,
                 executor: dbp,
             });
@@ -3242,13 +3256,14 @@ app.post('/api/admin/pos/checkout', requireAdmin, async (req, res) => {
         );
         await dbp.query(
             'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
-            [orderId, 'เสร็จสิ้น', user_id, `ขายหน้าร้าน ชำระด้วย${payment_method}`],
+            [orderId, 'เสร็จสิ้น', adminUserId, `ขายหน้าร้าน ชำระด้วย${payment_method}`],
         );
-        await writeSystemLog(user_id, 'ขายหน้าร้าน', `คำสั่งซื้อ #${orderId} ชำระด้วย${payment_method}`, {
+        await writeSystemLog(adminUserId, 'ขายหน้าร้าน', `คำสั่งซื้อ #${orderId} ชำระด้วย${payment_method}`, {
             ...getAuditRequestMeta(req),
             afterData: {
                 order_id: orderId,
-                user_id,
+                user_id: orderUserId,
+                cashier_id: adminUserId,
                 payment_method,
                 receiver_name: receiverName,
                 shipping_phone: shippingPhone,

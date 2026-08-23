@@ -1119,10 +1119,49 @@
 }
 
 .commerce-chart-tabs button.custom-trigger {
-    margin-left: 4px;
-    padding-left: 14px;
+    margin-left: 8px;
+    padding-left: 16px;
     border-left: 1px solid #d0d5dd;
     border-radius: 0 7px 7px 0;
+}
+
+.commerce-chart-tabs button.reset-trigger {
+    margin-left: 12px;
+    padding-left: 18px;
+    border-left: 1px solid #d0d5dd;
+    border-radius: 0 7px 7px 0;
+    color: #475467;
+}
+
+.commerce-chart-tabs button.reset-trigger:hover {
+    background: #fff;
+    color: #4f46c8;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, .08);
+}
+
+.commerce-chart-mode-tabs {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 8px;
+    padding: 4px;
+}
+
+.commerce-chart-mode-tabs button {
+    padding: 6px 9px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: #667085;
+    font: inherit;
+    font-size: .68rem;
+    font-weight: 800;
+}
+
+.commerce-chart-mode-tabs button.active {
+    background: #fff;
+    color: #4f46c8;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, .08);
 }
 
 .commerce-chart-date-picker {
@@ -1177,19 +1216,72 @@
     gap: 5px;
 }
 
+.commerce-chart-legend b {
+    margin-right: auto;
+    padding: 3px 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 999px;
+    background: #fff;
+    color: #475467;
+    font-size: .66rem;
+    font-weight: 850;
+}
+
 .commerce-chart-legend i {
     width: 8px;
     height: 8px;
     border-radius: 50%;
 }
 
-.commerce-chart-legend i.revenue { background: #5b5bd6; }
-.commerce-chart-legend i.orders { background: #b9e5d0; }
+.commerce-chart-legend i.revenue { background: #b9e5d0; }
+.commerce-chart-legend i.orders { background: #5b5bd6; }
 .commerce-chart svg { display: block; width: 100%; height: 248px; overflow: visible; }
 .commerce-grid-line { stroke: #eaecf0; stroke-width: 1; }
-.commerce-order-bar { fill: #cceee0; }
-.commerce-revenue-line { fill: none; stroke: #5b5bd6; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-.commerce-revenue-dot { fill: #fff; stroke: #5b5bd6; stroke-width: 4; }
+.commerce-revenue-bar { fill: #cceee0; }
+.commerce-order-bar { fill: #c7d0ff; }
+.commerce-revenue-line { fill: none; stroke: #34c795; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.commerce-revenue-dot { fill: #fff; stroke: #34c795; stroke-width: 4; }
+.commerce-orders-line { fill: none; stroke: #5b5bd6; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.commerce-orders-dot { fill: #fff; stroke: #5b5bd6; stroke-width: 4; }
+.commerce-orders-dot.top { stroke-width: 5; }
+.commerce-chart-value-group rect {
+    fill: rgba(255, 255, 255, .94);
+    stroke: #e4e7ec;
+    stroke-width: 1;
+}
+.commerce-chart-value-group rect.revenue {
+    fill: rgba(236, 253, 243, .96);
+    stroke: #abefc6;
+}
+.commerce-chart-value-group rect.orders {
+    fill: rgba(238, 239, 255, .96);
+    stroke: #c7d0ff;
+}
+.commerce-chart-value {
+    fill: #344054;
+    font-size: 12px;
+    font-weight: 800;
+    paint-order: stroke;
+    pointer-events: none;
+    stroke: #fff;
+    stroke-linejoin: round;
+    stroke-width: 5px;
+    text-anchor: middle;
+}
+.commerce-chart-value.orders {
+    fill: #4b4bc4;
+    font-size: 11px;
+}
+.commerce-chart-value.revenue {
+    fill: #067647;
+}
+.commerce-chart-date-label {
+    fill: #667085;
+    font-size: 11px;
+    font-weight: 800;
+    pointer-events: none;
+    text-anchor: middle;
+}
 
 .commerce-sales-summary {
     display: grid;
@@ -4741,6 +4833,15 @@
     line-height: 1.4;
 }
 
+.order-history-header-seller {
+    display: block;
+    margin-top: 5px;
+    color: #667085;
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
 .order-history-tracking-code {
     display: block;
     color: #475467;
@@ -5060,6 +5161,87 @@
     margin: 0 0 4px;
     color: #111827;
     font-size: 0.9rem;
+    font-weight: 900;
+}
+
+.order-history-sale-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.order-history-sale-table {
+    width: 100%;
+    min-width: 520px;
+    border-collapse: collapse;
+}
+
+.order-history-sale-table th {
+    padding: 9px 10px;
+    border-bottom: 1px solid #e7edf4;
+    color: #667085;
+    font-size: 0.72rem;
+    font-weight: 900;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.order-history-sale-table td {
+    padding: 10px;
+    border-bottom: 1px dashed #d7dee8;
+    color: #344054;
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+
+.order-history-sale-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.order-history-sale-table th:nth-child(1),
+.order-history-sale-table td:nth-child(1) {
+    width: 76px;
+}
+
+.order-history-sale-table th:nth-child(3),
+.order-history-sale-table td:nth-child(3),
+.order-history-sale-table th:nth-child(4),
+.order-history-sale-table td:nth-child(4) {
+    width: 120px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.order-history-sale-table strong {
+    color: #111827;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+}
+
+.order-history-sale-table b {
+    color: #111827;
+    font-weight: 900;
+}
+
+.order-history-sale-thumb {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    overflow: hidden;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.order-history-sale-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.order-history-sale-thumb span {
+    color: #667085;
+    font-size: 0.82rem;
     font-weight: 900;
 }
 
@@ -7020,7 +7202,7 @@
 
 .audit-table {
     width: 100%;
-    min-width: 900px;
+    min-width: 980px;
     border-collapse: collapse;
 }
 
@@ -7078,6 +7260,65 @@
 
 .audit-date {
     white-space: nowrap;
+}
+
+.stock-log-table th:nth-child(1),
+.stock-log-table td:nth-child(1) {
+    width: 15%;
+}
+
+.stock-log-table th:nth-child(2),
+.stock-log-table td:nth-child(2) {
+    width: 16%;
+}
+
+.stock-log-table .activity-image-col,
+.stock-log-table td:nth-child(3) {
+    width: 148px;
+    text-align: center;
+}
+
+.stock-log-table th:nth-child(4),
+.stock-log-table td:nth-child(4) {
+    width: 19%;
+}
+
+.stock-log-table th:nth-child(5),
+.stock-log-table td:nth-child(5) {
+    width: 15%;
+}
+
+.stock-log-table th:nth-child(6),
+.stock-log-table td:nth-child(6) {
+    width: 12%;
+}
+
+.stock-log-table th:nth-child(7),
+.stock-log-table td:nth-child(7) {
+    width: 18%;
+}
+
+.audit-product-thumb {
+    display: inline-grid;
+    place-items: center;
+    width: 88px;
+    height: 88px;
+    overflow: hidden;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.audit-product-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.audit-product-thumb span {
+    color: #667085;
+    font-size: .88rem;
+    font-weight: 900;
 }
 
 .audit-note {
@@ -7278,6 +7519,27 @@
     background: var(--audit-line);
 }
 
+.audit-modal-grid.stock-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.audit-modal-grid.system-detail-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.audit-modal-grid.system-detail-grid div {
+    flex: 1 1 240px;
+}
+
+.audit-modal-grid.stock-quantity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.audit-modal-grid.stock-quantity-grid .stock-type-detail {
+    grid-column: 1 / -1;
+}
+
 .audit-modal-grid div {
     min-height: 76px;
     padding: 13px;
@@ -7301,15 +7563,33 @@
 
 .audit-modal-highlight {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
     margin: 0 24px 18px;
     padding: 15px;
     border: 1px solid #e6e9ef;
     border-radius: 13px;
 }
 
-.audit-modal-highlight span { grid-column: 1 / -1; }
 .audit-modal-highlight b { font-size: 1.05rem; }
+
+.audit-modal-product {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 12px;
+}
+
+.audit-modal-product-thumb {
+    flex: 0 0 auto;
+    width: 104px;
+    height: 104px;
+}
+
+.audit-modal-product strong {
+    overflow-wrap: anywhere;
+}
 
 .audit-change-grid {
     display: grid;

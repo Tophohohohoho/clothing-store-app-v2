@@ -42,7 +42,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
     const total = getCartTotal(cart);
     const itemCount = getCartCount(cart);
     const [paymentMethod, setPaymentMethod] = useState('เงินสด');
-    const [userCode, setUserCode] = useState('');
+    const [memberPhone, setMemberPhone] = useState('');
     const [cashReceived, setCashReceived] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -69,10 +69,6 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
 
     const submitSale = async () => {
         setError('');
-        if (!userCode.trim()) {
-            setError('กรุณากรอกรหัสผู้ใช้งาน');
-            return;
-        }
         if (paymentMethod === 'เงินสด' && cashAmount < total) {
             setError('จำนวนเงินที่รับมาต้องไม่น้อยกว่ายอดสุทธิ');
             return;
@@ -81,7 +77,7 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
         try {
             setIsSubmitting(true);
             const result = await onConfirm({
-                user_code: userCode.trim(),
+                user_phone: memberPhone.trim(),
                 payment_method: paymentMethod,
                 cash_received: paymentMethod === 'เงินสด' ? cashAmount : total,
             });
@@ -106,7 +102,8 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                         <div className="pos-receipt-meta">
                             <span>วันที่</span><strong>{formatThaiDateTime(receipt.order_date)}</strong>
                             <span>พนักงาน</span><strong>{cashier?.full_name || cashier?.username || '-'}</strong>
-                            <span>รหัสผู้ใช้งาน</span><strong>{receipt.receiver_name || '-'}</strong>
+                            <span>สมาชิก</span><strong>{receipt.receiver_name || '-'}</strong>
+                            <span>เบอร์สมาชิก</span><strong>{receipt.shipping_phone || '-'}</strong>
                             <span>ชำระโดย</span><strong>{receipt.payment_method}</strong>
                         </div>
                         <div className="pos-receipt-items">
@@ -170,10 +167,10 @@ function PosCheckoutModal({ cart, cashier, onClose, onConfirm }) {
                     </div>
 
                     <div className="pos-payment-panel">
-                        <h3>รหัสผู้ใช้งาน</h3>
+                        <h3>เบอร์สมาชิก</h3>
                         <div className="pos-cash-box">
-                            <label>รหัสผู้ใช้งาน</label>
-                            <div><input type="text" value={userCode} onChange={(event) => { setUserCode(event.target.value); setError(''); }} placeholder="กรอกรหัสผู้ใช้งาน" autoFocus /></div>
+                            <label>เบอร์สมาชิก (ถ้ามี)</label>
+                            <div><input type="tel" inputMode="tel" value={memberPhone} onChange={(event) => { setMemberPhone(event.target.value); setError(''); }} placeholder="กรอกเบอร์สมาชิกถ้าต้องการบันทึกเข้าประวัติ" autoFocus /></div>
                         </div>
                         <h3>เลือกวิธีชำระเงิน</h3>
                         <div className="pos-payment-methods">
