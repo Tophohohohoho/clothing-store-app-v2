@@ -172,6 +172,14 @@ function OrderHistoryModal({
         ? displayedOrders.slice((customerPage - 1) * customerPageSize, customerPage * customerPageSize)
         : displayedOrders;
     const customerFilterCopy = CUSTOMER_FILTER_COPY[customerOrderFilter] || CUSTOMER_FILTER_COPY.all;
+    const customerDeliveryOptions = Array.from(new Set(orderList
+        .map((order) => String(order.shipping_method || order.delivery_type || '').trim())
+        .filter(Boolean)));
+    const hasCustomerSecondaryFilters = Boolean(
+        customerSearch.trim()
+        || customerDeliveryFilter !== 'all'
+        || customerDatePreset !== '30',
+    );
     const canUploadReceipt = !isSalesMode && Boolean(onUploadReceipt);
     const canCancelOrder = !isSalesMode && Boolean(onCancelOrder);
     const canCancelReceipt = !isSalesMode && Boolean(onCancelReceipt);
@@ -786,6 +794,54 @@ function OrderHistoryModal({
                             <div className="order-view-banner order-history-customer-banner">
                                 <strong>{customerFilterCopy.title}</strong>
                                 <span>{customerFilterCopy.description}</span>
+                            </div>
+                            <div className="order-history-customer-toolbar">
+                                <label className="order-search">
+                                    <span aria-hidden="true">⌕</span>
+                                    <input
+                                        type="search"
+                                        value={customerSearch}
+                                        onChange={(event) => setCustomerSearch(event.target.value)}
+                                        placeholder="ค้นหาเลขออเดอร์ สถานะ หรือเลขจัดส่ง"
+                                        aria-label="ค้นหาคำสั่งซื้อ"
+                                    />
+                                </label>
+                                <select
+                                    value={customerDeliveryFilter}
+                                    onChange={(event) => setCustomerDeliveryFilter(event.target.value)}
+                                    aria-label="กรองตามวิธีรับสินค้า"
+                                >
+                                    <option value="all">ทุกวิธีรับสินค้า</option>
+                                    {customerDeliveryOptions.map((deliveryMethod) => (
+                                        <option value={deliveryMethod} key={deliveryMethod}>{deliveryMethod}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={customerDatePreset}
+                                    onChange={(event) => setCustomerDatePreset(event.target.value)}
+                                    aria-label="กรองตามช่วงวันที่"
+                                >
+                                    {CUSTOMER_DATE_PRESETS.map((preset) => (
+                                        <option value={preset.value} key={preset.value}>{preset.label}</option>
+                                    ))}
+                                </select>
+                                <div className="order-export order-history-customer-export">
+                                    <button type="button" onClick={() => exportCustomerOrders('csv')}>CSV</button>
+                                    <button type="button" className="primary" onClick={() => exportCustomerOrders('print')}>พิมพ์</button>
+                                </div>
+                                {hasCustomerSecondaryFilters && (
+                                    <button
+                                        type="button"
+                                        className="order-clear"
+                                        onClick={() => {
+                                            setCustomerSearch('');
+                                            setCustomerDeliveryFilter('all');
+                                            setCustomerDatePreset('30');
+                                        }}
+                                    >
+                                        ล้าง
+                                    </button>
+                                )}
                             </div>
                             <div className="order-table-wrap order-history-customer-table-wrap">
                                 <table className="order-table order-history-customer-table">

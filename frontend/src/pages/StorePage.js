@@ -47,6 +47,9 @@ function StorePage({
             return matchesCategory && matchesKeyword;
         });
     }, [activeProducts, searchText, selectedCategory]);
+    const resultSummary = selectedCategory === 'all'
+        ? `${visibleProducts.length} รายการพร้อมเลือกซื้อ`
+        : `${visibleProducts.length} รายการในประเภท ${selectedCategory}`;
 
     const handleImageError = (event) => {
         event.currentTarget.style.display = 'none';
@@ -91,8 +94,14 @@ function StorePage({
         <section className="store-page">
             <div className="store-hero">
                 <div>
+                    <span className="store-eyebrow">SHOP LRU Official Store</span>
                     <h1>หน้าร้านสินค้า</h1>
                     <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูรายละเอียดสินค้า ราคา และจำนวนที่ต้องการ</p>
+                    <div className="store-hero-benefits" aria-label="จุดเด่นของหน้าร้าน">
+                        <span><b>✓</b> ค้นหาสินค้าไว</span>
+                        <span><b>✓</b> เลือกจำนวนก่อนซื้อ</span>
+                        <span><b>✓</b> ชำระเงินเป็นขั้นตอน</span>
+                    </div>
                     {showStockCounts && onOpenAddMember && (
                         <button type="button" className="store-admin-member-button" onClick={onOpenAddMember}>
                             เพิ่มสมาชิก
@@ -116,7 +125,7 @@ function StorePage({
             <div className="store-toolbar">
                 <div>
                     <h2>สินค้าแนะนำ</h2>
-                    {showStockCounts && <span>{visibleProducts.length} รายการที่พบ</span>}
+                    <span>{resultSummary}</span>
                 </div>
                 <div className="store-search">
                     <label className="store-filter-field">
@@ -237,7 +246,13 @@ function StorePage({
 
                 return (
                     <div className="product-detail-modal" onClick={() => setSelectedProduct(null)}>
-                        <div className="product-detail-dialog" onClick={(event) => event.stopPropagation()}>
+                        <div
+                            className="product-detail-dialog"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="product-detail-title"
+                            onClick={(event) => event.stopPropagation()}
+                        >
                             <button type="button" className="product-detail-close" onClick={() => setSelectedProduct(null)} aria-label="ปิดรายละเอียดสินค้า">
                                 &times;
                             </button>
@@ -254,7 +269,7 @@ function StorePage({
                                         {isOutOfStock ? 'สินค้าหมด' : `สต็อก ${stock} ชิ้น`}
                                     </span>
                                 )}
-                                <h2>{selectedProduct.name}</h2>
+                                <h2 id="product-detail-title">{selectedProduct.name}</h2>
                                 <p>{selectedProduct.description || 'สินค้าแฟชั่นพร้อมจำหน่าย'}</p>
                                 <div className="product-detail-meta">
                                     <div>

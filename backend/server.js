@@ -28,16 +28,47 @@ loadLocalEnv();
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
+const isProduction = process.env.NODE_ENV === 'production';
+const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+];
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const corsAllowedOrigins = ALLOWED_ORIGINS.length > 0 ? ALLOWED_ORIGINS : DEFAULT_ALLOWED_ORIGINS;
 
-app.use(cors());
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || corsAllowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+    },
+}));
+
+app.use((err, req, res, next) => {
+    if (err?.message === 'Not allowed by CORS') {
+        return res.status(403).json({
+            success: false,
+            error: 'ไม่อนุญาตให้เรียกใช้งานจากโดเมนนี้',
+        });
+    }
+    return next(err);
+});
+
 app.use(express.json({ limit: '10mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    dotfiles: 'deny',
+    fallthrough: false,
+}));
 
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '1234',
-    database: 'shop_lru',
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '1234',
+    database: process.env.DB_NAME || 'shop_lru',
 });
 const dbp = db.promise();
 
@@ -52,6 +83,76 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(?:0[689]\d{8}|\+66[689]\d{8})$/;
 const VERIFICATION_CODE_EXPIRES_MS = 10 * 60 * 1000;
 const SMTP_REQUIRED_ENV_KEYS = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
+const rateLimitBuckets = new Map();
+let lastRateLimitPruneAt = 0;
+
+const requireProductionSecret = () => {
+    if (isProduction && AUTH_TOKEN_SECRET === 'dev-auth-secret-change-me') {
+        throw new Error('JWT_SECRET or AUTH_TOKEN_SECRET must be set in production');
+    }
+};
+
+const pruneExpiredRateLimitBuckets = (now) => {
+    if (now - lastRateLimitPruneAt < 60 * 1000) return;
+    lastRateLimitPruneAt = now;
+
+    for (const [key, bucket] of rateLimitBuckets.entries()) {
+        if (!bucket || bucket.resetAt <= now) {
+            rateLimitBuckets.delete(key);
+        }
+    }
+};
+
+const normalizeRateLimitKeyPart = (value) => String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const createRateLimiter = ({ windowMs, max, keyPrefix, getAccountKey }) => (req, res, next) => {
+    const now = Date.now();
+    pruneExpiredRateLimitBuckets(now);
+
+    const ipAddress = normalizeRateLimitKeyPart(req.ip || req.socket?.remoteAddress || 'unknown');
+    const accountKey = typeof getAccountKey === 'function' ? normalizeRateLimitKeyPart(getAccountKey(req)) : '';
+    const identifiers = [
+        `${keyPrefix}:ip:${ipAddress || 'unknown'}`,
+        accountKey ? `${keyPrefix}:account:${accountKey}` : null,
+    ].filter(Boolean);
+
+    for (const identifier of identifiers) {
+        const bucket = rateLimitBuckets.get(identifier);
+        if (bucket && bucket.count >= max && bucket.resetAt > now) {
+            return res.status(429).json({
+                success: false,
+                message: 'ส่งคำขอบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่',
+            });
+        }
+    }
+
+    for (const identifier of identifiers) {
+        const bucket = rateLimitBuckets.get(identifier);
+        if (!bucket || bucket.resetAt <= now) {
+            rateLimitBuckets.set(identifier, { count: 1, resetAt: now + windowMs });
+        } else {
+            bucket.count += 1;
+        }
+    }
+
+    return next();
+};
+
+const authRateLimit = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    keyPrefix: 'auth',
+    getAccountKey: (req) => req.body?.username || req.body?.email,
+});
+const otpRateLimit = createRateLimiter({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    keyPrefix: 'otp',
+    getAccountKey: (req) => req.body?.email,
+});
 
 const cleanText = (value) => String(value ?? '').trim();
 const cleanPhone = (value) => cleanText(value).replace(/[\s-]/g, '');
@@ -311,6 +412,8 @@ const getPublicMailErrorMessage = (errorMessage = '') => {
 };
 
 const logRuntimeWarnings = () => {
+    requireProductionSecret();
+
     const missingSmtpKeys = getMissingSmtpEnvKeys();
     if (missingSmtpKeys.length > 0) {
         console.warn(`[startup] SMTP ยังตั้งค่าไม่ครบ ระบบจะสร้าง OTP ได้ แต่จะยังส่งอีเมลไม่ได้: ${missingSmtpKeys.join(', ')}`);
@@ -322,7 +425,11 @@ const logRuntimeWarnings = () => {
         console.warn('[startup] กำลังใช้ AUTH_TOKEN_SECRET ค่าเริ่มต้น ควรตั้ง JWT_SECRET หรือ AUTH_TOKEN_SECRET ก่อนใช้งานจริง');
     }
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (!process.env.DB_PASSWORD) {
+        console.warn('[startup] กำลังใช้ DB_PASSWORD ค่า fallback สำหรับ dev ควรตั้งค่า DB_* ใน .env ก่อนใช้งานจริง');
+    }
+
+    if (!isProduction) {
         console.warn('[startup] NODE_ENV ไม่ใช่ production หากส่งเมลไม่สำเร็จ API อาจส่ง dev_code กลับมาเพื่อใช้ทดสอบ');
     }
 };
@@ -523,7 +630,7 @@ const getAuditRequestMeta = (req) => {
                 : /safari/i.test(userAgent) ? 'Safari' : 'Unknown';
     const device = /mobile|android|iphone|ipad/i.test(userAgent) ? 'Mobile / Tablet' : 'Desktop';
     return {
-        ipAddress: String(req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim(),
+        ipAddress: String(req.ip || req.socket?.remoteAddress || '').trim(),
         device,
         browser,
     };
@@ -1494,7 +1601,7 @@ app.delete('/api/products/:id', requireAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', authRateLimit, async (req, res) => {
     try {
         const loginIdentifier = String(req.body.username || req.body.email || '').trim();
         const password = String(req.body.password || '');
@@ -1541,7 +1648,7 @@ app.post('/api/logout', requireAuth, async (req, res) => {
     }
 });
 
-app.post('/api/register/otp/request', async (req, res) => {
+app.post('/api/register/otp/request', otpRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const fullName = cleanText(req.body.full_name);
@@ -1621,7 +1728,7 @@ const findValidRegistrationCode = async ({ email, code }) => {
     return rows[0] || null;
 };
 
-app.post('/api/register/otp/verify', async (req, res) => {
+app.post('/api/register/otp/verify', otpRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -1751,7 +1858,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-app.post('/api/password-reset/request', async (req, res) => {
+app.post('/api/password-reset/request', otpRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
 
@@ -1841,7 +1948,7 @@ const findValidResetCode = async ({ email, code }) => {
     return rows[0] || null;
 };
 
-app.post('/api/password-reset/verify', async (req, res) => {
+app.post('/api/password-reset/verify', otpRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -1861,7 +1968,7 @@ app.post('/api/password-reset/verify', async (req, res) => {
     }
 });
 
-app.post('/api/password-reset/complete', async (req, res) => {
+app.post('/api/password-reset/complete', otpRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -3352,9 +3459,9 @@ app.post('/api/orders/checkout', requireAuth, async (req, res) => {
         }
 
         const receiptPath = await saveBase64Image(receipt_image_data, receipt_file_name, 'receipts', RECEIPT_UPLOAD_OPTIONS);
-        const receiptUrl = receiptPath ? `${req.protocol}://${req.get('host')}${receiptPath}` : null;
-        const initialOrderStatus = receiptUrl ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
-        const initialPaymentStatus = receiptUrl ? PAYMENT_REVIEW_STATUS : PAYMENT_PENDING_STATUS;
+        const receiptUrl = receiptPath;
+        const initialOrderStatus = receiptPath ? ORDER_PAYMENT_REVIEW_STATUS : ORDER_WAITING_PAYMENT_STATUS;
+        const initialPaymentStatus = receiptPath ? PAYMENT_REVIEW_STATUS : PAYMENT_PENDING_STATUS;
         const shippingFee = shippingMethod === 'รับหน้าร้าน' ? 0 : 50;
         const shippingAddressPayload = normalizeAddressPayload({
             receiver_name: receiver_name || username || 'ลูกค้า',
@@ -3578,7 +3685,7 @@ app.put('/api/orders/:id/receipt', requireOrderOwnerOrAdmin, async (req, res) =>
             return res.status(400).json({ error: 'กรุณาแนบรูปสลิปโอนเงิน' });
         }
 
-        const receiptUrl = `${req.protocol}://${req.get('host')}${receiptPath}`;
+        const receiptUrl = receiptPath;
         const [paymentResult] = await query(
             'UPDATE payment SET receipt_image = ?, receipt_file_name = ?, payment_date = NOW(), verified_amount = NULL, transaction_ref = NULL, reviewed_by = NULL, reviewed_at = NULL, review_note = ? WHERE order_id = ?',
             [receiptUrl, receipt_file_name || null, cleanNote || null, id],
