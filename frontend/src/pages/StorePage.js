@@ -94,14 +94,9 @@ function StorePage({
         <section className="store-page">
             <div className="store-hero">
                 <div>
-                    <span className="store-eyebrow">SHOP LRU Official Store</span>
+                    <span className="store-eyebrow">SHOP LRU</span>
                     <h1>หน้าร้านสินค้า</h1>
                     <p>เลือกสินค้าเข้าตะกร้าได้ทันที พร้อมดูรายละเอียดสินค้า ราคา และจำนวนที่ต้องการ</p>
-                    <div className="store-hero-benefits" aria-label="จุดเด่นของหน้าร้าน">
-                        <span><b>✓</b> ค้นหาสินค้าไว</span>
-                        <span><b>✓</b> เลือกจำนวนก่อนซื้อ</span>
-                        <span><b>✓</b> ชำระเงินเป็นขั้นตอน</span>
-                    </div>
                     {showStockCounts && onOpenAddMember && (
                         <button type="button" className="store-admin-member-button" onClick={onOpenAddMember}>
                             เพิ่มสมาชิก

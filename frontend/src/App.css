@@ -435,6 +435,62 @@
     background: #fff;
 }
 
+.profile-account-list {
+    display: grid;
+    gap: 12px;
+}
+
+.profile-account-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    padding: 16px;
+    border: 1px solid #e2e7ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(16, 24, 40, 0.05);
+}
+
+.profile-account-row.is-editing {
+    align-items: flex-end;
+    border-color: #c7d7fe;
+    box-shadow: 0 14px 32px rgba(21, 112, 239, 0.1);
+}
+
+.profile-account-row-copy {
+    min-width: 0;
+}
+
+.profile-account-row .profile-form-label {
+    margin-bottom: 6px;
+}
+
+.profile-account-row-value {
+    min-height: 30px;
+    margin: 0;
+    color: #273247;
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.profile-account-row-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.profile-account-row-actions .profile-edit-button,
+.profile-account-row-actions .profile-secondary-button,
+.profile-account-row-actions .profile-primary-button {
+    min-width: 96px;
+    min-height: 40px;
+    padding: 0 14px;
+}
+
 .profile-form-label {
     display: block;
     margin-bottom: 8px;
@@ -521,6 +577,225 @@
     margin-top: 28px;
     padding-top: 22px;
     border-top: 1px solid #edf0f4;
+}
+
+.profile-address-layout.is-listing .profile-address-list-pane,
+.profile-address-layout.is-editing .profile-address-form-pane {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+.profile-address-layout.is-listing .profile-address-form-pane,
+.profile-address-layout.is-editing .profile-address-list-pane {
+    display: none;
+}
+
+.profile-address-heading,
+.profile-address-form-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.profile-address-heading strong,
+.profile-address-form-heading strong {
+    display: block;
+    color: #111827;
+    font-size: 1.05rem;
+    font-weight: 850;
+}
+
+.profile-address-heading p,
+.profile-address-form-heading p {
+    margin: 3px 0 0;
+    color: #7b8494;
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.profile-address-heading .btn {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 14px;
+    border-radius: 10px;
+    font-weight: 800;
+}
+
+.profile-address-form {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.profile-address-form-heading {
+    padding-bottom: 14px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+.profile-address-back-button {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 14px;
+    border: 1px solid #d7dce5;
+    border-radius: 10px;
+    color: #344054;
+    background: #fff;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.profile-address-back-button:hover {
+    background: #f8fafc;
+    border-color: #98a2b3;
+}
+
+.profile-address-card {
+    position: relative;
+    padding: 16px;
+    border: 1px solid #e2e7ef;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 8px 22px rgba(16, 24, 40, 0.06);
+}
+
+.profile-address-card + .profile-address-card {
+    margin-top: 12px;
+}
+
+.profile-address-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.profile-address-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.profile-address-name strong {
+    color: #111827;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.profile-address-name span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    color: #087f5b;
+    background: #dcfae6;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.profile-address-card-head p {
+    margin: 4px 0 0;
+    color: #5f6b7a;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.profile-address-details {
+    display: grid;
+    gap: 10px;
+    margin: 14px 0 0;
+}
+
+.profile-address-details div {
+    min-width: 0;
+}
+
+.profile-address-details dt {
+    margin-bottom: 3px;
+    color: #8992a3;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.profile-address-details dd {
+    margin: 0;
+    color: #273247;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.profile-address-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.profile-address-menu-button {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #d7dce5;
+    border-radius: 10px;
+    color: #475467;
+    background: #fff;
+}
+
+.profile-address-menu-button:hover {
+    border-color: #98a2b3;
+    background: #f8fafc;
+}
+
+.profile-address-menu-button span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.profile-address-menu-list {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 20;
+    min-width: 148px;
+    padding: 6px;
+    border: 1px solid #e1e6ef;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 18px 38px rgba(16, 24, 40, 0.14);
+}
+
+.profile-address-menu-list button {
+    display: block;
+    width: 100%;
+    padding: 9px 10px;
+    border: 0;
+    border-radius: 8px;
+    color: #344054;
+    background: transparent;
+    text-align: left;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.profile-address-menu-list button:hover {
+    background: #f5f7fa;
+}
+
+.profile-address-menu-list button.success {
+    color: #027a48;
+}
+
+.profile-address-menu-list button.danger {
+    color: #b42318;
 }
 
 .profile-secondary-button,
@@ -654,6 +929,11 @@
         align-items: flex-start;
     }
 
+    .profile-address-heading,
+    .profile-address-form-heading {
+        align-items: flex-start;
+    }
+
     .profile-form-actions {
         flex-direction: column-reverse;
     }
@@ -662,14 +942,38 @@
     .profile-primary-button {
         width: 100%;
     }
+
+    .profile-account-row-actions .profile-secondary-button,
+    .profile-account-row-actions .profile-primary-button {
+        width: auto;
+    }
 }
 
 @media (max-width: 420px) {
-    .profile-section-heading {
+    .profile-section-heading,
+    .profile-address-heading,
+    .profile-address-form-heading {
         flex-direction: column;
     }
 
-    .profile-edit-button {
+    .profile-account-row {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-account-row-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .profile-account-row-actions .profile-edit-button,
+    .profile-account-row-actions .profile-secondary-button,
+    .profile-account-row-actions .profile-primary-button {
+        flex: 1;
+    }
+
+    .profile-edit-button,
+    .profile-address-heading .btn,
+    .profile-address-back-button {
         width: 100%;
     }
 }
@@ -8378,16 +8682,16 @@ body {
 }
 
 .app-brand-mark {
-    width: 42px;
+    width: 62px;
     height: 42px;
     border-radius: 14px;
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, #ffd54f, #f97316);
-    color: #101828;
-    font-size: 1.18rem;
+    background: url('./assets/lru-shop-logo.png') center/92% auto no-repeat;
+    color: transparent;
+    font-size: 0;
     font-weight: 900;
-    box-shadow: 0 12px 22px rgba(249, 115, 22, 0.28);
+    box-shadow: none;
 }
 
 .app-brand-copy {
@@ -11231,14 +11535,17 @@ body {
     justify-content: space-between;
     gap: 20px;
     align-items: flex-end;
-    min-height: 320px;
-    padding: 34px;
+    min-height: clamp(170px, 16vw, 230px);
+    padding: 28px;
     overflow: hidden;
     border-radius: 24px;
     color: #fff;
-    background:
-        linear-gradient(135deg, rgba(20, 25, 31, 0.94), rgba(80, 62, 45, 0.7)),
-        url('https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?auto=format&fit=crop&w=1600&q=80') center/cover;
+    background-image:
+        linear-gradient(135deg, rgba(20, 25, 31, 0.84), rgba(80, 62, 45, 0.52)),
+        url('./assets/lru-shop-hero.png');
+    background-position: center 48%;
+    background-size: cover;
+    background-repeat: no-repeat;
     box-shadow: 0 20px 46px rgba(23, 29, 35, 0.16);
 }
 
@@ -11268,34 +11575,6 @@ body {
     color: rgba(255, 255, 255, 0.82);
     font-size: 0.98rem;
     line-height: 1.65;
-}
-
-.store-hero-benefits {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px 18px;
-    margin-top: 18px;
-}
-
-.store-hero-benefits span {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.8rem;
-    font-weight: 650;
-}
-
-.store-hero-benefits b {
-    display: grid;
-    width: 20px;
-    height: 20px;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.38);
-    border-radius: 50%;
-    color: #fff;
-    background: rgba(189, 90, 60, 0.56);
-    font-size: 0.64rem;
 }
 
 .store-admin-member-button {
@@ -11989,8 +12268,8 @@ body {
     padding: 32px 18px;
     color: var(--ink);
     background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(246, 242, 236, 0.92)),
-        url('https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1800&q=80') center/cover;
+        linear-gradient(135deg, rgba(255, 255, 255, 0.82), rgba(246, 242, 236, 0.9)),
+        url('./assets/lru-shop-hero.png') center 48% / cover no-repeat;
 }
 
 .auth-shell {
@@ -12015,8 +12294,8 @@ body {
     padding: 38px 42px;
     color: #fff;
     background:
-        linear-gradient(180deg, rgba(24, 28, 31, 0.2), rgba(24, 20, 18, 0.82)),
-        url('https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1400&q=80') center/cover;
+        linear-gradient(180deg, rgba(24, 28, 31, 0.16), rgba(24, 20, 18, 0.78)),
+        url('./assets/lru-shop-hero.png') center 48% / cover no-repeat;
 }
 
 .auth-visual-top {
@@ -12029,13 +12308,15 @@ body {
 }
 
 .auth-brand-mark {
-    width: 58px;
+    width: 86px;
     height: 58px;
     display: grid;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.62);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.18);
+    border: 0;
+    border-radius: 0;
+    background: url('./assets/lru-shop-logo.png') center/92% auto no-repeat;
+    color: transparent;
+    font-size: 0;
     font-weight: 700;
     letter-spacing: 0;
 }
@@ -12107,70 +12388,6 @@ body {
 .auth-benefits small {
     color: rgba(255, 255, 255, 0.7);
     font-size: 0.74rem;
-}
-
-.auth-preview {
-    width: min(390px, 100%);
-    padding: 18px;
-    border: 1px solid rgba(255, 255, 255, 0.35);
-    border-radius: 22px;
-    background: rgba(255, 255, 255, 0.18);
-    backdrop-filter: blur(10px);
-}
-
-.auth-preview-row,
-.auth-preview-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-}
-
-.auth-preview-row {
-    margin-bottom: 14px;
-    font-size: 0.86rem;
-    color: rgba(255, 255, 255, 0.82);
-}
-
-.auth-preview-card {
-    justify-content: flex-start;
-    padding: 12px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.9);
-    color: var(--ink);
-}
-
-.auth-preview-card + .auth-preview-card {
-    margin-top: 10px;
-}
-
-.auth-preview-card span {
-    display: block;
-    color: var(--muted);
-    font-size: 0.83rem;
-}
-
-.auth-preview-card strong {
-    display: block;
-    margin-top: 2px;
-    font-size: 1.02rem;
-}
-
-.auth-preview-image {
-    width: 52px;
-    height: 52px;
-    flex: 0 0 52px;
-    border-radius: 14px;
-    background-size: cover;
-    background-position: center;
-}
-
-.auth-preview-image-one {
-    background-image: url('https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?auto=format&fit=crop&w=300&q=80');
-}
-
-.auth-preview-image-two {
-    background-image: url('https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=300&q=80');
 }
 
 .auth-panel {
@@ -13233,10 +13450,6 @@ body {
         min-height: min(640px, calc(100vh - 40px));
     }
 
-    .auth-preview {
-        display: none;
-    }
-
     .auth-hero-copy {
         margin-bottom: auto;
     }
@@ -13503,10 +13716,6 @@ body {
     .auth-visual h1 {
         max-width: 100%;
         font-size: 2rem;
-    }
-
-    .auth-preview {
-        display: none;
     }
 
     .auth-benefits {
@@ -14254,10 +14463,6 @@ body {
         aspect-ratio: 4 / 5;
     }
 
-    .store-hero-benefits {
-        gap: 9px 14px;
-    }
-
     @keyframes navbar-panel-in {
         from {
             opacity: 0;
@@ -14309,7 +14514,9 @@ body {
 
     .auth-page {
         padding: 0;
-        background: #fff;
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(246, 242, 236, 0.92)),
+            url('./assets/lru-shop-hero.png') center 50% / cover no-repeat;
     }
 
     .auth-shell {
@@ -16751,8 +16958,9 @@ body {
     }
 
     .store-hero {
-        min-height: 260px;
-        background-position: center;
+        min-height: clamp(164px, 28vw, 210px);
+        padding: 24px;
+        background-position: center 48%;
     }
 
     .store-hero h1 {
@@ -16857,10 +17065,10 @@ body {
     }
 
     .app-brand-mark {
-        width: 38px;
+        width: 56px;
         height: 38px;
         border-radius: 12px;
-        font-size: 1rem;
+        font-size: 0;
     }
 
     .app-brand-copy strong {
@@ -16877,9 +17085,10 @@ body {
     }
 
     .store-hero {
-        min-height: 154px;
+        min-height: clamp(152px, 48vw, 190px);
         padding: 18px 14px;
         border-radius: 16px;
+        background-position: center 52%;
     }
 
     .store-admin-member-button {
@@ -17000,10 +17209,10 @@ body {
     }
 
     .auth-brand-mark {
-        width: 38px;
+        width: 58px;
         height: 38px;
-        border-radius: 12px;
-        font-size: 0.78rem;
+        border-radius: 0;
+        font-size: 0;
     }
 
     .auth-hero-copy {
@@ -17018,8 +17227,7 @@ body {
     }
 
     .auth-hero-description,
-    .auth-benefits small,
-    .auth-preview {
+    .auth-benefits small {
         display: none;
     }
 

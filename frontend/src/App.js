@@ -170,8 +170,8 @@ const getRegisterValidationErrors = (form) => {
     else if (!form.district?.trim()) errors.district = 'กรุณาเลือกอำเภอ/เขต';
     else if (!form.subdistrict?.trim()) errors.subdistrict = 'กรุณาเลือกตำบล/แขวง';
     else if (!String(form.postal_code || '').trim()) errors.postal_code = 'กรุณาเลือกรหัสไปรษณีย์';
-    else if (!form.termsAccepted) errors.termsAccepted = 'กรุณายอมรับข้อกำหนดการใช้งาน';
     else if (!form.privacyNoticeAcknowledged) errors.privacyNoticeAcknowledged = 'กรุณาอ่านและรับทราบนโยบายความเป็นส่วนตัว';
+    else if (!form.termsAccepted) errors.termsAccepted = 'กรุณายอมรับข้อกำหนดการใช้งาน';
     else if (!/^\d{6}$/.test(String(form.registrationOtp || '').trim())) errors.registrationOtp = 'กรุณากรอกรหัส OTP 6 หลักจากอีเมล';
 
     return errors;
@@ -880,12 +880,12 @@ function App() {
         setRegisterFieldErrors({});
 
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
             setRegisterMsg({ type: '', text: '' });
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Notice',
-                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วจึงทำรายการต่อ',
+                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วจึงทำรายการต่อ',
                 buttonText: 'กลับไปอ่าน',
             });
             return;
@@ -1891,7 +1891,7 @@ function App() {
         try {
             await authApi.setDefaultAddress(user.id, address.address_id);
             const list = await fetchAddresses();
-            const selected = list.find((item) => item.address_id === address.address_id) || address;
+            const selected = list.find((item) => Number(item.address_id) === Number(address.address_id)) || address;
             setAddressForm({ ...emptyAddress, ...selected, is_default: 1 });
             applyAddressToCheckout(selected);
             notify({ type: 'success', title: 'ตั้งเป็นที่อยู่หลักแล้ว', message: 'ระบบจะใช้ที่อยู่นี้เป็นค่าเริ่มต้น' });

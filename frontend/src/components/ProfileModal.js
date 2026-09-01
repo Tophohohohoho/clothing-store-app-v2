@@ -37,11 +37,12 @@ function ProfileModal({
     onClose,
 }) {
     const [activeTab, setActiveTab] = useState('account');
-    const [showAccountForm, setShowAccountForm] = useState(false);
+    const [editingAccountField, setEditingAccountField] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
     const [isSavingAccount, setIsSavingAccount] = useState(false);
     const [accountNotice, setAccountNotice] = useState({ type: '', text: '' });
     const [showAddressForm, setShowAddressForm] = useState(false);
+    const [openAddressMenuId, setOpenAddressMenuId] = useState(null);
     const [thaiAddressData, setThaiAddressData] = useState(emptyThaiAddressData);
     const [isThaiAddressLoading, setIsThaiAddressLoading] = useState(true);
 
@@ -72,6 +73,10 @@ function ProfileModal({
             isMounted = false;
         };
     }, []);
+
+    useEffect(() => {
+        setOpenAddressMenuId(null);
+    }, [activeTab, addresses]);
 
     const selectedProvince = useMemo(
         () => thaiAddressData.provinces.find((province) => getName(province) === addressForm.province),
@@ -161,14 +166,34 @@ function ProfileModal({
     };
 
     const handleNewAddress = () => {
+        setOpenAddressMenuId(null);
         onNewAddress();
         setShowAddressForm(true);
     };
 
     const handleEditAddress = (address) => {
+        setOpenAddressMenuId(null);
         onSelectAddress(address);
         setShowAddressForm(true);
     };
+
+    const handleSetDefaultAddress = (address) => {
+        setOpenAddressMenuId(null);
+        onSetDefaultAddress(address);
+    };
+
+    const handleDeleteAddress = (address) => {
+        setOpenAddressMenuId(null);
+        onDeleteAddress(address);
+    };
+
+    const formatFullAddress = (address) => [
+        address.address_detail,
+        address.subdistrict && `ต.${address.subdistrict}`,
+        address.district && `อ.${address.district}`,
+        address.province && `จ.${address.province}`,
+        address.postal_code,
+    ].filter(Boolean).join(' ');
 
     const displayName = user?.full_name || user?.username || 'ผู้ใช้งาน';
     const initials = displayName
@@ -198,14 +223,14 @@ function ProfileModal({
 
     const handleCancelAccount = () => {
         resetAccountForm();
-        setShowAccountForm(false);
+        setEditingAccountField(null);
     };
 
-    const handleAccountSubmit = async (event) => {
+    const handleAccountSubmit = async (event, fieldKey) => {
         event.preventDefault();
         setAccountNotice({ type: '', text: '' });
 
-        if (password && password.length < 8) {
+        if (fieldKey === 'password' && password && password.length < 8) {
             setAccountNotice({ type: 'error', text: 'รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร' });
             return;
         }
@@ -217,12 +242,63 @@ function ProfileModal({
         if (result?.success) {
             setPassword('');
             setShowPassword(false);
-            setShowAccountForm(false);
+            setEditingAccountField(null);
             setAccountNotice({ type: 'success', text: result.message || 'บันทึกข้อมูลสำเร็จ' });
         } else {
             setAccountNotice({ type: 'error', text: result?.error || 'บันทึกข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง' });
         }
     };
+
+    const handleStartAccountEdit = (fieldKey) => {
+        resetAccountForm();
+        setEditingAccountField(fieldKey);
+        setShowPassword(false);
+    };
+
+    const accountFields = [
+        {
+            key: 'username',
+            label: 'ชื่อผู้ใช้',
+            value: username,
+            setValue: setUsername,
+            inputType: 'text',
+            autoComplete: 'username',
+        },
+        {
+            key: 'fullName',
+            label: 'ชื่อ-นามสกุล',
+            value: fullName,
+            setValue: setFullName,
+            inputType: 'text',
+            autoComplete: 'name',
+        },
+        {
+            key: 'email',
+            label: 'อีเมล',
+            value: email,
+            setValue: setEmail,
+            inputType: 'email',
+            autoComplete: 'email',
+        },
+        {
+            key: 'phone',
+            label: 'เบอร์โทร',
+            value: phone,
+            setValue: setPhone,
+            inputType: 'tel',
+            autoComplete: 'tel',
+        },
+        {
+            key: 'password',
+            label: 'รหัสผ่าน',
+            value: password,
+            setValue: setPassword,
+            inputType: showPassword ? 'text' : 'password',
+            displayValue: '••••••••',
+            placeholder: 'กรอกรหัสผ่านใหม่',
+            autoComplete: 'new-password',
+        },
+    ];
 
     return (
         <div className="modal fade show d-block profile-modal-backdrop" tabIndex="-1" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
@@ -277,116 +353,163 @@ function ProfileModal({
                                         <h6>ข้อมูลบัญชี</h6>
                                         <p>จัดการข้อมูลที่ใช้แสดงผลและเข้าสู่ระบบ</p>
                                     </div>
-                                    {!showAccountForm && (
-                                        <button type="button" className="profile-edit-button" onClick={() => {
-                                            setAccountNotice({ type: '', text: '' });
-                                            setShowAccountForm(true);
-                                        }}>
-                                            แก้ไขบัญชี
-                                        </button>
-                                    )}
                                 </div>
 
-                                <form onSubmit={handleAccountSubmit}>
-                                    <div className="row g-4">
-                                        <div className="col-md-6 text-start">
-                                            <label className="profile-form-label" htmlFor="profile-username">ชื่อผู้ใช้</label>
-                                            <input id="profile-username" type="text" className="form-control profile-form-control" value={username} onChange={(e) => setUsername(e.target.value)} disabled={!showAccountForm} />
-                                        </div>
-                                        <div className="col-md-6 text-start">
-                                            <label className="profile-form-label" htmlFor="profile-fullname">ชื่อ-นามสกุล</label>
-                                            <input id="profile-fullname" type="text" className="form-control profile-form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={!showAccountForm} />
-                                        </div>
-                                        <div className="col-md-6 text-start">
-                                            <label className="profile-form-label" htmlFor="profile-email">อีเมล</label>
-                                            <input id="profile-email" type="email" className="form-control profile-form-control" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!showAccountForm} />
-                                        </div>
-                                        <div className="col-md-6 text-start">
-                                            <label className="profile-form-label" htmlFor="profile-phone">เบอร์โทร</label>
-                                            <input id="profile-phone" type="tel" className="form-control profile-form-control" value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!showAccountForm} />
-                                        </div>
-                                        {showAccountForm && (
-                                            <div className="col-12 text-start">
-                                                <label className="profile-form-label" htmlFor="profile-password">รหัสผ่านใหม่</label>
-                                                <div className="profile-password-field">
-                                                    <input
-                                                        id="profile-password"
-                                                        type={showPassword ? 'text' : 'password'}
-                                                        className="form-control profile-form-control"
-                                                        value={password}
-                                                        onChange={(e) => setPassword(e.target.value)}
-                                                        placeholder="ปล่อยว่างถ้าไม่ต้องการเปลี่ยน"
-                                                        autoComplete="new-password"
-                                                        aria-describedby="profile-password-help"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        className="profile-password-toggle"
-                                                        onClick={() => setShowPassword((visible) => !visible)}
-                                                        aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                                                        aria-pressed={showPassword}
-                                                    >
-                                                        {showPassword ? (
-                                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 002.7 2.7M9.9 4.2A10.8 10.8 0 0112 4c5.5 0 9 5.5 9 5.5a15.4 15.4 0 01-2.1 2.7M6.6 6.7C4.3 8.2 3 10 3 10s3.5 5.5 9 5.5c1.2 0 2.3-.3 3.3-.7" /></svg>
-                                                        ) : (
-                                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-5.5 9-5.5 9 5.5 9 5.5-3.5 5.5-9 5.5S3 12 3 12z" /><circle cx="12" cy="12" r="2.5" /></svg>
-                                                        )}
-                                                    </button>
+                                <div className="profile-account-list">
+                                    {accountFields.map((field) => {
+                                        const isEditing = editingAccountField === field.key;
+                                        const inputId = `profile-${field.key}`;
+
+                                        return (
+                                            <form className={`profile-account-row ${isEditing ? 'is-editing' : ''}`} key={field.key} onSubmit={(event) => handleAccountSubmit(event, field.key)}>
+                                                <div className="profile-account-row-copy">
+                                                    <label className="profile-form-label" htmlFor={inputId}>{field.label}</label>
+                                                    {isEditing ? (
+                                                        <div className={field.key === 'password' ? 'profile-password-field' : ''}>
+                                                            <input
+                                                                id={inputId}
+                                                                type={field.inputType}
+                                                                className="form-control profile-form-control"
+                                                                value={field.value}
+                                                                onChange={(event) => field.setValue(event.target.value)}
+                                                                placeholder={field.placeholder}
+                                                                autoComplete={field.autoComplete}
+                                                                aria-describedby={field.key === 'password' ? 'profile-password-help' : undefined}
+                                                            />
+                                                            {field.key === 'password' && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="profile-password-toggle"
+                                                                    onClick={() => setShowPassword((visible) => !visible)}
+                                                                    aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                                                                    aria-pressed={showPassword}
+                                                                >
+                                                                    {showPassword ? (
+                                                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.7a2 2 0 002.7 2.7M9.9 4.2A10.8 10.8 0 0112 4c5.5 0 9 5.5 9 5.5a15.4 15.4 0 01-2.1 2.7M6.6 6.7C4.3 8.2 3 10 3 10s3.5 5.5 9 5.5c1.2 0 2.3-.3 3.3-.7" /></svg>
+                                                                    ) : (
+                                                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12s3.5-5.5 9-5.5 9 5.5 9 5.5-3.5 5.5-9 5.5S3 12 3 12z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="profile-account-row-value">{field.displayValue || field.value || '-'}</p>
+                                                    )}
+                                                    {field.key === 'password' && isEditing && (
+                                                        <small id="profile-password-help" className={`profile-password-help ${password && password.length < 8 ? 'invalid' : ''}`}>
+                                                            รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร
+                                                        </small>
+                                                    )}
                                                 </div>
-                                                <small id="profile-password-help" className={`profile-password-help ${password && password.length < 8 ? 'invalid' : ''}`}>
-                                                    รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร
-                                                </small>
-                                            </div>
-                                        )}
-                                    </div>
-                                    {showAccountForm && (
-                                        <div className="profile-form-actions">
-                                            <button type="button" className="profile-secondary-button" onClick={handleCancelAccount} disabled={isSavingAccount}>ยกเลิก</button>
-                                            <button type="submit" className="profile-primary-button" disabled={isSavingAccount}>
-                                                {isSavingAccount ? <span className="spinner-border spinner-border-sm" aria-hidden="true"></span> : null}
-                                                {isSavingAccount ? 'กำลังบันทึก...' : 'บันทึกบัญชี'}
-                                            </button>
-                                        </div>
-                                    )}
-                                </form>
+                                                <div className="profile-account-row-actions">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <button type="button" className="profile-secondary-button" onClick={handleCancelAccount} disabled={isSavingAccount}>ยกเลิก</button>
+                                                            <button type="submit" className="profile-primary-button" disabled={isSavingAccount}>
+                                                                {isSavingAccount ? <span className="spinner-border spinner-border-sm" aria-hidden="true"></span> : null}
+                                                                {isSavingAccount ? 'กำลังบันทึก...' : 'บันทึก'}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button type="button" className="profile-edit-button" onClick={() => handleStartAccountEdit(field.key)}>
+                                                            แก้ไข
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </form>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         ) : (
-                            <div className="row g-4">
-                                <div className="col-md-5">
-                                    <div className="d-flex justify-content-between align-items-center mb-2">
-                                        <strong>ที่อยู่ของฉัน</strong>
+                            <div className={`row g-4 profile-address-layout ${showAddressForm ? 'is-editing' : 'is-listing'}`}>
+                                <div className="col-md-5 profile-address-list-pane">
+                                    <div className="profile-address-heading">
+                                        <div>
+                                            <strong>ที่อยู่ของฉัน</strong>
+                                            <p>เลือกจัดการที่อยู่ หรือเพิ่มที่อยู่ใหม่สำหรับการจัดส่ง</p>
+                                        </div>
                                         <button type="button" className="btn btn-sm btn-outline-primary" onClick={handleNewAddress}>เพิ่มใหม่</button>
                                     </div>
                                     <div className="list-group">
                                         {addresses.length === 0 ? (
                                             <div className="list-group-item text-muted small">ยังไม่มีที่อยู่</div>
                                         ) : (
-                                            addresses.map((address) => (
-                                                <div className="list-group-item text-start p-0" key={address.address_id}>
-                                                    <div className="d-flex justify-content-between align-items-stretch">
-                                                        <button
-                                                            type="button"
-                                                            className="btn text-start border-0 rounded-0 flex-grow-1 p-3"
-                                                            onClick={() => handleEditAddress(address)}
-                                                        >
-                                                            <div className="fw-bold">{address.receiver_name}</div>
-                                                            <small>{address.address_detail}</small>
-                                                            {Number(address.is_default) === 1 && <span className="badge bg-success ms-2">หลัก</span>}
-                                                        </button>
-                                                        <div className="d-flex align-items-center p-3 ps-2">
-                                                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => onDeleteAddress(address)}>
-                                                                ลบ
-                                                            </button>
+                                            addresses.map((address) => {
+                                                const isDefaultAddress = Number(address.is_default) === 1;
+                                                const isMenuOpen = Number(openAddressMenuId) === Number(address.address_id);
+                                                const fullAddress = formatFullAddress(address);
+
+                                                return (
+                                                    <article className="profile-address-card" key={address.address_id}>
+                                                        <div className="profile-address-card-head">
+                                                            <div>
+                                                                <div className="profile-address-name">
+                                                                    <strong>{address.receiver_name || '-'}</strong>
+                                                                    {isDefaultAddress && <span>หลัก</span>}
+                                                                </div>
+                                                                <p>{address.phone || '-'}</p>
+                                                            </div>
+                                                            <div className="profile-address-menu">
+                                                                <button
+                                                                    type="button"
+                                                                    className="profile-address-menu-button"
+                                                                    onClick={() => setOpenAddressMenuId(isMenuOpen ? null : address.address_id)}
+                                                                    aria-haspopup="menu"
+                                                                    aria-expanded={isMenuOpen}
+                                                                    aria-label={`จัดการที่อยู่ของ ${address.receiver_name || 'ผู้รับ'}`}
+                                                                >
+                                                                    <span></span>
+                                                                    <span></span>
+                                                                    <span></span>
+                                                                </button>
+                                                                {isMenuOpen && (
+                                                                    <div className="profile-address-menu-list" role="menu">
+                                                                        <button type="button" role="menuitem" onClick={() => handleEditAddress(address)}>
+                                                                            แก้ไข
+                                                                        </button>
+                                                                        {!isDefaultAddress && (
+                                                                            <button type="button" role="menuitem" className="success" onClick={() => handleSetDefaultAddress(address)}>
+                                                                                ตั้งเป็นหลัก
+                                                                            </button>
+                                                                        )}
+                                                                        <button type="button" role="menuitem" className="danger" onClick={() => handleDeleteAddress(address)}>
+                                                                            ลบ
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            ))
+                                                        <dl className="profile-address-details">
+                                                            <div>
+                                                                <dt>ประเภท</dt>
+                                                                <dd>{address.address_type || '-'}</dd>
+                                                            </div>
+                                                            <div>
+                                                                <dt>ที่อยู่</dt>
+                                                                <dd>{fullAddress || '-'}</dd>
+                                                            </div>
+                                                        </dl>
+                                                    </article>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
-                                <div className="col-md-7">
+                                <div className="col-md-7 profile-address-form-pane">
                                     {showAddressForm ? (
-                                        <form onSubmit={handleAddressSubmit} className="row g-3 text-start">
+                                        <form onSubmit={handleAddressSubmit} className="row g-3 text-start profile-address-form">
+                                            <div className="col-12">
+                                                <div className="profile-address-form-heading">
+                                                    <div>
+                                                        <strong>{addressForm.address_id ? 'แก้ไขที่อยู่' : 'เพิ่มที่อยู่ใหม่'}</strong>
+                                                        <p>กรอกข้อมูลให้ครบเพื่อใช้เป็นข้อมูลจัดส่งสินค้า</p>
+                                                    </div>
+                                                    <button type="button" className="profile-address-back-button" onClick={() => setShowAddressForm(false)}>
+                                                        กลับไปรายการ
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div className="col-md-6">
                                                 <label className="form-label fw-bold text-secondary small">ชื่อผู้รับ</label>
                                                 <input className="form-control" value={addressForm.receiver_name} onChange={(e) => setAddressForm({ ...addressForm, receiver_name: e.target.value })} required />

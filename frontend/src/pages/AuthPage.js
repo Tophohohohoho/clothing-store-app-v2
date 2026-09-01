@@ -182,12 +182,12 @@ function AuthPage({
 
     const requestPrivacyBeforeConsent = () => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
             setConsentNotice('');
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Notice',
-                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วค่อยเลือกความยินยอม',
+                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
                 buttonText: 'กลับไปอ่าน',
             });
         }
@@ -195,12 +195,12 @@ function AuthPage({
 
     const handleConsentChange = (event) => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Notice ก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
             setConsentNotice('');
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Notice',
-                message: 'กรุณาอ่าน Privacy Notice ก่อน แล้วค่อยเลือกความยินยอม',
+                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
                 buttonText: 'กลับไปอ่าน',
             });
             return;
@@ -672,26 +672,6 @@ function AuthPage({
                             เลือกช้อปเสื้อผ้าดีไซน์ทันสมัย พร้อมระบบสั่งซื้อที่รวดเร็วและติดตามสถานะได้ในที่เดียว
                         </p>
                     </div>
-                    <div className="auth-preview">
-                        <div className="auth-preview-row">
-                            <span>New collection</span>
-                            <strong>2026</strong>
-                        </div>
-                        <div className="auth-preview-card">
-                            <div className="auth-preview-image auth-preview-image-one" />
-                            <div>
-                                <span>Minimal Linen Shirt</span>
-                                <strong>฿690</strong>
-                            </div>
-                        </div>
-                        <div className="auth-preview-card">
-                            <div className="auth-preview-image auth-preview-image-two" />
-                            <div>
-                                <span>Daily Smart Pants</span>
-                                <strong>฿890</strong>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="auth-panel">
@@ -983,30 +963,12 @@ function AuthPage({
                                     </section>
 
                                     <section
-                                        ref={setRegisterFieldRef('termsAccepted')}
-                                        className={`auth-terms-box ${registerFieldErrors.termsAccepted ? 'has-error' : ''}`}
-                                    >
-                                        <label>
-                                            <input
-                                                type="checkbox"
-                                                checked={Boolean(registerForm.termsAccepted)}
-                                                onChange={(e) => handleRegisterFieldChange('termsAccepted', e.target.checked)}
-                                            />
-                                            <span>
-                                                <strong>ข้อกำหนดการใช้งาน</strong>
-                                                <small>ยอมรับการใช้งานระบบสั่งซื้อ การชำระเงิน การจัดส่ง และการติดต่อจากร้านค้า</small>
-                                            </span>
-                                        </label>
-                                    </section>
-
-                                    <section
                                         ref={setRegisterFieldRef('privacyNoticeAcknowledged')}
                                         className={`auth-privacy-summary ${registerFieldErrors.privacyNoticeAcknowledged ? 'has-error' : ''}`}
                                         aria-labelledby="auth-privacy-summary-title"
                                     >
                                         <div className="auth-privacy-summary-header">
-                                            <span>Privacy Policy</span>
-                                            <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัวสำหรับการสมัครสมาชิก</h3>
+                                            <h3 id="auth-privacy-summary-title">Privacy Policy / นโยบายความเป็นส่วนตัว</h3>
                                             <p>ข้อมูลที่คุณกรอกจะถูกใช้เท่าที่จำเป็นต่อการสมัครบัญชี การสั่งซื้อ และการให้บริการของร้านค้า</p>
                                         </div>
                                         <button
@@ -1035,6 +997,23 @@ function AuthPage({
                                             </span>
                                         </label>
                                         {consentNotice && <small className="auth-consent-warning">{consentNotice}</small>}
+                                    </section>
+
+                                    <section
+                                        ref={setRegisterFieldRef('termsAccepted')}
+                                        className={`auth-terms-box ${registerFieldErrors.termsAccepted ? 'has-error' : ''}`}
+                                    >
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(registerForm.termsAccepted)}
+                                                onChange={(e) => handleRegisterFieldChange('termsAccepted', e.target.checked)}
+                                            />
+                                            <span>
+                                                <strong>ข้อกำหนดการใช้งาน</strong>
+                                                <small>ยอมรับการใช้งานระบบสั่งซื้อ การชำระเงิน การจัดส่ง และการติดต่อจากร้านค้า</small>
+                                            </span>
+                                        </label>
                                     </section>
 
                                     <button type="submit" className="auth-submit">สร้างบัญชี</button>
@@ -1119,11 +1098,11 @@ function AuthPage({
                     >
                         <header>
                             <div>
-                                <span>Privacy Notice</span>
-                                <h3 id="privacy-notice-modal-title">ประกาศนโยบายความเป็นส่วนตัว</h3>
+                                <span>Privacy Policy</span>
+                                <h3 id="privacy-notice-modal-title">Privacy Policy / นโยบายความเป็นส่วนตัว</h3>
                                 <p>กรุณาเลื่อนอ่านเนื้อหาจนสุดก่อนกดรับทราบ</p>
                             </div>
-                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิด Privacy Notice">
+                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิด Privacy Policy / นโยบายความเป็นส่วนตัว">
                                 ×
                             </button>
                         </header>
@@ -1137,7 +1116,7 @@ function AuthPage({
                         </div>
                         <footer>
                             {!hasScrolledPrivacyNotice && (
-                                <small>เลื่อนอ่าน Privacy Notice ให้ถึงท้ายเอกสารก่อน</small>
+                                <small>เลื่อนอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวให้ถึงท้ายเอกสารก่อน</small>
                             )}
                             <button type="button" onClick={acknowledgePrivacyNotice} disabled={!hasScrolledPrivacyNotice}>
                                 รับทราบ
