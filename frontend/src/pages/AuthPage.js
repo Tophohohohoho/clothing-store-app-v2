@@ -19,7 +19,7 @@ const EMPTY_THAI_ADDRESS_DATA = {
 const getPublicJsonPath = (fileName) => `${process.env.PUBLIC_URL || ''}/api-thai/json/${fileName}`;
 const getName = (item) => item?.name_th || '';
 const getZipCode = (item) => (item?.zip_code ? String(item.zip_code) : '');
-const PRIVACY_NOTICE_SECTIONS = [
+export const PRIVACY_NOTICE_SECTIONS = [
     {
         title: 'ผู้ควบคุมข้อมูลส่วนบุคคล',
         text: 'มหาวิทยาลัยราชภัฏเลย เลขที่ 234 ถนนเลย-เชียงคาน ตำบลเมือง อำเภอเมืองเลย จังหวัดเลย 42000 โทรศัพท์ 042-835224-8 เว็บไซต์ www.lru.ac.th',
@@ -182,12 +182,12 @@ function AuthPage({
 
     const requestPrivacyBeforeConsent = () => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน' });
             setConsentNotice('');
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
-                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
+                title: 'ยังไม่ได้อ่านนโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
                 buttonText: 'กลับไปอ่าน',
             });
         }
@@ -195,12 +195,12 @@ function AuthPage({
 
     const handleConsentChange = (event) => {
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน' });
             setConsentNotice('');
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
-                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
+                title: 'ยังไม่ได้อ่านนโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน แล้วค่อยเลือกความยินยอม',
                 buttonText: 'กลับไปอ่าน',
             });
             return;
@@ -968,7 +968,7 @@ function AuthPage({
                                         aria-labelledby="auth-privacy-summary-title"
                                     >
                                         <div className="auth-privacy-summary-header">
-                                            <h3 id="auth-privacy-summary-title">Privacy Policy / นโยบายความเป็นส่วนตัว</h3>
+                                            <h3 id="auth-privacy-summary-title">นโยบายความเป็นส่วนตัว</h3>
                                             <p>ข้อมูลที่คุณกรอกจะถูกใช้เท่าที่จำเป็นต่อการสมัครบัญชี การสั่งซื้อ และการให้บริการของร้านค้า</p>
                                         </div>
                                         <button
@@ -1098,11 +1098,11 @@ function AuthPage({
                     >
                         <header>
                             <div>
-                                <span>Privacy Policy</span>
-                                <h3 id="privacy-notice-modal-title">Privacy Policy / นโยบายความเป็นส่วนตัว</h3>
+                                <span>ประกาศ</span>
+                                <h3 id="privacy-notice-modal-title">นโยบายความเป็นส่วนตัว</h3>
                                 <p>กรุณาเลื่อนอ่านเนื้อหาจนสุดก่อนกดรับทราบ</p>
                             </div>
-                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิด Privacy Policy / นโยบายความเป็นส่วนตัว">
+                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิดนโยบายความเป็นส่วนตัว">
                                 ×
                             </button>
                         </header>
@@ -1116,7 +1116,7 @@ function AuthPage({
                         </div>
                         <footer>
                             {!hasScrolledPrivacyNotice && (
-                                <small>เลื่อนอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวให้ถึงท้ายเอกสารก่อน</small>
+                                <small>เลื่อนอ่านนโยบายความเป็นส่วนตัวให้ถึงท้ายเอกสารก่อน</small>
                             )}
                             <button type="button" onClick={acknowledgePrivacyNotice} disabled={!hasScrolledPrivacyNotice}>
                                 รับทราบ

@@ -28,6 +28,7 @@ function ProfileModal({
     addresses,
     addressForm,
     setAddressForm,
+    isSavingAddress = false,
     onSaveAddress,
     onSelectAddress,
     onNewAddress,
@@ -154,15 +155,21 @@ function ProfileModal({
         return '';
     };
 
-    const handleAddressSubmit = (event) => {
+    const handleAddressSubmit = async (event) => {
+        event.preventDefault();
+
+        if (isSavingAddress) return;
+
         const validationMessage = getAddressValidationMessage();
         if (validationMessage) {
-            event.preventDefault();
             notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: validationMessage });
             return;
         }
 
-        onSaveAddress(event);
+        const result = await onSaveAddress(event);
+        if (result?.success) {
+            setShowAddressForm(false);
+        }
     };
 
     const handleNewAddress = () => {
@@ -505,7 +512,7 @@ function ProfileModal({
                                                         <strong>{addressForm.address_id ? 'แก้ไขที่อยู่' : 'เพิ่มที่อยู่ใหม่'}</strong>
                                                         <p>กรอกข้อมูลให้ครบเพื่อใช้เป็นข้อมูลจัดส่งสินค้า</p>
                                                     </div>
-                                                    <button type="button" className="profile-address-back-button" onClick={() => setShowAddressForm(false)}>
+                                                    <button type="button" className="profile-address-back-button" onClick={() => setShowAddressForm(false)} disabled={isSavingAddress}>
                                                         กลับไปรายการ
                                                     </button>
                                                 </div>
@@ -615,11 +622,11 @@ function ProfileModal({
                                                         ใช้เป็นที่อยู่หลัก
                                                     </button>
                                                 )}
-                                                <button type="button" className="btn btn-light border w-100 fw-bold" onClick={() => setShowAddressForm(false)}>
+                                                <button type="button" className="btn btn-light border w-100 fw-bold" onClick={() => setShowAddressForm(false)} disabled={isSavingAddress}>
                                                     ยกเลิก
                                                 </button>
-                                                <button type="submit" className="btn btn-dark w-100 fw-bold">
-                                                    บันทึกที่อยู่
+                                                <button type="submit" className="btn btn-dark w-100 fw-bold" disabled={isSavingAddress}>
+                                                    {isSavingAddress ? 'กำลังบันทึก...' : 'บันทึกที่อยู่'}
                                                 </button>
                                             </div>
                                         </form>

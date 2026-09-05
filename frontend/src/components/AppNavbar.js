@@ -15,6 +15,7 @@ function AppNavbar({
     onOpenCart,
     onOpenOrderHistory,
     onOpenSalesHistory,
+    salesReportNavLabel = 'พิมพ์รายงาน',
     onOpenProfile,
     onOpenLogin,
     onLogout,
@@ -129,6 +130,9 @@ function AppNavbar({
     };
 
     const navItems = useMemo(() => {
+        const shouldReturnToDashboardFromReport = isAdmin && !isAdminView && salesReportNavLabel === 'Dashboard';
+        const adminNavLabel = isAdminView || shouldReturnToDashboardFromReport ? 'กลับหน้าร้าน' : 'Dashboard';
+        const adminNavAction = isAdminView || shouldReturnToDashboardFromReport ? onOpenStore : onOpenAdmin;
         const items = [{
             key: 'cart',
             label: 'ตะกร้า',
@@ -153,9 +157,9 @@ function AppNavbar({
         if (isAdmin) {
             items.unshift({
                 key: 'admin',
-                label: isAdminView ? 'กลับหน้าร้าน' : 'Dashboard',
+                label: adminNavLabel,
                 icon: 'admin',
-                onClick: isAdminView ? onOpenStore : onOpenAdmin,
+                onClick: adminNavAction,
                 isActive: activeMenu === 'admin',
                 show: true,
             });
@@ -175,7 +179,7 @@ function AppNavbar({
         if (isAdmin) {
             items.push({
                 key: 'sales',
-                label: 'ประวัติการขาย',
+                label: salesReportNavLabel,
                 icon: 'sales',
                 onClick: onOpenSalesHistory,
                 isActive: activeMenu === 'sales',
@@ -208,6 +212,7 @@ function AppNavbar({
         onOpenLogin,
         onOpenOrderHistory,
         onOpenSalesHistory,
+        salesReportNavLabel,
         onOpenStore,
         user,
     ]);

@@ -660,7 +660,7 @@ function OrderHistoryModal({
                                 รอรับ
                             </button>
                         </div>
-                    ) : (
+                    ) : !isSalesMode ? (
                         <div className="order-history-tabs" role="tablist" aria-label="ประเภทคำสั่งซื้อ">
                             <button
                                 type="button"
@@ -683,7 +683,7 @@ function OrderHistoryModal({
                                 <span>{historyOrders.length}</span>
                             </button>
                         </div>
-                    )}
+                    ) : null}
 
                     {!isCompactCustomerPage && !isSalesMode && activeView === 'active' && (
                         <div className="order-history-payment-tabs" role="tablist" aria-label="สถานะชำระเงิน">
@@ -875,12 +875,15 @@ function OrderHistoryModal({
                                             const shippingFee = Number(item.shipping_fee || 0);
                                             const discount = Number(item.discount || 0);
                                             const finalPrice = Number(item.final_price ?? (productTotal + shippingFee - discount));
+                                            const itemCount = productRows.reduce((sum, orderItem) => sum + Number(orderItem.qty || orderItem.quantity || 1), 0);
                                             const itemStatus = normalizeOrderStatus(item.status);
+                                            const canPrintReceipt = isCompletedOrder(item);
                                             const canCancel = canCancelOrder && cancelableStatuses.includes(itemStatus) && !isPaidStatus(item.payment_status);
                                             const orderKey = item.id || index;
                                             const saleDateTime = item.created_at || item.order_date;
                                             const compactStatusTone = getCompactStatusTone(item);
                                             const orderStatusLabel = formatCustomerOrderStatus(item);
+                                            const sellerName = getSellerName(item);
                                             const isReceiptWaitingReview = item.payment_status === 'รอตรวจสอบ';
                                             const isReceiptApproved = PAID_PAYMENT_STATUSES.includes(item.payment_status);
                                             const isReceiptRejected = REJECTED_PAYMENT_STATUSES.includes(item.payment_status);
@@ -892,6 +895,15 @@ function OrderHistoryModal({
                                                 && (isReceiptRejected || reuploadPaymentStatuses.includes(item.payment_status) || itemStatus === 'รอชำระเงิน');
                                             const receiptDraft = receiptDrafts[item.id];
                                             const shouldShowReceiptInActions = Boolean(item.receipt_image);
+                                            const receiptPayload = {
+                                                ...item,
+                                                items: orderItems,
+                                                item_count: itemCount,
+                                                product_total: productTotal,
+                                                final_price: finalPrice,
+                                                sale_date_time: saleDateTime,
+                                                seller_name: sellerName,
+                                            };
 
                                             return [
                                                 <tr className="order-history-customer-order-head" key={`${orderKey}-head`}>
@@ -1007,6 +1019,15 @@ function OrderHistoryModal({
                                                                     {receiptDraft ? 'ตรวจสลิป' : 'อัปสลิป'}
                                                                 </button>
                                                             )}
+                                                            {canPrintReceipt && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="order-print-trigger"
+                                                                    onClick={() => setReceiptOrder(receiptPayload)}
+                                                                >
+                                                                    พิมพ์ใบรับเงิน
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 type="button"
                                                                 className="order-detail-trigger"
@@ -1101,6 +1122,7 @@ function OrderHistoryModal({
                             const compactStatusTone = isCompactCustomerPage ? getCompactStatusTone(item) : '';
                             const orderStatusLabel = formatCustomerOrderStatus(item);
                             const sellerName = getSellerName(item);
+                            const canPrintReceipt = isCompletedOrder(item);
                             const compactItemSummary = getCompactItemSummary(orderItems);
                             const orderTitle = isSalesMode
                                 ? (isStoreSale(item) ? 'คำสั่งซื้อหน้าร้าน' : `คำสั่งซื้อของ ${item.full_name || item.username || 'ลูกค้าทั่วไป'}`)
@@ -1463,20 +1485,29 @@ function OrderHistoryModal({
                                         </>
                                     )}
 
-                                    {isSalesMode && (
+                                    {isSalesMode && canPrintReceipt && (
                                         <div className="order-history-actions">
                                             <button
                                                 type="button"
                                                 className="order-history-action primary"
                                                 onClick={() => setReceiptOrder(receiptPayload)}
                                             >
-                                                ใบรับ
+                                                พิมพ์ใบรับเงิน
                                             </button>
                                         </div>
                                     )}
 
                                     {!isSalesMode && (
                                         <div className="order-history-actions order-history-actions-customer">
+                                            {canPrintReceipt && (
+                                                <button
+                                                    type="button"
+                                                    className="order-history-action primary"
+                                                    onClick={() => setReceiptOrder(receiptPayload)}
+                                                >
+                                                    พิมพ์ใบรับเงิน
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 className="order-history-action secondary"

@@ -60,6 +60,42 @@ const PRODUCT_SORT_LABELS = {
     price: 'ราคา',
     updated_at: 'แก้ไขล่าสุด',
 };
+const DATE_PRESETS = [
+    { value: 'today', label: 'วันนี้' },
+    { value: '7', label: '7 วันล่าสุด' },
+    { value: '30', label: '30 วันล่าสุด' },
+    { value: 'month', label: 'เดือนนี้' },
+    { value: 'year', label: 'ปีนี้' },
+    { value: 'custom', label: 'กำหนดช่วงวันที่' },
+];
+
+const getDateRange = (preset, customFrom, customTo) => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    if (preset === '7' || preset === '30') from.setDate(from.getDate() - Number(preset) + 1);
+    if (preset === 'month') from.setDate(1);
+    if (preset === 'year') {
+        from.setMonth(0);
+        from.setDate(1);
+    }
+    if (preset === 'custom') {
+        return {
+            from: customFrom || now.toISOString().slice(0, 10),
+            to: customTo || now.toISOString().slice(0, 10),
+        };
+    }
+    return {
+        from: from.toISOString().slice(0, 10),
+        to: to.toISOString().slice(0, 10),
+    };
+};
+
+const isWithinDateRange = (value, range) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    return date >= new Date(`${range.from}T00:00:00`) && date <= new Date(`${range.to}T23:59:59`);
+};
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const escapeHtml = (value) => String(value ?? '')
@@ -131,17 +167,27 @@ function AdminAddProductPage({
     const [categoryProductSelection, setCategoryProductSelection] = useState([]);
     const [categoryMoveTargetId, setCategoryMoveTargetId] = useState('');
     const [isMovingCategoryProducts, setIsMovingCategoryProducts] = useState(false);
+    const [datePreset, setDatePreset] = useState('30');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const dateRange = useMemo(() => getDateRange(datePreset, dateFrom, dateTo), [datePreset, dateFrom, dateTo]);
     const clearProductFilters = () => {
         setProductSearch('');
         setCategoryFilter('all');
         setStatusFilter('all');
         setStockFilter('all');
+        setDatePreset('30');
+        setDateFrom('');
+        setDateTo('');
         setProductSort({ key: 'name', direction: 'asc' });
         setProductPage(1);
     };
     const clearCategoryFilters = () => {
         setCategorySearch('');
         setCategoryStatusFilter('all');
+        setDatePreset('30');
+        setDateFrom('');
+        setDateTo('');
         setCategorySort({ key: 'created_at', direction: 'desc' });
         setCategoryPage(1);
     };
@@ -154,7 +200,9 @@ function AdminAddProductPage({
                 || (categoryStatusFilter === 'active' ? isActive : !isActive);
             const matchesSearch = !keyword
                 || String(category.category_name || '').toLocaleLowerCase('th').includes(keyword);
-            return matchesStatus && matchesSearch;
+            return matchesStatus
+                && matchesSearch
+                && isWithinDateRange(category.created_at || category.updated_at, dateRange);
         }).sort((a, b) => {
             let result = 0;
             if (categorySort.key === 'category_name') {
@@ -168,7 +216,7 @@ function AdminAddProductPage({
             }
             return categorySort.direction === 'asc' ? result : -result;
         });
-    }, [categories, categorySearch, categorySort, categoryStatusFilter]);
+    }, [categories, categorySearch, categorySort, categoryStatusFilter, dateRange]);
     const categoryTotalPages = Math.max(1, Math.ceil(filteredCategories.length / categoryPageSize));
     const paginatedCategories = filteredCategories.slice(
         (categoryPage - 1) * categoryPageSize,
@@ -181,7 +229,7 @@ function AdminAddProductPage({
 
     useEffect(() => {
         setCategoryPage(1);
-    }, [categorySearch, categoryStatusFilter, categoryPageSize]);
+    }, [categorySearch, categoryStatusFilter, categoryPageSize, dateRange]);
     const productCategoryOptions = [...activeCategories].sort((a, b) => a.category_name.localeCompare(b.category_name, 'th'));
     const categoryFilterOptions = Array.from(new Set(
         [
@@ -206,7 +254,11 @@ function AdminAddProductPage({
                 || String(product.name || '').toLocaleLowerCase('th').includes(keyword)
                 || String(product.category_name || '').toLocaleLowerCase('th').includes(keyword)
                 || sku.includes(keyword);
-            return matchesCategory && matchesStatus && matchesStock && matchesSearch;
+            return matchesCategory
+                && matchesStatus
+                && matchesStock
+                && matchesSearch
+                && isWithinDateRange(product.updated_at || product.created_at, dateRange);
         }).sort((a, b) => {
             let result = 0;
             if (productSort.key === 'name') {
@@ -221,7 +273,7 @@ function AdminAddProductPage({
             }
             return productSort.direction === 'asc' ? result : -result;
         });
-    }, [products, productSearch, categoryFilter, statusFilter, stockFilter, productSort]);
+    }, [products, productSearch, categoryFilter, statusFilter, stockFilter, productSort, dateRange]);
     const productTotalPages = Math.max(1, Math.ceil(filteredProducts.length / productPageSize));
     const paginatedProducts = filteredProducts.slice(
         (productPage - 1) * productPageSize,
@@ -234,7 +286,7 @@ function AdminAddProductPage({
 
     useEffect(() => {
         setProductPage(1);
-    }, [productSearch, categoryFilter, statusFilter, stockFilter, productPageSize]);
+    }, [productSearch, categoryFilter, statusFilter, stockFilter, productPageSize, dateRange]);
     const findCategoryById = (categoryId) => productCategoryOptions.find((category) => String(category.category_id) === String(categoryId));
     const selectedNewCategoryId = String(
         newProduct.category_id || productCategoryOptions.find((category) => category.category_name === newProduct.category_name)?.category_id || '',
@@ -779,10 +831,23 @@ function AdminAddProductPage({
                                 : 'เพิ่ม แก้ไข เปิดหรือปิดใช้งานหมวดหมู่สินค้า'}
                         </p>
                     </div>
-                    <div className="panel-export-buttons admin-hero-export">
-                        <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
-                        <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
-                        <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
+                    <div className="admin-hero-actions">
+                        <div className="commerce-date-filter">
+                            <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
+                                {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                            </select>
+                            {datePreset === 'custom' && (
+                                <>
+                                    <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+                                    <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+                                </>
+                            )}
+                        </div>
+                        <div className="panel-export-buttons admin-hero-export">
+                            <button type="button" onClick={() => exportCurrentReport('csv')}>CSV</button>
+                            <button type="button" onClick={() => exportCurrentReport('excel')}>Excel</button>
+                            <button type="button" className="primary" onClick={() => exportCurrentReport('pdf')}>PDF</button>
+                        </div>
                     </div>
                 </div>
             {productAdminView === 'products' && (

@@ -2408,6 +2408,8 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
         const search = String(req.query.search || '').trim();
         const role = ['admin', 'user'].includes(req.query.role) ? req.query.role : '';
         const status = ['0', '1', '2'].includes(String(req.query.status)) ? Number(req.query.status) : null;
+        const dateFrom = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date_from || '')) ? String(req.query.date_from) : '';
+        const dateTo = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date_to || '')) ? String(req.query.date_to) : '';
         const sortColumns = {
             id: 'u.user_id',
             name: "COALESCE(NULLIF(u.full_name, ''), u.username)",
@@ -2439,6 +2441,14 @@ app.get('/api/admin/customers', requireAdmin, async (req, res) => {
         if (status !== null) {
             conditions.push('u.status_user = ?');
             params.push(status);
+        }
+        if (dateFrom) {
+            conditions.push('u.created_at >= ?');
+            params.push(`${dateFrom} 00:00:00`);
+        }
+        if (dateTo) {
+            conditions.push('u.created_at <= ?');
+            params.push(`${dateTo} 23:59:59`);
         }
 
         const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';

@@ -31,6 +31,36 @@ const SORT_LABELS = {
     name: 'ชื่อ',
     created_at: 'วันที่สมัคร',
 };
+const DATE_PRESETS = [
+    { value: 'today', label: 'วันนี้' },
+    { value: '7', label: '7 วันล่าสุด' },
+    { value: '30', label: '30 วันล่าสุด' },
+    { value: 'month', label: 'เดือนนี้' },
+    { value: 'year', label: 'ปีนี้' },
+    { value: 'custom', label: 'กำหนดช่วงวันที่' },
+];
+
+const getDateRange = (preset, customFrom, customTo) => {
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    if (preset === '7' || preset === '30') from.setDate(from.getDate() - Number(preset) + 1);
+    if (preset === 'month') from.setDate(1);
+    if (preset === 'year') {
+        from.setMonth(0);
+        from.setDate(1);
+    }
+    if (preset === 'custom') {
+        return {
+            from: customFrom || now.toISOString().slice(0, 10),
+            to: customTo || now.toISOString().slice(0, 10),
+        };
+    }
+    return {
+        from: from.toISOString().slice(0, 10),
+        to: to.toISOString().slice(0, 10),
+    };
+};
 
 const escapeCsv = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const escapeHtml = (value) => String(value ?? '')
@@ -80,6 +110,9 @@ function AdminCustomersPage({
     const [actionLoading, setActionLoading] = useState(false);
     const [actionError, setActionError] = useState('');
     const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' });
+    const [datePreset, setDatePreset] = useState('30');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
     const [createStep, setCreateStep] = useState('identity');
     const [createOtpMsg, setCreateOtpMsg] = useState({ type: '', text: '' });
     const [isCreateOtpLoading, setIsCreateOtpLoading] = useState(false);
@@ -94,6 +127,9 @@ function AdminCustomersPage({
         setRoleFilter('all');
         setStatusFilter('all');
         setSortConfig({ key: '', direction: 'asc' });
+        setDatePreset('30');
+        setDateFrom('');
+        setDateTo('');
         setPage(1);
     };
     const applyQuickFilter = ({ role = 'all', status = 'all' }) => {
@@ -112,18 +148,21 @@ function AdminCustomersPage({
         setIsCreateOtpRequested(false);
     }, [adminUserCreate?.isOpen]);
     useEffect(() => {
+        const range = getDateRange(datePreset, dateFrom, dateTo);
         const timer = setTimeout(() => loadRef.current({
             page,
             limit: pageSize,
             search: searchText.trim() || undefined,
             role: roleFilter === 'all' ? undefined : roleFilter,
             status: statusFilter === 'all' ? undefined : statusFilter,
+            date_from: range.from,
+            date_to: range.to,
             sort: sortConfig.key || undefined,
             order: sortConfig.key ? sortConfig.direction : undefined,
         }), 250);
         return () => clearTimeout(timer);
-    }, [page, pageSize, roleFilter, searchText, sortConfig.direction, sortConfig.key, statusFilter]);
-    useEffect(() => { setPage(1); }, [searchText, roleFilter, statusFilter, pageSize, sortConfig.direction, sortConfig.key]);
+    }, [dateFrom, datePreset, dateTo, page, pageSize, roleFilter, searchText, sortConfig.direction, sortConfig.key, statusFilter]);
+    useEffect(() => { setPage(1); }, [dateFrom, datePreset, dateTo, searchText, roleFilter, statusFilter, pageSize, sortConfig.direction, sortConfig.key]);
 
     const pagination = customersMeta?.pagination || {};
     const summary = customersMeta?.summary || {};
@@ -134,6 +173,8 @@ function AdminCustomersPage({
         page, limit: pageSize, search: searchText.trim() || undefined,
         role: roleFilter === 'all' ? undefined : roleFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
+        date_from: getDateRange(datePreset, dateFrom, dateTo).from,
+        date_to: getDateRange(datePreset, dateFrom, dateTo).to,
         sort: sortConfig.key || undefined,
         order: sortConfig.key ? sortConfig.direction : undefined,
     };
@@ -498,10 +539,23 @@ function AdminCustomersPage({
                     <h4 className="admin-hero-title">จัดการผู้ใช้งาน</h4>
                     <p className="admin-hero-description">ดูแลบัญชี สิทธิ์การเข้าถึง และข้อมูลผู้ใช้งานทั้งหมดในที่เดียว</p>
                 </div>
-                <div className="panel-export-buttons admin-hero-export">
-                    <button type="button" onClick={() => exportCustomersReport('csv')}>CSV</button>
-                    <button type="button" onClick={() => exportCustomersReport('excel')}>Excel</button>
-                    <button type="button" className="primary" onClick={() => exportCustomersReport('pdf')}>PDF</button>
+                <div className="admin-hero-actions">
+                    <div className="commerce-date-filter">
+                        <select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}>
+                            {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                        {datePreset === 'custom' && (
+                            <>
+                                <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
+                                <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
+                            </>
+                        )}
+                    </div>
+                    <div className="panel-export-buttons admin-hero-export">
+                        <button type="button" onClick={() => exportCustomersReport('csv')}>CSV</button>
+                        <button type="button" onClick={() => exportCustomersReport('excel')}>Excel</button>
+                        <button type="button" className="primary" onClick={() => exportCustomersReport('pdf')}>PDF</button>
+                    </div>
                 </div>
             </header>
 

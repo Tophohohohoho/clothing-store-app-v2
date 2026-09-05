@@ -18,7 +18,8 @@ import StockEditModal from './components/StockEditModal';
 import AppNotificationHost, { alertNotification, confirmNotification, notify } from './components/AppNotification';
 import AdminPage from './pages/AdminPage';
 import AdminOrderPrintPage from './pages/AdminOrderPrintPage';
-import AuthPage from './pages/AuthPage';
+import AdminSalesReportPrintPage from './pages/AdminSalesReportPrintPage';
+import AuthPage, { PRIVACY_NOTICE_SECTIONS } from './pages/AuthPage';
 import StorePage from './pages/StorePage';
 import { getCartItemKey, getCartTotal } from './utils/cart';
 
@@ -215,8 +216,8 @@ const canAccessPage = (page, currentUser) => {
     return false;
 };
 
-const getPrintOrderIdsFromLocation = () => {
-    const batchMatch = window.location.pathname.match(/^\/admin\/orders\/print\/?$/);
+const getPrintOrderIdsFromLocation = (pathname = window.location.pathname) => {
+    const batchMatch = pathname.match(/^\/admin\/orders\/print\/?$/);
     if (batchMatch) {
         return new URLSearchParams(window.location.search)
             .get('ids')
@@ -225,9 +226,11 @@ const getPrintOrderIdsFromLocation = () => {
             .filter(Boolean) || [];
     }
 
-    const match = window.location.pathname.match(/^\/admin\/orders\/([^/]+)\/print\/?$/);
+    const match = pathname.match(/^\/admin\/orders\/([^/]+)\/print\/?$/);
     return match ? [decodeURIComponent(match[1])] : [];
 };
+
+const isSalesReportPrintLocation = (pathname = window.location.pathname) => pathname.match(/^\/admin\/sales-report\/print\/?$/);
 
 const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
 const STORE_PICKUP_PLACE = 'อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย';
@@ -238,42 +241,98 @@ const STORE_CONTACT_EMAIL = 'admin@example.com';
 function SiteFooter({ contact }) {
     const phone = contact?.phone || STORE_CONTACT_PHONE;
     const email = contact?.email || STORE_CONTACT_EMAIL;
+    const [showPrivacyNotice, setShowPrivacyNotice] = useState(false);
+
+    useEffect(() => {
+        if (!showPrivacyNotice) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setShowPrivacyNotice(false);
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showPrivacyNotice]);
 
     return (
-        <footer className="site-footer">
-            <div className="site-footer-inner">
-                <div className="site-footer-grid">
-                    <section className="site-footer-section" aria-labelledby="footer-address">
-                        <h2 id="footer-address">ที่อยู่ร้าน</h2>
-                        <div className="site-footer-address">
-                            <p>{STORE_PICKUP_PLACE}</p>
-                            <p>{STORE_PICKUP_LOCATION}</p>
+        <>
+            <footer className="site-footer">
+                <div className="site-footer-inner">
+                    <div className="site-footer-grid">
+                        <section className="site-footer-section" aria-labelledby="footer-address">
+                            <h2 id="footer-address">ที่อยู่ร้าน</h2>
+                            <div className="site-footer-address">
+                                <p>{STORE_PICKUP_PLACE}</p>
+                                <p>{STORE_PICKUP_LOCATION}</p>
+                            </div>
+                        </section>
+
+                        <section className="site-footer-section" aria-labelledby="footer-contact">
+                            <h2 id="footer-contact">ติดต่อเรา</h2>
+                            <p>โทร {phone}</p>
+                            <p>อีเมล {email}</p>
+                        </section>
+
+                        <section className="site-footer-section" aria-labelledby="footer-social">
+                            <h2 id="footer-social">โซเชียล</h2>
+                            <a href="https://www.facebook.com/" target="_blank" rel="noreferrer">Facebook</a>
+                            <a href="https://line.me/" target="_blank" rel="noreferrer">LINE</a>
+                        </section>
+
+                        <section className="site-footer-section" aria-labelledby="footer-info">
+                            <h2 id="footer-info">ข้อมูลเพิ่มเติม</h2>
+                            <button type="button" onClick={() => setShowPrivacyNotice(true)}>นโยบายความเป็นส่วนตัว</button>
+                        </section>
+                    </div>
+
+                    <div className="site-footer-bottom">
+                        © 2026 SHOP LRU All rights reserved.
+                    </div>
+                </div>
+            </footer>
+
+            {showPrivacyNotice && (
+                <div className="auth-privacy-modal-backdrop" role="presentation" onMouseDown={() => setShowPrivacyNotice(false)}>
+                    <section
+                        className="auth-privacy-modal"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="footer-privacy-notice-title"
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <header>
+                            <div>
+                                <span>ประกาศ</span>
+                                <h3 id="footer-privacy-notice-title">นโยบายความเป็นส่วนตัว</h3>
+                                <p>รายละเอียดการเก็บ ใช้ และดูแลข้อมูลส่วนบุคคลของผู้ใช้งาน</p>
+                            </div>
+                            <button type="button" onClick={() => setShowPrivacyNotice(false)} aria-label="ปิดนโยบายความเป็นส่วนตัว">
+                                ×
+                            </button>
+                        </header>
+                        <div className="auth-privacy-modal-scroll" tabIndex="0">
+                            {PRIVACY_NOTICE_SECTIONS.map((section) => (
+                                <article key={section.title}>
+                                    <h4>{section.title}</h4>
+                                    <p>{section.text}</p>
+                                </article>
+                            ))}
                         </div>
-                    </section>
-
-                    <section className="site-footer-section" aria-labelledby="footer-contact">
-                        <h2 id="footer-contact">ติดต่อเรา</h2>
-                        <p>โทร {phone}</p>
-                        <p>อีเมล {email}</p>
-                    </section>
-
-                    <section className="site-footer-section" aria-labelledby="footer-social">
-                        <h2 id="footer-social">โซเชียล</h2>
-                        <a href="https://www.facebook.com/" target="_blank" rel="noreferrer">Facebook</a>
-                        <a href="https://line.me/" target="_blank" rel="noreferrer">LINE</a>
-                    </section>
-
-                    <section className="site-footer-section" aria-labelledby="footer-info">
-                        <h2 id="footer-info">ข้อมูลเพิ่มเติม</h2>
-                        <button type="button">นโยบายความเป็นส่วนตัว</button>
+                        <footer>
+                            <button type="button" onClick={() => setShowPrivacyNotice(false)}>
+                                ปิด
+                            </button>
+                        </footer>
                     </section>
                 </div>
-
-                <div className="site-footer-bottom">
-                    © 2026 SHOP LRU All rights reserved.
-                </div>
-            </div>
-        </footer>
+            )}
+        </>
     );
 }
 
@@ -516,6 +575,8 @@ function App() {
     const [storeSearchText, setStoreSearchText] = useState('');
     const [sessionStartedAt, setSessionStartedAt] = useState(() => Date.now());
     const [storeContact, setStoreContact] = useState({ full_name: '', email: '', phone: '' });
+    const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
+    const [salesReportReturnTarget, setSalesReportReturnTarget] = useState('dashboard');
 
     const [loginForm, setLoginForm] = useState({ username: '', password: '' });
     const [rememberLogin, setRememberLogin] = useState(() => Boolean(localStorage.getItem(AUTH_STORAGE_KEY) && localStorage.getItem(AUTH_TOKEN_KEY)));
@@ -596,6 +657,7 @@ function App() {
     const [profilePhone, setProfilePhone] = useState('');
     const [addresses, setAddresses] = useState([]);
     const [addressForm, setAddressForm] = useState(emptyAddress);
+    const [isSavingAddress, setIsSavingAddress] = useState(false);
     const orderStatusResolverRef = useRef(null);
     const [shippingInfo, setShippingInfo] = useState({
         address_id: null,
@@ -617,7 +679,9 @@ function App() {
 
     const selectedCartItems = cart.filter((item) => selectedCartKeys.includes(getCartItemKey(item)));
     const total = getCartTotal(selectedCartItems);
-    const printOrderIds = getPrintOrderIdsFromLocation();
+    const printOrderIds = getPrintOrderIdsFromLocation(currentPath);
+    const isSalesReportPrintPage = Boolean(isSalesReportPrintLocation(currentPath));
+    const salesReportReturnLabel = salesReportReturnTarget === 'store' ? 'กลับหน้าร้าน' : 'Dashboard';
     const showOrderToast = useCallback((type, message) => {
         setOrderToast({ type, message });
     }, []);
@@ -728,6 +792,19 @@ function App() {
         fetchProducts();
         fetchCategories();
     }, [fetchProducts, fetchCategories]);
+
+    useEffect(() => {
+        const handlePopState = () => setCurrentPath(window.location.pathname);
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    const navigateInApp = useCallback((path) => {
+        if (window.location.pathname !== path) {
+            window.history.pushState({}, '', path);
+        }
+        setCurrentPath(path);
+    }, []);
 
     useEffect(() => {
         if (isAdminUser(user)) {
@@ -880,12 +957,12 @@ function App() {
         setRegisterFieldErrors({});
 
         if (!registerForm.privacyNoticeAcknowledged) {
-            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน' });
+            setRegisterFieldErrors({ privacyNoticeAcknowledged: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน' });
             setRegisterMsg({ type: '', text: '' });
             alertNotification({
                 type: 'warning',
-                title: 'ยังไม่ได้อ่าน Privacy Policy / นโยบายความเป็นส่วนตัว',
-                message: 'กรุณาอ่าน Privacy Policy / นโยบายความเป็นส่วนตัวก่อน แล้วจึงทำรายการต่อ',
+                title: 'ยังไม่ได้อ่านนโยบายความเป็นส่วนตัว',
+                message: 'กรุณาอ่านนโยบายความเป็นส่วนตัวก่อน แล้วจึงทำรายการต่อ',
                 buttonText: 'กลับไปอ่าน',
             });
             return;
@@ -1015,6 +1092,7 @@ function App() {
     };
 
     const openStore = () => {
+        navigateInApp('/');
         setAuthView(null);
         setIsAdminView(false);
         setIsCartOpen(false);
@@ -1786,11 +1864,28 @@ function App() {
         setIsOrderHistoryOpen(true);
     };
 
-    const openSalesHistory = async () => {
+    const openSalesHistory = () => {
         if (!redirectUnauthorizedPage('admin-orders')) return;
 
-        await fetchAdminOrders();
-        setIsSalesHistoryOpen(true);
+        if (isSalesReportPrintPage) {
+            if (salesReportReturnTarget === 'store') {
+                openStore();
+            } else {
+                navigateInApp('/');
+                setAdminPage('dashboard');
+                setIsAdminView(true);
+            }
+            return;
+        }
+
+        setSalesReportReturnTarget(isAdminView ? 'dashboard' : 'store');
+        setAuthView(null);
+        setIsAdminView(false);
+        setIsCartOpen(false);
+        setIsOrderHistoryOpen(false);
+        setIsSalesHistoryOpen(false);
+        setIsProfileOpen(false);
+        navigateInApp('/admin/sales-report/print');
     };
 
     const openProfile = () => {
@@ -1836,14 +1931,19 @@ function App() {
     };
 
     const handleSaveAddress = async (event) => {
-        event.preventDefault();
+        event?.preventDefault();
+
+        if (isSavingAddress) {
+            return { success: false, error: 'กำลังบันทึกที่อยู่ กรุณารอสักครู่' };
+        }
 
         const validationMessage = getAddressValidationMessage(addressForm);
         if (validationMessage) {
             notify({ type: 'warning', title: 'ข้อมูลที่อยู่ยังไม่ครบ', message: validationMessage });
-            return;
+            return { success: false, error: validationMessage };
         }
 
+        setIsSavingAddress(true);
         try {
             if (addressForm.address_id) {
                 await authApi.updateAddress(user.id, addressForm.address_id, addressForm);
@@ -1856,8 +1956,13 @@ function App() {
             setAddressForm(defaultAddress ? { ...emptyAddress, ...defaultAddress } : emptyAddress);
             applyAddressToCheckout(defaultAddress);
             notify({ type: 'success', title: 'บันทึกที่อยู่สำเร็จ', message: 'ข้อมูลที่อยู่ถูกอัปเดตเรียบร้อยแล้ว' });
+            return { success: true };
         } catch (err) {
-            notify({ type: 'error', title: 'บันทึกที่อยู่ไม่สำเร็จ', message: err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ' });
+            const errorMessage = err.response?.data?.error || 'บันทึกที่อยู่ไม่สำเร็จ';
+            notify({ type: 'error', title: 'บันทึกที่อยู่ไม่สำเร็จ', message: errorMessage });
+            return { success: false, error: errorMessage };
+        } finally {
+            setIsSavingAddress(false);
         }
     };
 
@@ -1988,8 +2093,58 @@ function App() {
         }
     };
 
-    if (printOrderIds.length > 0 || window.location.pathname.match(/^\/admin\/orders\/print\/?$/)) {
+    if (printOrderIds.length > 0 || currentPath.match(/^\/admin\/orders\/print\/?$/)) {
         return <AdminOrderPrintPage orderIds={printOrderIds} />;
+    }
+
+    if (isSalesReportPrintPage) {
+        return (
+            <div className="sales-report-print-shell">
+                <AppNotificationHost />
+                <AppNavbar
+                    user={user}
+                    cart={cart}
+                    isAdminView={isAdminView}
+                    authView={authView}
+                    isCartOpen={isCartOpen}
+                    isOrderHistoryOpen={isOrderHistoryOpen}
+                    isSalesHistoryOpen
+                    isProfileOpen={isProfileOpen}
+                    onOpenStore={openStore}
+                    onOpenAdmin={() => {
+                        if (!redirectUnauthorizedPage('admin-dashboard')) return;
+                        navigateInApp('/');
+                        setAdminPage('dashboard');
+                        setIsAdminView(true);
+                    }}
+                    onOpenCart={() => {
+                        openStore();
+                        setIsCartOpen(true);
+                    }}
+                    onOpenOrderHistory={openOrderHistory}
+                    onOpenSalesHistory={openSalesHistory}
+                    salesReportNavLabel={salesReportReturnLabel}
+                    onOpenProfile={() => {
+                        navigateInApp('/');
+                        openProfile();
+                    }}
+                    onOpenLogin={() => {
+                        navigateInApp('/');
+                        openAuthPage('login');
+                    }}
+                    onLogout={requestLogout}
+                />
+                <AdminSalesReportPrintPage />
+                {showLogoutConfirm && (
+                    <LogoutConfirmModal
+                        user={user}
+                        isSubmitting={isLoggingOut}
+                        onCancel={() => setShowLogoutConfirm(false)}
+                        onConfirm={handleLogout}
+                    />
+                )}
+            </div>
+        );
     }
 
     const shouldShowSiteFooter = !isAdminUser(user) && !isOrderHistoryOpen;
@@ -2016,6 +2171,7 @@ function App() {
                 onOpenCart={() => setIsCartOpen(true)}
                 onOpenOrderHistory={openOrderHistory}
                 onOpenSalesHistory={openSalesHistory}
+                salesReportNavLabel="พิมพ์รายงาน"
                 onOpenProfile={openProfile}
                 onOpenLogin={() => openAuthPage('login')}
                 onLogout={requestLogout}
@@ -2230,6 +2386,7 @@ function App() {
                     addresses={addresses}
                     addressForm={addressForm}
                     setAddressForm={setAddressForm}
+                    isSavingAddress={isSavingAddress}
                     onSaveAddress={handleSaveAddress}
                     onSelectAddress={handleSelectAddress}
                     onNewAddress={handleNewAddress}

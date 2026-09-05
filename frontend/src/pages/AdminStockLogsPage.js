@@ -4,7 +4,6 @@ import { resolveMediaUrl } from '../utils/media';
 
 const PAGE_SIZES = [10, 20, 50, 100];
 const DATE_PRESETS = [
-    { value: 'all', label: 'ทั้งหมด' },
     { value: 'today', label: 'วันนี้' },
     { value: '7', label: '7 วันล่าสุด' },
     { value: '30', label: '30 วันล่าสุด' },
@@ -15,7 +14,7 @@ const DATE_PRESETS = [
 
 const DEFAULT_FILTERS = {
     search: '',
-    datePreset: 'all',
+    datePreset: '30',
     dateFrom: '',
     dateTo: '',
     userFilter: 'all',
@@ -368,10 +367,23 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                             : 'ตรวจสอบบันทึกการกระทำของผู้ดูแลระบบ เช่น เข้าสู่ระบบ ออกจากระบบ เพิ่ม แก้ไข ลบ หรืออัปเดตข้อมูล พร้อมวันเวลาและรายละเอียดการดำเนินการ'}
                     </p>
                 </div>
-                <div className="audit-export admin-hero-export">
-                    <button type="button" onClick={() => exportRows('csv')}>CSV</button>
-                    <button type="button" onClick={() => exportRows('excel')}>Excel</button>
-                    <button type="button" className="primary" onClick={() => exportRows('pdf')}>PDF</button>
+                <div className="admin-hero-actions">
+                    <div className="commerce-date-filter">
+                        <select value={filters.datePreset} onChange={(event) => updateFilter('datePreset', event.target.value)} aria-label="เลือกช่วงวันที่">
+                            {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                        </select>
+                        {filters.datePreset === 'custom' && (
+                            <>
+                                <input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} />
+                                <input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} />
+                            </>
+                        )}
+                    </div>
+                    <div className="audit-export admin-hero-export">
+                        <button type="button" onClick={() => exportRows('csv')}>CSV</button>
+                        <button type="button" onClick={() => exportRows('excel')}>Excel</button>
+                        <button type="button" className="primary" onClick={() => exportRows('pdf')}>PDF</button>
+                    </div>
                 </div>
             </header>
 
@@ -410,15 +422,6 @@ function AdminStockLogsPage({ stockLogs = [], systemLogs = [], activityLogsLoadi
                         <span>⌕</span>
                         <input value={filters.search} onChange={(event) => updateFilter('search', event.target.value)} placeholder="ค้นหาผู้ใช้งาน สินค้า หมายเหตุ หรือกิจกรรม..." />
                     </label>
-                    <select value={filters.datePreset} onChange={(event) => updateFilter('datePreset', event.target.value)} aria-label="เลือกช่วงวันที่">
-                        {DATE_PRESETS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-                    </select>
-                    {filters.datePreset === 'custom' && (
-                        <div className="audit-custom-date">
-                            <label>ตั้งแต่ <input type="date" value={filters.dateFrom} onChange={(event) => updateFilter('dateFrom', event.target.value)} /></label>
-                            <label>ถึง <input type="date" value={filters.dateTo} onChange={(event) => updateFilter('dateTo', event.target.value)} /></label>
-                        </div>
-                    )}
                     <select value={filters.userFilter} onChange={(event) => updateFilter('userFilter', event.target.value)}>
                         <option value="all">ผู้ใช้งานทั้งหมด</option>
                         {users.map((name) => <option key={name} value={name}>{name}</option>)}
