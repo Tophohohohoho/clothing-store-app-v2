@@ -6985,8 +6985,10 @@
 
 .sales-report-print-page {
     min-height: 100vh;
-    padding: 22px;
-    background: #eef3f8;
+    padding: 24px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 260px),
+        #eef3f8;
     color: #111827;
     font-family: Arial, Tahoma, sans-serif;
 }
@@ -7027,9 +7029,12 @@
 }
 
 .sales-report-quick-panel {
-    width: min(1120px, 100%);
+    width: min(1180px, 100%);
     margin: 0 auto 18px;
-    border-radius: 0 !important;
+    overflow: hidden;
+    border: 1px solid #dce3ec;
+    border-radius: 8px !important;
+    background: #fff;
 }
 
 .sales-report-quick-panel:hover {
@@ -7038,23 +7043,87 @@
     box-shadow: 0 6px 22px rgba(16, 24, 40, .045);
 }
 
+.sales-report-quick-panel .commerce-report-date-filter select {
+    width: 142px;
+    min-width: 142px;
+    min-height: 40px;
+    padding: 0 34px 0 14px;
+    border-radius: 8px;
+    color: #344054;
+    font-size: 0.84rem;
+    font-weight: 900;
+    line-height: 1.2;
+}
+
+.sales-report-quick-panel .commerce-report-date-filter select option {
+    padding: 8px 12px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.8;
+}
+
+.sales-report-quick-panel .commerce-report-date-filter {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.sales-report-custom-dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sales-report-custom-dates label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    color: #344054;
+    font-size: 0.78rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.sales-report-custom-dates input {
+    width: 138px;
+    min-height: 40px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+}
+
 .sales-report-groups {
     display: grid;
-    gap: 18px;
-    padding: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+    padding: 18px;
+}
+
+.sales-report-column {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    min-width: 0;
 }
 
 .sales-report-group {
     display: grid;
+    align-content: start;
     gap: 12px;
+    height: fit-content;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #e4e7ec;
+    border-radius: 8px;
+    background: #fbfcfe;
 }
 
 .sales-report-group h3 {
     margin: 0;
-    padding: 0 2px 8px;
+    padding: 0 2px 10px;
     border-bottom: 1px solid #e4e7ec;
     color: #111827;
-    font-size: 0.95rem;
+    font-size: 0.98rem;
     font-weight: 950;
 }
 
@@ -7068,34 +7137,36 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 14px;
-    min-height: 56px;
-    padding: 10px 12px 10px 16px;
+    gap: 8px;
+    min-height: 62px;
+    padding: 11px 10px 11px 14px;
     border: 1px solid #eaecf0;
-    border-radius: 0;
-    background: linear-gradient(180deg, #f9fbff 0%, #ffffff 100%);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
 }
 
 .sales-report-action-row strong {
     min-width: 0;
     color: #101828;
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     font-weight: 900;
     line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 .sales-report-format-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 9px;
+    gap: 5px;
 }
 
 .sales-report-format-actions button {
-    min-width: 86px;
-    min-height: 52px;
-    padding: 0 16px;
+    min-width: 58px;
+    min-height: 36px;
+    padding: 0 10px;
     border: 1px solid #dfe5ec;
-    border-radius: 18px;
+    border-radius: 8px;
     background: #fff;
     color: #344054;
     font: inherit;
@@ -7104,8 +7175,8 @@
 }
 
 .sales-report-format-actions button.primary {
-    border-color: #5f56d9;
-    background: #5f56d9;
+    border-color: #175cd3;
+    background: #175cd3;
     color: #fff;
 }
 
@@ -7115,8 +7186,8 @@
 }
 
 .sales-report-format-actions button.primary:hover {
-    border-color: #5147cd;
-    background: #5147cd;
+    border-color: #1849a9;
+    background: #1849a9;
 }
 
 .sales-report-print-header {
@@ -7291,10 +7362,45 @@
         padding: 16px;
     }
 
+    .sales-report-groups {
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+
+    .sales-report-column {
+        gap: 12px;
+    }
+
+    .sales-report-quick-panel .commerce-report-date-filter {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .sales-report-custom-dates {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .sales-report-custom-dates label {
+        flex: 1 1 150px;
+    }
+
+    .sales-report-custom-dates input {
+        width: 100%;
+    }
+
+    .sales-report-group {
+        padding: 12px;
+    }
+
     .sales-report-action-row {
         grid-template-columns: 1fr;
         gap: 10px;
         padding: 10px;
+    }
+
+    .sales-report-action-row strong {
+        white-space: normal;
     }
 
     .sales-report-format-actions {
@@ -7303,7 +7409,7 @@
     }
 
     .sales-report-format-actions button {
-        min-width: 76px;
+        flex: 1 1 76px;
         padding: 0 12px;
     }
 }
