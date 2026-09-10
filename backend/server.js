@@ -74,6 +74,18 @@ const dbp = db.promise();
 
 const query = (sql, params = []) => dbp.query(sql, params);
 
+const withTransaction = async (callback) => {
+    await dbp.beginTransaction();
+    try {
+        const result = await callback(dbp);
+        await dbp.commit();
+        return result;
+    } catch (err) {
+        await dbp.rollback().catch(() => {});
+        throw err;
+    }
+};
+
 const hashVerificationCode = (code) => crypto.createHash('sha256').update(String(code)).digest('hex');
 const hashResetCode = hashVerificationCode;
 const PASSWORD_HASH_ROUNDS = 12;
@@ -488,6 +500,47 @@ const normalizeProduct = (product) => ({
     stock: product.quantity,
 });
 
+const PRODUCT_LIST_ORDER_SQL = `
+    p.product_status DESC,
+    CASE
+        WHEN c.category_name = 'เครื่องแบบนักศึกษา' THEN 1
+        WHEN c.category_name = 'ชุดกีฬา' THEN 2
+        WHEN c.category_name = 'ชุดพิธีการ' THEN 3
+        WHEN c.category_name = 'เครื่องหมายและเครื่องประดับ' THEN 4
+        WHEN c.category_name = 'รองเท้าและถุงเท้า' THEN 5
+        WHEN c.category_name = 'กระเป๋า' THEN 6
+        WHEN c.category_name = 'อุปกรณ์การเรียน' THEN 7
+        WHEN c.category_name = 'ของที่ระลึกมหาวิทยาลัย' THEN 8
+        ELSE 99
+    END,
+    CASE
+        WHEN p.product_name LIKE 'เสื้อนักศึกษาชาย%' THEN 1
+        WHEN p.product_name LIKE 'เสื้อนักศึกษาหญิง%' THEN 2
+        WHEN p.product_name LIKE 'กางเกงนักศึกษาชาย%' THEN 3
+        WHEN p.product_name LIKE 'กระโปรงทรงเอ%' OR p.product_name = 'กระโปรงนักศึกษาหญิง' THEN 4
+        WHEN p.product_name LIKE 'กระโปรงพลีท%' THEN 5
+        WHEN p.product_name LIKE 'เสื้อกีฬา%' OR p.product_name LIKE 'เสื้อเฟรชชี้ ปี2569%' THEN 6
+        WHEN p.product_name LIKE 'กางเกงกีฬา%' THEN 7
+        WHEN p.product_name LIKE 'ครุย%' THEN 8
+        WHEN p.product_name LIKE 'กระดุม%' THEN 9
+        WHEN p.product_name LIKE 'เข็มมหาวิทยาลัย%' THEN 10
+        WHEN p.product_name LIKE 'เนกไท%' THEN 11
+        WHEN p.product_name LIKE 'เข็มขัด%' OR p.product_name LIKE 'สายเข็มขัด%' OR p.product_name LIKE 'หัวเข็มขัด%' THEN 12
+        ELSE 90
+    END,
+    CASE
+        WHEN p.product_name NOT LIKE '%ไซซ์%' THEN 0
+        WHEN p.product_name LIKE '%ไซซ์ S' THEN 1
+        WHEN p.product_name LIKE '%ไซซ์ M' THEN 2
+        WHEN p.product_name LIKE '%ไซซ์ L' THEN 3
+        WHEN p.product_name LIKE '%ไซซ์ XL' THEN 4
+        WHEN p.product_name LIKE '%ไซซ์ 2XL' THEN 5
+        WHEN p.product_name LIKE '%ไซซ์ 3XL' THEN 6
+        ELSE 9
+    END,
+    p.product_id ASC
+`;
+
 const normalizeOrderStatus = (status) => {
     const value = String(status || '').trim();
     const aliases = {
@@ -640,7 +693,8 @@ const writeSystemLog = async (userId, action, remark = '', details = {}) => {
     if (!userId) return;
 
     try {
-        await query(
+        const executor = details.executor || dbp;
+        await executor.query(
             `INSERT INTO system_log
                 (user_id, action, remark, before_data, after_data, ip_address, device, browser, session_duration)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -661,9 +715,9 @@ const writeSystemLog = async (userId, action, remark = '', details = {}) => {
     }
 };
 
-const writeOrderStatusHistory = async (orderId, status, userId = null, note = '') => {
+const writeOrderStatusHistory = async (orderId, status, userId = null, note = '', executor = dbp) => {
     if (!orderId || !status) return;
-    await query(
+    await executor.query(
         'INSERT INTO order_status_history (order_id, status, user_id, note) VALUES (?, ?, ?, ?)',
         [orderId, status, userId || null, note || null],
     );
@@ -710,7 +764,7 @@ const applyStockChange = async ({
     }
 
     const [products] = await executor.query(
-        'SELECT product_id, product_name, quantity FROM product WHERE product_id = ? LIMIT 1',
+        'SELECT product_id, product_name, quantity FROM product WHERE product_id = ? LIMIT 1 FOR UPDATE',
         [productId],
     );
     if (products.length === 0) {
@@ -999,8 +1053,8 @@ const seedUniversityProducts = async () => {
         ['ชุดกีฬา', 'เสื้อกีฬามหาวิทยาลัย', 'เสื้อกีฬาประจำมหาวิทยาลัย', 300.00],
         ['ชุดกีฬา', 'กางเกงกีฬา', 'กางเกงกีฬาขาสั้น', 250.00],
         ['ชุดพิธีการ', 'ครุยวิทยฐานะ', 'ครุยสำหรับพิธีรับปริญญา', 1500.00],
-        ['เครื่องหมายและเครื่องประดับ', 'เข็มมหาวิทยาลัย', 'เข็มติดเสื้อนักศึกษา', 80.00],
-        ['เครื่องหมายและเครื่องประดับ', 'เนกไทนักศึกษา', 'เนกไทสำหรับนักศึกษาชาย', 180.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มมหาวิทยาลัย', 'เข็มตรามหาวิทยาลัยสำหรับติดเสื้อนักศึกษา', 80.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เนกไทนักศึกษา', 'เนกไทสีสุภาพสำหรับนักศึกษาชาย', 180.00],
         ['เครื่องหมายและเครื่องประดับ', 'เข็มขัดนักศึกษา', 'เข็มขัดพร้อมหัวเข็มขัด', 250.00],
         ['รองเท้าและถุงเท้า', 'รองเท้าหนังนักศึกษา', 'รองเท้าหนังสีดำ', 890.00],
         ['รองเท้าและถุงเท้า', 'ถุงเท้านักศึกษา', 'ถุงเท้าสีขาว', 60.00],
@@ -1009,7 +1063,7 @@ const seedUniversityProducts = async () => {
         ['อุปกรณ์การเรียน', 'สมุดมหาวิทยาลัย', 'สมุดปกโลโก้มหาวิทยาลัย', 40.00],
         ['อุปกรณ์การเรียน', 'แฟ้มเอกสาร', 'แฟ้มใส่เอกสาร A4', 50.00],
         ['ของที่ระลึกมหาวิทยาลัย', 'แก้วน้ำมหาวิทยาลัย', 'แก้วน้ำสแตนเลส', 199.00],
-        ['ของที่ระลึกมหาวิทยาลัย', 'พวงกุญแจมหาวิทยาลัย', 'พวงกุญแจโลโก้มหาวิทยาลัย', 79.00],
+        ['เครื่องหมายและเครื่องประดับ', 'เข็มตุ้งติ้ง', 'เข็มตุ้งติ้งตรามหาวิทยาลัย', 79.00],
     ];
 
     for (const [categoryName, productName, description, price] of products) {
@@ -1400,7 +1454,7 @@ app.get('/api/products', async (req, res) => {
             LEFT JOIN category c ON p.category_id = c.category_id
             WHERE ${includeInactive ? '1 = 1' : 'p.product_status = 1'}
             ${keyword ? 'AND (p.product_name LIKE ? OR p.description LIKE ? OR c.category_name LIKE ?)' : ''}
-            ORDER BY p.created_at DESC
+            ORDER BY ${PRODUCT_LIST_ORDER_SQL}
         `;
         const params = keyword ? [`%${keyword}%`, `%${keyword}%`, `%${keyword}%`] : [];
         const [results] = await query(sql, params);
@@ -3110,32 +3164,36 @@ app.post('/api/products/update-stock', requireAdmin, async (req, res) => {
             changeQuantity = cleanText(operation) === 'decrease' ? -stockAmount : stockAmount;
         }
 
-        const result = await applyStockChange({
-            productId: product_id,
-            changeType: normalizedType,
-            changeQuantity,
-            reason: normalizedReason,
-            userId: user_id || null,
+        await withTransaction(async (executor) => {
+            const result = await applyStockChange({
+                productId: product_id,
+                changeType: normalizedType,
+                changeQuantity,
+                reason: normalizedReason,
+                userId: user_id || null,
+                executor,
+            });
+            await writeSystemLog(
+                user_id,
+                'ปรับสต๊อก',
+                normalizedReason ? `${normalizedType}: ${normalizedReason}` : normalizedType,
+                {
+                    ...getAuditRequestMeta(req),
+                    executor,
+                    beforeData: {
+                        product_id,
+                        before_quantity: result.beforeQuantity,
+                    },
+                    afterData: {
+                        product_id,
+                        change_type: normalizedType,
+                        change_quantity: result.changeQuantity,
+                        after_quantity: result.afterQuantity,
+                        reason: normalizedReason,
+                    },
+                },
+            );
         });
-        await writeSystemLog(
-            user_id,
-            'ปรับสต๊อก',
-            normalizedReason ? `${normalizedType}: ${normalizedReason}` : normalizedType,
-            {
-                ...getAuditRequestMeta(req),
-                beforeData: {
-                    product_id,
-                    before_quantity: result.beforeQuantity,
-                },
-                afterData: {
-                    product_id,
-                    change_type: normalizedType,
-                    change_quantity: result.changeQuantity,
-                    after_quantity: result.afterQuantity,
-                    reason: normalizedReason,
-                },
-            },
-        );
 
         res.json({ success: true, message: 'ปรับปรุงสต็อกสำเร็จ' });
     } catch (err) {
@@ -3150,6 +3208,8 @@ app.post('/api/admin/stock-logs/delete', requireAdmin, async (req, res) => {
 app.post('/api/admin/products/edit', requireAdmin, async (req, res) => {
     try {
         const { id, name, price, description, image_url, category_id, category_name, product_status } = req.body;
+        if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
+
         const shouldUpdateCategory = Boolean(category_id || String(category_name || '').trim());
         const categoryId = shouldUpdateCategory
             ? await resolveActiveCategoryId({ categoryId: category_id, categoryName: category_name })
@@ -3158,25 +3218,39 @@ app.post('/api/admin/products/edit', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'กรุณาเลือกหมวดหมู่สินค้าที่มีอยู่ในระบบ' });
         }
 
-        await query(
-            `UPDATE product
-             SET product_name = ?,
-                 price = ?,
-                 description = ?,
-                 product_image = COALESCE(?, product_image),
-                 category_id = COALESCE(?, category_id),
-                 product_status = COALESCE(?, product_status)
-             WHERE product_id = ?`,
-            [
-                name,
-                price,
-                description || null,
-                image_url || null,
-                categoryId || null,
-                product_status ?? null,
-                id,
-            ],
-        );
+        const result = await withTransaction(async (executor) => {
+            const [products] = await executor.query(
+                'SELECT product_id FROM product WHERE product_id = ? LIMIT 1 FOR UPDATE',
+                [id],
+            );
+            if (products.length === 0) {
+                return { notFound: true };
+            }
+
+            await executor.query(
+                `UPDATE product
+                 SET product_name = ?,
+                     price = ?,
+                     description = ?,
+                     product_image = COALESCE(?, product_image),
+                     category_id = COALESCE(?, category_id),
+                     product_status = COALESCE(?, product_status)
+                 WHERE product_id = ?`,
+                [
+                    name,
+                    price,
+                    description || null,
+                    image_url || null,
+                    categoryId || null,
+                    product_status ?? null,
+                    id,
+                ],
+            );
+            return { notFound: false };
+        });
+        if (result.notFound) {
+            return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
+        }
         res.json({ success: true, message: 'แก้ไขสินค้าสำเร็จ' });
     } catch (err) {
         respondError(res, err, 'แก้ไขสินค้าไม่สำเร็จ');
@@ -3188,7 +3262,18 @@ app.post('/api/admin/products/delete', requireAdmin, async (req, res) => {
         const { id } = req.body;
         if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
 
-        await query('UPDATE product SET product_status = 0 WHERE product_id = ?', [id]);
+        const result = await withTransaction(async (executor) => {
+            const [products] = await executor.query(
+                'SELECT product_id FROM product WHERE product_id = ? LIMIT 1 FOR UPDATE',
+                [id],
+            );
+            if (products.length === 0) return { notFound: true };
+            await executor.query('UPDATE product SET product_status = 0 WHERE product_id = ?', [id]);
+            return { notFound: false };
+        });
+        if (result.notFound) {
+            return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
+        }
         res.json({ success: true, message: 'ปิดใช้งานสินค้าและไม่แสดงหน้าขายแล้ว' });
     } catch (err) {
         respondError(res, err, 'ปิดใช้งานสินค้าไม่สำเร็จ');
@@ -3200,26 +3285,36 @@ app.delete('/api/admin/products/:id', requireAdmin, async (req, res) => {
     if (!id) return res.status(400).json({ error: 'ไม่พบรหัสสินค้า' });
 
     try {
-        const [products] = await query(
-            'SELECT product_id, product_name FROM product WHERE product_id = ? LIMIT 1',
-            [id],
-        );
-        if (products.length === 0) {
+        const result = await withTransaction(async (executor) => {
+            const [products] = await executor.query(
+                'SELECT product_id, product_name FROM product WHERE product_id = ? LIMIT 1 FOR UPDATE',
+                [id],
+            );
+            if (products.length === 0) {
+                return { notFound: true };
+            }
+
+            const [orderUsage] = await executor.query(
+                'SELECT COUNT(*) AS usage_count FROM order_detail WHERE product_id = ?',
+                [id],
+            );
+            if (Number(orderUsage[0]?.usage_count) > 0) {
+                return { hasOrders: true };
+            }
+
+            await executor.query('DELETE FROM stock_logs WHERE product_id = ?', [id]);
+            await executor.query('DELETE FROM product WHERE product_id = ?', [id]);
+            return { notFound: false, hasOrders: false };
+        });
+        if (result.notFound) {
             return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
         }
-
-        const [orderUsage] = await query(
-            'SELECT COUNT(*) AS usage_count FROM order_detail WHERE product_id = ?',
-            [id],
-        );
-        if (Number(orderUsage[0]?.usage_count) > 0) {
+        if (result.hasOrders) {
             return res.status(409).json({
                 error: 'ไม่สามารถลบสินค้าที่มีประวัติคำสั่งซื้อได้ กรุณาปิดใช้งานสินค้าแทน',
             });
         }
 
-        await query('DELETE FROM stock_logs WHERE product_id = ?', [id]);
-        await query('DELETE FROM product WHERE product_id = ?', [id]);
         res.json({ success: true, message: 'ลบสินค้าออกจากระบบแล้ว' });
     } catch (err) {
         respondError(res, err, 'ลบสินค้าไม่สำเร็จ');
@@ -3236,11 +3331,19 @@ app.post('/api/admin/products/status', requireAdmin, async (req, res) => {
             return res.status(400).json({ error: 'สถานะสินค้าต้องเป็น 0 หรือ 1' });
         }
 
-        const [result] = await query(
-            'UPDATE product SET product_status = ? WHERE product_id = ?',
-            [nextStatus, id],
-        );
-        if (result.affectedRows === 0) {
+        const result = await withTransaction(async (executor) => {
+            const [products] = await executor.query(
+                'SELECT product_id FROM product WHERE product_id = ? LIMIT 1 FOR UPDATE',
+                [id],
+            );
+            if (products.length === 0) return { notFound: true };
+            await executor.query(
+                'UPDATE product SET product_status = ? WHERE product_id = ?',
+                [nextStatus, id],
+            );
+            return { notFound: false };
+        });
+        if (result.notFound) {
             return res.status(404).json({ error: 'ไม่พบสินค้าในระบบ' });
         }
 
@@ -3844,21 +3947,6 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         return { success: false, status: 400, error: 'กรุณากรอกเหตุผลการตรวจสอบ', field: 'review_note' };
     }
 
-    const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ?', [id]);
-    if (orders.length === 0) {
-        return { success: false, status: 404, error: 'ไม่พบคำสั่งซื้อ', field: 'order_id' };
-    }
-    const order = orders[0];
-
-    const [payments] = await query(
-        'SELECT payment_id, receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
-        [id],
-    );
-
-    if (!payments[0]?.receipt_image) {
-        return { success: false, status: 400, error: 'ยังไม่มีหลักฐานการชำระเงินให้ตรวจสอบ', field: 'receipt_image' };
-    }
-
     const detectedAmount = verified_amount === '' || verified_amount === null || verified_amount === undefined
         ? null
         : Number(verified_amount);
@@ -3867,61 +3955,92 @@ const performAdminPaymentReview = async (id, payload = {}) => {
         return { success: false, status: 400, error: 'ยอดที่ตรวจพบไม่ถูกต้อง', field: 'verified_amount' };
     }
 
-    await query(
-        `UPDATE payment
-         SET verified_amount = ?, transaction_ref = ?, reviewed_by = ?, reviewed_at = NOW(), review_note = ?
-         WHERE payment_id = ?`,
-        [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
-    );
-    const nextOrderStatus = cleanAction === 'approve'
-        ? ORDER_PREPARING_STATUS
-        : ORDER_WAITING_PAYMENT_STATUS;
-    await query(
-        `UPDATE orders
-         SET payment_status = ?,
-             order_status = ?,
-             payment_expires_at = ${cleanAction === 'approve' ? 'NULL' : `DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR)`}
-         WHERE order_id = ?`,
-        [review.paymentStatus, nextOrderStatus, id],
-    );
-    await writeOrderStatusHistory(
-        id,
-        nextOrderStatus,
-        user_id,
-        [
-            review.label,
-            `สถานะชำระเงิน: ${review.paymentStatus}`,
-            detectedAmount !== null ? `ยอดที่ตรวจพบ ฿${detectedAmount.toFixed(2)}` : '',
-            cleanRef ? `เลขอ้างอิง ${cleanRef}` : '',
-            cleanNote,
-        ].filter(Boolean).join(' / '),
-    );
-    await writeSystemLog(
-        user_id,
-        'ตรวจสอบหลักฐานการชำระเงิน',
-        `คำสั่งซื้อ #${id}: ${review.label} (${review.paymentStatus})`,
-        {
-            beforeData: {
-                order_status: order.order_status,
-                payment_status: order.payment_status,
-            },
-            afterData: {
-                order_status: nextOrderStatus,
-                payment_status: review.paymentStatus,
-                verified_amount: detectedAmount,
-                transaction_ref: cleanRef || null,
-                review_note: cleanNote || null,
-            },
-        },
-    );
+    return withTransaction(async (executor) => {
+        const [orders] = await executor.query(
+            'SELECT order_id, delivery_type, order_status, payment_status FROM orders WHERE order_id = ? FOR UPDATE',
+            [id],
+        );
+        if (orders.length === 0) {
+            return { success: false, status: 404, error: 'ไม่พบคำสั่งซื้อ', field: 'order_id' };
+        }
+        const order = orders[0];
 
-    return {
-        success: true,
-        order_status: nextOrderStatus,
-        payment_status: review.paymentStatus,
-        review_note: cleanNote || null,
-        message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'บันทึกว่าไม่พบหลักฐานแล้ว',
-    };
+        const [payments] = await executor.query(
+            'SELECT payment_id, receipt_image, reviewed_at, reviewed_by FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1 FOR UPDATE',
+            [id],
+        );
+
+        if (!payments[0]?.receipt_image) {
+            return { success: false, status: 400, error: 'ยังไม่มีหลักฐานการชำระเงินให้ตรวจสอบ', field: 'receipt_image' };
+        }
+
+        if (payments[0].reviewed_at || [PAID_PAYMENT_STATUS, PAYMENT_REJECTED_STATUS].includes(order.payment_status)) {
+            return {
+                success: false,
+                status: 409,
+                error: 'รายการนี้ถูกตรวจสอบโดยแอดมินคนอื่นแล้ว กรุณารีเฟรชข้อมูล',
+                field: 'payment_status',
+            };
+        }
+
+        await executor.query(
+            `UPDATE payment
+             SET verified_amount = ?, transaction_ref = ?, reviewed_by = ?, reviewed_at = NOW(), review_note = ?
+             WHERE payment_id = ?`,
+            [detectedAmount, cleanRef || null, user_id || null, cleanNote || null, payments[0].payment_id],
+        );
+        const nextOrderStatus = cleanAction === 'approve'
+            ? ORDER_PREPARING_STATUS
+            : ORDER_WAITING_PAYMENT_STATUS;
+        await executor.query(
+            `UPDATE orders
+             SET payment_status = ?,
+                 order_status = ?,
+                 payment_expires_at = ${cleanAction === 'approve' ? 'NULL' : `DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR)`}
+             WHERE order_id = ?`,
+            [review.paymentStatus, nextOrderStatus, id],
+        );
+        await writeOrderStatusHistory(
+            id,
+            nextOrderStatus,
+            user_id,
+            [
+                review.label,
+                `สถานะชำระเงิน: ${review.paymentStatus}`,
+                detectedAmount !== null ? `ยอดที่ตรวจพบ ฿${detectedAmount.toFixed(2)}` : '',
+                cleanRef ? `เลขอ้างอิง ${cleanRef}` : '',
+                cleanNote,
+            ].filter(Boolean).join(' / '),
+            executor,
+        );
+        await writeSystemLog(
+            user_id,
+            'ตรวจสอบหลักฐานการชำระเงิน',
+            `คำสั่งซื้อ #${id}: ${review.label} (${review.paymentStatus})`,
+            {
+                executor,
+                beforeData: {
+                    order_status: order.order_status,
+                    payment_status: order.payment_status,
+                },
+                afterData: {
+                    order_status: nextOrderStatus,
+                    payment_status: review.paymentStatus,
+                    verified_amount: detectedAmount,
+                    transaction_ref: cleanRef || null,
+                    review_note: cleanNote || null,
+                },
+            },
+        );
+
+        return {
+            success: true,
+            order_status: nextOrderStatus,
+            payment_status: review.paymentStatus,
+            review_note: cleanNote || null,
+            message: cleanAction === 'approve' ? 'อนุมัติการชำระเงินแล้ว' : 'บันทึกว่าไม่พบหลักฐานแล้ว',
+        };
+    });
 };
 
 app.put('/api/admin/orders/:id/payment-review', requireAdmin, async (req, res) => {
@@ -4080,108 +4199,123 @@ app.put('/api/orders/:id/status', requireAdmin, async (req, res) => {
         const { id } = req.params;
         const { status, tracking_no } = req.body;
         const { id: user_id } = req.authUser;
-        const [orders] = await query('SELECT order_id, delivery_type, order_status, payment_status, tracking_no FROM orders WHERE order_id = ?', [id]);
-
-        if (orders.length === 0) {
-            return res.status(404).json({ error: 'ไม่พบคำสั่งซื้อ' });
-        }
-
-        const order = orders[0];
-        const deliveryType = order.delivery_type || 'ส่งสินค้า';
         const trackingNo = String(tracking_no || '').trim();
         const requestedStatus = normalizeOrderStatus(status);
         const allowedStatuses = [ORDER_PREPARING_STATUS, 'กำลังจัดส่ง', 'พร้อมรับสินค้า', 'จัดส่งแล้ว'];
-        const currentStatus = normalizeOrderStatus(order.order_status);
-
-        if (normalizeOrderStatus(order.order_status) === ORDER_CANCELLED_STATUS) {
-            return res.status(400).json({ error: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถเปลี่ยนสถานะต่อได้', field: 'status' });
-        }
 
         if (!allowedStatuses.includes(requestedStatus)) {
             return res.status(400).json({ error: 'สถานะคำสั่งซื้อไม่ถูกต้อง', field: 'status' });
         }
 
-        if (BLOCKED_FULFILLMENT_STATUSES.includes(requestedStatus) && order.payment_status !== PAID_PAYMENT_STATUS) {
-            return res.status(400).json({
-                error: 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง',
-                field: 'payment_status',
-            });
-        }
+        const result = await withTransaction(async (executor) => {
+            const [orders] = await executor.query(
+                'SELECT order_id, delivery_type, order_status, payment_status, tracking_no FROM orders WHERE order_id = ? FOR UPDATE',
+                [id],
+            );
 
-        const isValidTransition = (() => {
-            if (deliveryType === 'รับหน้าร้าน') {
-                const currentStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(currentStatus);
-                const requestedStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(requestedStatus);
-                return currentStep !== -1 && requestedStep === currentStep + 1;
+            if (orders.length === 0) {
+                return { status: 404, error: 'ไม่พบคำสั่งซื้อ' };
             }
 
-            const transitionMap = {
-                [ORDER_WAITING_PAYMENT_STATUS]: [ORDER_PREPARING_STATUS],
-                [ORDER_PAYMENT_REVIEW_STATUS]: [ORDER_PREPARING_STATUS],
-                [ORDER_PREPARING_STATUS]: ['กำลังจัดส่ง', 'จัดส่งแล้ว'],
-                กำลังจัดส่ง: ['จัดส่งแล้ว'],
-            };
+            const order = orders[0];
+            const deliveryType = order.delivery_type || 'ส่งสินค้า';
+            const currentStatus = normalizeOrderStatus(order.order_status);
 
-            return transitionMap[currentStatus]?.includes(requestedStatus);
-        })();
+            if (currentStatus === ORDER_CANCELLED_STATUS) {
+                return { status: 400, error: 'คำสั่งซื้อนี้ถูกยกเลิกแล้ว ไม่สามารถเปลี่ยนสถานะต่อได้', field: 'status' };
+            }
 
-        if (!isValidTransition) {
-            return res.status(400).json({ error: 'กรุณาอัปเดตสถานะตามลำดับขั้นตอนที่กำหนด', field: 'status' });
-        }
+            if (BLOCKED_FULFILLMENT_STATUSES.includes(requestedStatus) && order.payment_status !== PAID_PAYMENT_STATUS) {
+                return {
+                    status: 400,
+                    error: 'ยังไม่พบยอดชำระเงิน กรุณาตรวจสอบก่อนดำเนินการจัดส่ง',
+                    field: 'payment_status',
+                };
+            }
 
-        const [payments] = await query(
-            'SELECT receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1',
-            [id],
-        );
-        const hasReceipt = Boolean(payments[0]?.receipt_image);
+            const isValidTransition = (() => {
+                if (deliveryType === 'รับหน้าร้าน') {
+                    const currentStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(currentStatus);
+                    const requestedStep = PICKUP_ORDER_FLOW_STATUSES.indexOf(requestedStatus);
+                    return currentStep !== -1 && requestedStep === currentStep + 1;
+                }
 
-        if (!hasReceipt) {
-            return res.status(400).json({ error: 'ต้องมีสลิปก่อนยืนยันคำสั่งซื้อ', field: 'receipt_image' });
-        }
+                const transitionMap = {
+                    [ORDER_WAITING_PAYMENT_STATUS]: [ORDER_PREPARING_STATUS],
+                    [ORDER_PAYMENT_REVIEW_STATUS]: [ORDER_PREPARING_STATUS],
+                    [ORDER_PREPARING_STATUS]: ['กำลังจัดส่ง', 'จัดส่งแล้ว'],
+                    กำลังจัดส่ง: ['จัดส่งแล้ว'],
+                };
 
-        if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'กำลังจัดส่ง') {
-            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' });
-        }
+                return transitionMap[currentStatus]?.includes(requestedStatus);
+            })();
 
-        if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'จัดส่งแล้ว') {
-            return res.status(400).json({ error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' });
-        }
+            if (!isValidTransition) {
+                return { status: 409, error: 'สถานะออเดอร์ถูกเปลี่ยนไปแล้ว กรุณารีเฟรชข้อมูลก่อนอัปเดตต่อ', field: 'status' };
+            }
 
-        if (deliveryType !== 'รับหน้าร้าน' && requestedStatus === 'พร้อมรับสินค้า') {
-            return res.status(400).json({ error: 'ออเดอร์จัดส่งต้องใช้สถานะกำลังจัดส่งหรือจัดส่งแล้ว', field: 'status' });
-        }
+            const [payments] = await executor.query(
+                'SELECT receipt_image FROM payment WHERE order_id = ? ORDER BY payment_id DESC LIMIT 1 FOR UPDATE',
+                [id],
+            );
+            const hasReceipt = Boolean(payments[0]?.receipt_image);
 
-        if (requestedStatus === 'กำลังจัดส่ง' && deliveryType !== 'รับหน้าร้าน' && !trackingNo) {
-            return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง', field: 'tracking_no' });
-        }
-        if (requestedStatus === 'จัดส่งแล้ว' && deliveryType !== 'รับหน้าร้าน' && !trackingNo && !String(order.tracking_no || '').trim()) {
-            return res.status(400).json({ error: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง', field: 'tracking_no' });
-        }
+            if (!hasReceipt) {
+                return { status: 400, error: 'ต้องมีสลิปก่อนยืนยันคำสั่งซื้อ', field: 'receipt_image' };
+            }
 
-        await query(
-            'UPDATE orders SET order_status = ?, tracking_no = COALESCE(?, tracking_no) WHERE order_id = ?',
-            [requestedStatus, trackingNo || null, id],
-        );
-        await writeOrderStatusHistory(
-            id,
-            requestedStatus,
-            user_id,
-            trackingNo ? `เลขพัสดุ ${trackingNo}` : 'แอดมินอัปเดตสถานะ',
-        );
-        await writeSystemLog(
-            user_id,
-            'อัปเดตสถานะคำสั่งซื้อ',
-            `คำสั่งซื้อ #${id} เป็น ${requestedStatus}${trackingNo ? ` / เลขพัสดุ ${trackingNo}` : ''}`,
-            {
-                ...getAuditRequestMeta(req),
-                beforeData: snapshotOrder(order),
-                afterData: {
-                    ...snapshotOrder(order),
-                    order_status: requestedStatus,
-                    tracking_no: trackingNo || order.tracking_no || '',
+            if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'กำลังจัดส่ง') {
+                return { status: 400, error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' };
+            }
+
+            if (deliveryType === 'รับหน้าร้าน' && requestedStatus === 'จัดส่งแล้ว') {
+                return { status: 400, error: 'ออเดอร์รับหน้าร้านต้องใช้สถานะพร้อมรับสินค้า', field: 'status' };
+            }
+
+            if (deliveryType !== 'รับหน้าร้าน' && requestedStatus === 'พร้อมรับสินค้า') {
+                return { status: 400, error: 'ออเดอร์จัดส่งต้องใช้สถานะกำลังจัดส่งหรือจัดส่งแล้ว', field: 'status' };
+            }
+
+            if (requestedStatus === 'กำลังจัดส่ง' && deliveryType !== 'รับหน้าร้าน' && !trackingNo) {
+                return { status: 400, error: 'กรุณากรอกเลขพัสดุก่อนเปลี่ยนเป็นกำลังจัดส่ง', field: 'tracking_no' };
+            }
+            if (requestedStatus === 'จัดส่งแล้ว' && deliveryType !== 'รับหน้าร้าน' && !trackingNo && !String(order.tracking_no || '').trim()) {
+                return { status: 400, error: 'กรุณากรอกเลขพัสดุก่อนปิดงานจัดส่ง', field: 'tracking_no' };
+            }
+
+            await executor.query(
+                'UPDATE orders SET order_status = ?, tracking_no = COALESCE(?, tracking_no) WHERE order_id = ?',
+                [requestedStatus, trackingNo || null, id],
+            );
+            await writeOrderStatusHistory(
+                id,
+                requestedStatus,
+                user_id,
+                trackingNo ? `เลขพัสดุ ${trackingNo}` : 'แอดมินอัปเดตสถานะ',
+                executor,
+            );
+            await writeSystemLog(
+                user_id,
+                'อัปเดตสถานะคำสั่งซื้อ',
+                `คำสั่งซื้อ #${id} เป็น ${requestedStatus}${trackingNo ? ` / เลขพัสดุ ${trackingNo}` : ''}`,
+                {
+                    ...getAuditRequestMeta(req),
+                    executor,
+                    beforeData: snapshotOrder(order),
+                    afterData: {
+                        ...snapshotOrder(order),
+                        order_status: requestedStatus,
+                        tracking_no: trackingNo || order.tracking_no || '',
+                    },
                 },
-            },
-        );
+            );
+            return { success: true };
+        });
+
+        if (!result.success) {
+            return res.status(result.status || 400).json({ error: result.error, field: result.field });
+        }
+
         res.json({ success: true, message: 'อัปเดตสถานะเรียบร้อยแล้ว' });
     } catch (err) {
         respondError(res, err, 'อัปเดตสถานะไม่สำเร็จ');

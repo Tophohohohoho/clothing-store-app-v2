@@ -38,7 +38,8 @@ const REPORT_GROUPS = [
             { key: 'sales-by-channel', label: 'รายงานยอดขายแยกตามช่องทางขาย' },
             { key: 'sales-by-payment-method', label: 'รายงานยอดขายแยกตามวิธีชำระเงิน' },
             { key: 'best-products', label: 'รายงานสรุปสินค้าขายดี' },
-            { key: 'sold-products', label: 'รายงานจำนวนสินค้าที่ถูกขายออก' },
+            { key: 'sold-products', label: 'รายงานสรุปสินค้าที่ถูกขาย' },
+            { key: 'sold-products-detail', label: 'รายงานสรุปสินค้าที่ถูกขายละเอียด' },
             { key: 'top-customers', label: 'รายงานลูกค้าซื้อสูงสุด' },
             { key: 'payments', label: 'พิมพ์รายงานการรับเงิน' },
             { key: 'payments-store', label: 'รายงานการรับเงินเฉพาะหน้าร้าน' },
@@ -93,6 +94,7 @@ const REPORT_GROUP_COLUMNS = [
     [REPORT_GROUPS[1], REPORT_GROUPS[3]],
 ];
 
+// แปลงสถานะจากระบบให้เป็นชื่อไทยชุดเดียวกันก่อนทำรายงาน
 const ORDER_STATUS_ALIASES = {
     pending: 'รอชำระเงิน',
     'รอจัดการ': 'รอชำระเงิน',
@@ -159,6 +161,7 @@ const formatDateTime = (value) => {
     return `${formatThaiDate(value, '-')} ${date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
+// กรองออเดอร์ตามช่วงวันที่ที่เลือกจากหน้าเว็บ
 const getOrderDate = (order) => new Date(order.created_at || order.order_date || 0);
 const isCancelledOrder = (order) => ['ยกเลิก', 'ยกเลิกคำสั่งซื้อ'].includes(order?.status || order?.order_status);
 const isPaidOrder = (order) => ['ชำระเงินแล้ว', 'อนุมัติแล้ว', 'paid', 'approved'].includes(String(order?.payment_status || '').toLowerCase())
@@ -265,6 +268,7 @@ const normalizeCustomersResponse = (response) => {
     return [];
 };
 
+// รวมข้อมูลดิบให้เป็นหัวรายงาน ตาราง และชื่อไฟล์ตามประเภทรายงาน
 const buildReportPayload = (reportKey, { orders, products, categories, customers, stockLogs, systemLogs, range }) => {
     const rangedOrders = getOrdersInRange(orders, range);
     const paidOrders = rangedOrders.filter(isPaidOrder);
@@ -273,6 +277,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
     const rangeText = formatRangeText(range);
     const printedAt = formatDateTime(new Date());
 
+    // สรุปยอดขายรายวันในช่วงวันที่
     if (reportKey === 'sales-summary') {
         const grouped = rangedOrders.reduce((next, order) => {
             const key = formatThaiDate(order.created_at || order.order_date, '-');
@@ -302,7 +307,8 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
-    if (reportKey === 'best-products' || reportKey === 'sold-products') {
+    // รวมยอดสินค้าขายดี/จำนวนขายจากออเดอร์ที่ชำระแล้ว
+    if (['best-products', 'sold-products', 'sold-products-detail'].includes(reportKey)) {
         const productMap = products.reduce((next, product) => ({ ...next, [String(getProductId(product))]: product }), {});
         const grouped = paidOrders.reduce((next, order) => {
             getOrderItems(order).forEach((item) => {
@@ -311,17 +317,21 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
                 const product = productMap[key] || {};
                 const quantity = Number(item.quantity || item.qty || 0);
                 const price = Number(item.price ?? item.product_price ?? getProductPrice(product));
+                const revenue = quantity * price;
                 if (!next[key]) {
                     next[key] = {
                         id: id || '-',
                         name: item.product_name || item.name || getProductName(product),
+                        category: item.category_name || item.category || getProductCategory(product),
+                        orderIds: new Set(),
                         sold: 0,
                         revenue: 0,
                         stock: getProductStock(product),
                     };
                 }
+                next[key].orderIds.add(order.id ?? order.order_id ?? `${key}-${next[key].orderIds.size + 1}`);
                 next[key].sold += quantity;
-                next[key].revenue += quantity * price;
+                next[key].revenue += revenue;
             });
             return next;
         }, {});
@@ -341,20 +351,39 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
                 ]),
             };
         }
+        if (reportKey === 'sold-products') {
+            return {
+                title: 'รายงานสรุปสินค้าที่ถูกขาย',
+                subtitle: `${sourceRows.length.toLocaleString('th-TH')} สินค้า · ${rangeText} · พิมพ์เมื่อ ${printedAt}`,
+                fileName: 'sold-products-summary',
+                headers: ['รหัสสินค้า', 'ชื่อสินค้า', 'จำนวนขาย', 'ยอดขาย'],
+                rows: sourceRows.map((row) => [
+                    row.id,
+                    row.name,
+                    numberCell(formatInteger(row.sold)),
+                    numberCell(formatMoney(row.revenue), '฿'),
+                ]),
+            };
+        }
         return {
-            title: 'รายงานจำนวนสินค้าที่ถูกขายออก',
+            title: 'รายงานสรุปสินค้าที่ถูกขายละเอียด',
             subtitle: `${sourceRows.length.toLocaleString('th-TH')} สินค้า · ${rangeText} · พิมพ์เมื่อ ${printedAt}`,
-            fileName: 'sold-product-quantity',
-            headers: ['สินค้า', 'จำนวนก่อนขาย', 'ขายออก', 'คงเหลือ'],
+            fileName: 'sold-products-detail',
+            headers: ['รหัสสินค้า', 'ชื่อสินค้า', 'หมวดหมู่', 'จำนวนออเดอร์', 'จำนวนที่ขาย', 'ราคาเฉลี่ย/ชิ้น', 'ยอดขายรวม', 'คงเหลือ'],
             rows: sourceRows.map((row) => [
+                row.id,
                 row.name,
-                numberCell(formatInteger(row.stock + row.sold)),
+                row.category,
+                numberCell(formatInteger(row.orderIds.size)),
                 numberCell(formatInteger(row.sold)),
+                numberCell(formatMoney(row.sold ? row.revenue / row.sold : 0), '฿'),
+                numberCell(formatMoney(row.revenue), '฿'),
                 numberCell(formatInteger(row.stock)),
             ]),
         };
     }
 
+    // แยกยอดขายตามช่องทางหน้าร้านและออนไลน์
     if (reportKey === 'sales-by-channel') {
         const grouped = rangedOrders.reduce((next, order) => {
             const channel = getSaleChannel(order);
@@ -375,6 +404,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // แยกยอดขายตามวิธีชำระเงิน
     if (reportKey === 'sales-by-payment-method') {
         const grouped = rangedOrders.reduce((next, order) => {
             const method = getPaymentMethod(order);
@@ -394,6 +424,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // จัดอันดับลูกค้าตามยอดซื้อรวม
     if (reportKey === 'top-customers') {
         const grouped = rangedOrders.reduce((next, order) => {
             const key = String(order.user_id || order.customer_id || getCustomerName(order));
@@ -413,6 +444,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // รายงานการรับเงินรวม หรือแยกตามช่องทางขาย
     if (['payments', 'payments-store', 'payments-online'].includes(reportKey)) {
         const reportOrders = rangedOrders.filter((order) => {
             if (reportKey === 'payments-store') return getSaleChannel(order) === 'ขายหน้าร้าน';
@@ -451,6 +483,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // รายงานสถานะออเดอร์ต้องนับออเดอร์ยกเลิกด้วย
     if (reportKey === 'orders-by-status') {
         const ordersWithCancelled = getOrdersInDateRange(orders, range);
         const initialRows = ORDER_STATUS_REPORT_ROWS.reduce((next, status) => ({
@@ -482,6 +515,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
     }
 
     const statusDetailReport = getStatusDetailReport(reportKey);
+    // รายงานออเดอร์เฉพาะสถานะที่ผู้ใช้เลือก
     if (statusDetailReport) {
         const rows = getOrdersInDateRange(orders, range)
             .filter((order) => getReportOrderStatus(order) === statusDetailReport.status)
@@ -535,6 +569,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         return { title: 'รายงานตรวจสอบสลิป', subtitle: `${rows.length.toLocaleString('th-TH')} รายการ · ${rangeText} · พิมพ์เมื่อ ${printedAt}`, fileName: 'slip-review-history', headers: ['ออเดอร์', 'วันที่ส่งสลิป', 'จำนวนเงิน', 'ผลตรวจ', 'ผู้ตรวจสอบ', 'หมายเหตุ'], rows };
     }
 
+    // ตรวจสลิปที่ส่งมาแล้วแต่ยังรออนุมัติเกิน 1 วัน
     if (reportKey === 'pending-payment-review-overdue') {
         const rows = rangedOrders
             .filter(hasPaymentSlip)
@@ -557,6 +592,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // แยกรายงานสลิปตามสถานะรออนุมัติ/อนุมัติ/ปฏิเสธ
     if (reportKey === 'slips-pending-approval' || reportKey === 'slips-approved' || reportKey === 'slips-rejected') {
         const isApprovedReport = reportKey === 'slips-approved';
         const isRejectedReport = reportKey === 'slips-rejected';
@@ -595,6 +631,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         return { title: 'รายงานพิมพ์ใบจัดส่ง', subtitle: `${rows.length.toLocaleString('th-TH')} ใบจัดส่ง · ${rangeText} · พิมพ์เมื่อ ${printedAt}`, fileName: 'shipping-documents', headers: ['ออเดอร์', 'ลูกค้า', 'ที่อยู่', 'สินค้า', 'จำนวน', 'วิธีจัดส่ง', 'Tracking Number'], rows };
     }
 
+    // รวมสินค้าตามหมวดเพื่อดูจำนวนและมูลค่าสต็อก
     if (['categories', 'categories-active', 'categories-inactive'].includes(reportKey)) {
         const isActiveReport = reportKey === 'categories-active';
         const isInactiveReport = reportKey === 'categories-inactive';
@@ -654,6 +691,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // ใช้เฉพาะออเดอร์ที่ชำระแล้วในการคิดยอดขายตามหมวดหมู่
     if (reportKey === 'category-sales') {
         const productMap = products.reduce((next, product) => ({ ...next, [String(getProductId(product))]: product }), {});
         const grouped = paidOrders.reduce((next, order) => {
@@ -678,6 +716,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // แสดงสินค้าที่หมดหรือใกล้หมดตามขั้นต่ำของแต่ละสินค้า
     if (reportKey === 'stock-status') {
         const rows = products.map((product) => {
             const stock = getProductStock(product);
@@ -718,6 +757,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // หาสินค้าที่ไม่เคยอยู่ในออเดอร์ชำระแล้ว
     if (reportKey === 'unsold-products') {
         const soldProductIds = paidOrders.reduce((next, order) => {
             getOrderItems(order).forEach((item) => {
@@ -777,6 +817,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
         };
     }
 
+    // กรองผู้ใช้ตามบทบาทหรือสถานะก่อนสร้างตาราง
     if (['users', 'users-admins', 'users-members', 'users-suspended'].includes(reportKey)) {
         const userReportConfig = {
             users: {
@@ -819,6 +860,7 @@ const buildReportPayload = (reportKey, { orders, products, categories, customers
     };
 };
 
+// ดาวน์โหลดรายงานเป็น Excel-compatible HTML หรือ CSV พร้อม BOM ภาษาไทย
 const downloadReport = ({ title, subtitle, headers, rows, fileName }, format) => {
     let blob;
     let extension;
@@ -839,6 +881,7 @@ const downloadReport = ({ title, subtitle, headers, rows, fileName }, format) =>
     URL.revokeObjectURL(url);
 };
 
+// เปิดหน้าพิมพ์แยก เพื่อให้ผู้ใช้บันทึกเป็น PDF จาก browser ได้
 const printReport = ({ title, subtitle, headers, rows, fileName }) => {
     const popup = window.open('about:blank', '_blank', 'width=1200,height=820');
     if (!popup) {
@@ -868,6 +911,7 @@ function AdminSalesReportPrintPage() {
     }, []);
 
     const loadReportData = async () => {
+        // โหลดข้อมูลทุกชุดพร้อมกัน ลดเวลารอก่อนสร้างรายงาน
         const [ordersResponse, productsResponse, categoriesResponse, customersResponse, stockLogsResponse, systemLogsResponse] = await Promise.all([
             adminApi.getAdminOrders(),
             productsApi.getProducts('', true),
@@ -888,6 +932,7 @@ function AdminSalesReportPrintPage() {
     };
 
     const exportReport = async (reportKey, format) => {
+        // สร้าง payload แล้วส่งต่อไป PDF/Excel/CSV ตามปุ่มที่กด
         setLoadingReportKey(`${reportKey}-${format}`);
         try {
             const payload = buildReportPayload(reportKey, await loadReportData());

@@ -1,0 +1,338 @@
+[
+  {
+    "product_id": 1,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ S",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 2,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ S",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 3,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ S",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 8,
+    "product_name": "เข็มมหาวิทยาลัย",
+    "description": "เข็มตรามหาวิทยาลัยสำหรับติดเสื้อนักศึกษา",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  },
+  {
+    "product_id": 9,
+    "product_name": "เนกไทนักศึกษา",
+    "description": "เนกไทสีสุภาพสำหรับนักศึกษาชาย",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  },
+  {
+    "product_id": 10,
+    "product_name": "เข็มขัดนักศึกษา",
+    "description": "ชุดเข็มขัดนักศึกษาพร้อมหัวเข็มขัดตรามหาวิทยาลัย",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  },
+  {
+    "product_id": 18,
+    "product_name": "เข็มตุ้งติ้ง",
+    "description": "เข็มตุ้งติ้งตรามหาวิทยาลัย",
+    "product_status": 1,
+    "created_at": "2026-08-23T12:22:15.000Z",
+    "category_name": "ของที่ระลึกมหาวิทยาลัย"
+  },
+  {
+    "product_id": 19,
+    "product_name": "สินค้าทดลอง",
+    "description": "สินค้าทดลองสำหรับทดสอบระบบ",
+    "product_status": 0,
+    "created_at": "2026-08-23T18:29:14.000Z",
+    "category_name": "ทั่วไป"
+  },
+  {
+    "product_id": 20,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ M",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 21,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ L",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 22,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 23,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ 2XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 24,
+    "product_name": "เสื้อนักศึกษาชาย ไซซ์ 3XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาชาย ไซซ์ 3XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 25,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ M",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 26,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ L",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 27,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 28,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ 2XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 29,
+    "product_name": "เสื้อนักศึกษาหญิง ไซซ์ 3XL",
+    "description": "เสื้อเครื่องแบบนักศึกษาหญิง ไซซ์ 3XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 30,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ M",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 31,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ L",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 32,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ XL",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 33,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ 2XL",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 34,
+    "product_name": "กางเกงนักศึกษาชาย ไซซ์ 3XL",
+    "description": "กางเกงขายาวสีดำนักศึกษาชาย ไซซ์ 3XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 35,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ S",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 36,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ M",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 37,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ L",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 38,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ XL",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 39,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ 2XL",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 40,
+    "product_name": "กระโปรงทรงเอ นักศึกษาหญิง ไซซ์ 3XL",
+    "description": "กระโปรงทรงเอสีดำนักศึกษาหญิง ไซซ์ 3XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 41,
+    "product_name": "กระโปรงพลีท นักศึกษาหญิง ไซซ์ S",
+    "description": "กระโปรงพลีทสีดำนักศึกษาหญิง ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 42,
+    "product_name": "กระโปรงพลีท นักศึกษาหญิง ไซซ์ M",
+    "description": "กระโปรงพลีทสีดำนักศึกษาหญิง ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 43,
+    "product_name": "กระโปรงพลีท นักศึกษาหญิง ไซซ์ L",
+    "description": "กระโปรงพลีทสีดำนักศึกษาหญิง ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 44,
+    "product_name": "กระโปรงพลีท นักศึกษาหญิง ไซซ์ XL",
+    "description": "กระโปรงพลีทสีดำนักศึกษาหญิง ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 45,
+    "product_name": "กระโปรงพลีท นักศึกษาหญิง ไซซ์ 2XL",
+    "description": "กระโปรงพลีทสีดำนักศึกษาหญิง ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องแบบนักศึกษา"
+  },
+  {
+    "product_id": 46,
+    "product_name": "เสื้อเฟรชชี้ ปี2569 ไซซ์ S",
+    "description": "เสื้อเฟรชชี้ ปี2569 ไซซ์ S",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "ชุดกีฬา"
+  },
+  {
+    "product_id": 47,
+    "product_name": "เสื้อเฟรชชี้ ปี2569 ไซซ์ M",
+    "description": "เสื้อเฟรชชี้ ปี2569 ไซซ์ M",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "ชุดกีฬา"
+  },
+  {
+    "product_id": 48,
+    "product_name": "เสื้อเฟรชชี้ ปี2569 ไซซ์ L",
+    "description": "เสื้อเฟรชชี้ ปี2569 ไซซ์ L",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "ชุดกีฬา"
+  },
+  {
+    "product_id": 49,
+    "product_name": "เสื้อเฟรชชี้ ปี2569 ไซซ์ XL",
+    "description": "เสื้อเฟรชชี้ ปี2569 ไซซ์ XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "ชุดกีฬา"
+  },
+  {
+    "product_id": 50,
+    "product_name": "เสื้อเฟรชชี้ ปี2569 ไซซ์ 2XL",
+    "description": "เสื้อเฟรชชี้ ปี2569 ไซซ์ 2XL",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "ชุดกีฬา"
+  },
+  {
+    "product_id": 51,
+    "product_name": "กระดุมตรามหาวิทยาลัย",
+    "description": "กระดุมตรามหาวิทยาลัยสำหรับเครื่องแบบนักศึกษา",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  },
+  {
+    "product_id": 52,
+    "product_name": "สายเข็มขัดนักศึกษา",
+    "description": "สายเข็มขัดสีดำสำหรับนักศึกษา",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  },
+  {
+    "product_id": 53,
+    "product_name": "หัวเข็มขัดนักศึกษา",
+    "description": "หัวเข็มขัดตรามหาวิทยาลัยสำหรับนักศึกษา",
+    "product_status": 1,
+    "created_at": "2026-09-10T20:01:24.000Z",
+    "category_name": "เครื่องหมายและเครื่องประดับ"
+  }
+]

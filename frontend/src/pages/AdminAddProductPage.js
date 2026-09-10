@@ -55,10 +55,66 @@ const formatMoney = (value) => {
 };
 
 const PRODUCT_SORT_LABELS = {
+    category: 'ประเภท',
     name: 'สินค้า',
     stock: 'คลัง',
     price: 'ราคา',
     updated_at: 'แก้ไขล่าสุด',
+};
+
+const CATEGORY_ORDER = [
+    'เครื่องแบบนักศึกษา',
+    'ชุดกีฬา',
+    'ชุดพิธีการ',
+    'เครื่องหมายและเครื่องประดับ',
+    'รองเท้าและถุงเท้า',
+    'กระเป๋า',
+    'อุปกรณ์การเรียน',
+    'ของที่ระลึกมหาวิทยาลัย',
+    'ทั่วไป',
+];
+
+const PRODUCT_FAMILY_ORDER = [
+    'เสื้อนักศึกษาชาย',
+    'เสื้อนักศึกษาหญิง',
+    'กางเกงนักศึกษาชาย',
+    'กระโปรงทรงเอ',
+    'กระโปรงนักศึกษาหญิง',
+    'กระโปรงพลีท',
+    'เสื้อกีฬามหาวิทยาลัย',
+    'เสื้อเฟรชชี้ ปี2569',
+    'กางเกงกีฬา',
+    'ครุย',
+    'กระดุม',
+    'เข็มมหาวิทยาลัย',
+    'เนกไท',
+    'เข็มขัด',
+    'สายเข็มขัด',
+    'หัวเข็มขัด',
+];
+
+const SIZE_ORDER = ['ไซซ์ S', 'ไซซ์ M', 'ไซซ์ L', 'ไซซ์ XL', 'ไซซ์ 2XL', 'ไซซ์ 3XL'];
+
+const getOrderedIndex = (items, value, fallback = 999) => {
+    const text = String(value || '');
+    const index = items.findIndex((item) => text.includes(item));
+    return index === -1 ? fallback : index;
+};
+
+const compareProductGroup = (a, b) => {
+    const categoryResult = getOrderedIndex(CATEGORY_ORDER, a.category_name)
+        - getOrderedIndex(CATEGORY_ORDER, b.category_name);
+    if (categoryResult !== 0) return categoryResult;
+
+    const familyResult = getOrderedIndex(PRODUCT_FAMILY_ORDER, a.name)
+        - getOrderedIndex(PRODUCT_FAMILY_ORDER, b.name);
+    if (familyResult !== 0) return familyResult;
+
+    const sizeResult = getOrderedIndex(SIZE_ORDER, a.name, 0)
+        - getOrderedIndex(SIZE_ORDER, b.name, 0);
+    if (sizeResult !== 0) return sizeResult;
+
+    return Number(a.id || 0) - Number(b.id || 0);
 };
 const DATE_PRESETS = [
     { value: 'today', label: 'วันนี้' },
@@ -145,7 +201,7 @@ function AdminAddProductPage({
     const [statusFilter, setStatusFilter] = useState('all');
     const [stockFilter, setStockFilter] = useState('all');
     const [productSearch, setProductSearch] = useState('');
-    const [productSort, setProductSort] = useState({ key: 'name', direction: 'asc' });
+    const [productSort, setProductSort] = useState({ key: 'category', direction: 'asc' });
     const [productPage, setProductPage] = useState(1);
     const [productPageSize, setProductPageSize] = useState(10);
     const [productToDelete, setProductToDelete] = useState(null);
@@ -179,7 +235,7 @@ function AdminAddProductPage({
         setDatePreset('30');
         setDateFrom('');
         setDateTo('');
-        setProductSort({ key: 'name', direction: 'asc' });
+        setProductSort({ key: 'category', direction: 'asc' });
         setProductPage(1);
     };
     const clearCategoryFilters = () => {
@@ -217,10 +273,11 @@ function AdminAddProductPage({
             return categorySort.direction === 'asc' ? result : -result;
         });
     }, [categories, categorySearch, categorySort, categoryStatusFilter, dateRange]);
-    const categoryTotalPages = Math.max(1, Math.ceil(filteredCategories.length / categoryPageSize));
+    const effectiveCategoryPageSize = categoryPageSize === 0 ? Math.max(filteredCategories.length, 1) : categoryPageSize;
+    const categoryTotalPages = Math.max(1, Math.ceil(filteredCategories.length / effectiveCategoryPageSize));
     const paginatedCategories = filteredCategories.slice(
-        (categoryPage - 1) * categoryPageSize,
-        categoryPage * categoryPageSize,
+        (categoryPage - 1) * effectiveCategoryPageSize,
+        categoryPage * effectiveCategoryPageSize,
     );
 
     useEffect(() => {
@@ -261,7 +318,9 @@ function AdminAddProductPage({
                 && isWithinDateRange(product.updated_at || product.created_at, dateRange);
         }).sort((a, b) => {
             let result = 0;
-            if (productSort.key === 'name') {
+            if (productSort.key === 'category') {
+                result = compareProductGroup(a, b);
+            } else if (productSort.key === 'name') {
                 result = String(a.name || '').localeCompare(String(b.name || ''), 'th');
             } else if (productSort.key === 'price') {
                 result = Number(a.price) - Number(b.price);
@@ -274,10 +333,11 @@ function AdminAddProductPage({
             return productSort.direction === 'asc' ? result : -result;
         });
     }, [products, productSearch, categoryFilter, statusFilter, stockFilter, productSort, dateRange]);
-    const productTotalPages = Math.max(1, Math.ceil(filteredProducts.length / productPageSize));
+    const effectiveProductPageSize = productPageSize === 0 ? Math.max(filteredProducts.length, 1) : productPageSize;
+    const productTotalPages = Math.max(1, Math.ceil(filteredProducts.length / effectiveProductPageSize));
     const paginatedProducts = filteredProducts.slice(
-        (productPage - 1) * productPageSize,
-        productPage * productPageSize,
+        (productPage - 1) * effectiveProductPageSize,
+        productPage * effectiveProductPageSize,
     );
 
     useEffect(() => {
@@ -919,7 +979,7 @@ function AdminAddProductPage({
                                 </colgroup>
                                 <thead>
                                     <tr>
-                                        <th>{productSortHeader('name')}</th>
+                                        <th>{productSortHeader('category')}</th>
                                         <th>รหัสสินค้า</th>
                                         <th>{productSortHeader('stock')}</th>
                                         <th>{productSortHeader('price')}</th>
@@ -1049,12 +1109,15 @@ function AdminAddProductPage({
                                         <option value="5">5</option>
                                         <option value="10">10</option>
                                         <option value="20">20</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="0">ทั้งหมด</option>
                                     </select>
                                     รายการ
                                 </div>
                                 <span>
                                     {filteredProducts.length > 0
-                                        ? `${(productPage - 1) * productPageSize + 1}-${Math.min(productPage * productPageSize, filteredProducts.length)} จาก ${filteredProducts.length}`
+                                        ? `${(productPage - 1) * effectiveProductPageSize + 1}-${Math.min(productPage * effectiveProductPageSize, filteredProducts.length)} จาก ${filteredProducts.length}`
                                         : '0 รายการ'}
                                 </span>
                                 <div className="category-page-buttons">
@@ -1261,12 +1324,15 @@ function AdminAddProductPage({
                                     <option value="5">5</option>
                                     <option value="10">10</option>
                                     <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="0">ทั้งหมด</option>
                                 </select>
                                 รายการ
                             </div>
                             <span>
                                 {filteredCategories.length > 0
-                                    ? `${(categoryPage - 1) * categoryPageSize + 1}-${Math.min(categoryPage * categoryPageSize, filteredCategories.length)} จาก ${filteredCategories.length}`
+                                    ? `${(categoryPage - 1) * effectiveCategoryPageSize + 1}-${Math.min(categoryPage * effectiveCategoryPageSize, filteredCategories.length)} จาก ${filteredCategories.length}`
                                     : '0 รายการ'}
                             </span>
                             <div className="category-page-buttons">

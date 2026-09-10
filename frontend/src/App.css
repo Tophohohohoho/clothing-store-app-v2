@@ -2915,7 +2915,7 @@
     overflow: hidden;
     border: 1px solid #e1e7f0;
     border-radius: 14px;
-    background: #f8fafc;
+    background: #fff;
     color: #667085;
     font-size: 1.2rem;
     font-weight: 900;
@@ -2924,7 +2924,9 @@
 .order-inline-thumb img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    padding: 5px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .order-inline-product-copy {
@@ -9932,7 +9934,7 @@ body {
     overflow: hidden;
     border: 1px solid #e5eaf1;
     border-radius: 12px;
-    background: #f8fafc;
+    background: #fff;
     color: #667085;
     font-size: 1.15rem;
     font-weight: 900;
@@ -9941,7 +9943,9 @@ body {
 .order-history-customer-product-thumb img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    padding: 5px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .order-history-customer-product-copy {
@@ -10959,7 +10963,7 @@ body {
     place-items: center;
     overflow: hidden;
     border-radius: 12px;
-    background: #eef2f6;
+    background: #fff;
     color: #344054;
     font-weight: 900;
 }
@@ -10967,7 +10971,9 @@ body {
 .category-product-card-thumb img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    padding: 4px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .category-product-card-copy {
@@ -12102,7 +12108,7 @@ body {
     place-items: center;
     overflow: hidden;
     border-radius: 14px;
-    background: linear-gradient(135deg, #e8edf2, #f8f2ec);
+    background: #fff;
     color: #59616d;
     font-weight: 800;
 }
@@ -12111,7 +12117,9 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    padding: 5px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .admin-modal-backdrop {
@@ -12404,7 +12412,7 @@ body {
     width: 100%;
     aspect-ratio: 1 / 1.08;
     overflow: hidden;
-    background: linear-gradient(135deg, #f1f3f6, #e8edf2);
+    background: #fff;
 }
 
 .store-card-image img {
@@ -12413,7 +12421,9 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    padding: 10px;
+    background: #fff;
+    object-fit: contain;
     object-position: center;
     transition: transform 0.35s ease, filter 0.25s ease;
 }
@@ -12423,9 +12433,7 @@ body {
     inset: 0;
     display: grid;
     place-items: center;
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)),
-        linear-gradient(135deg, #dfe5eb, #f7f2ed);
+    background: #fff;
     color: rgba(31, 35, 41, 0.52);
 }
 
@@ -12621,11 +12629,12 @@ body {
 }
 
 .product-detail-image {
-    min-height: 420px;
+    min-height: 0;
+    height: min(58vh, 520px);
     display: grid;
     place-items: center;
     overflow: hidden;
-    background: #eef2f6;
+    background: #fff;
     color: rgba(31, 35, 41, 0.52);
     font-size: 3rem;
     font-weight: 800;
@@ -12635,7 +12644,9 @@ body {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    padding: 18px;
+    background: #fff;
+    object-fit: contain;
     object-position: center;
 }
 
@@ -12825,14 +12836,16 @@ body {
     aspect-ratio: 4 / 3;
     overflow: hidden;
     border-radius: 14px;
-    background: #eef2f6;
+    background: #fff;
 }
 
 .product-upload-preview img {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    padding: 8px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .product-upload-empty {
@@ -14342,8 +14355,8 @@ body {
     }
 
     .product-detail-image {
-        min-height: 280px;
-        max-height: 340px;
+        height: clamp(260px, 44vh, 340px);
+        min-height: 0;
     }
 }
 
@@ -15094,7 +15107,8 @@ body {
     }
 
     .product-detail-image {
-        min-height: 220px;
+        height: clamp(220px, 42vh, 300px);
+        min-height: 0;
     }
 
     .product-detail-content {
@@ -15458,7 +15472,7 @@ body {
     place-items: center;
     border: 1px solid #e6eaf0;
     border-radius: 15px;
-    background: linear-gradient(145deg, #f8fafc, #eef2f6);
+    background: #fff;
     color: #a6afbd;
     font-size: 1.6rem;
     font-weight: 800;
@@ -15470,7 +15484,9 @@ body {
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    padding: 7px;
+    background: #fff;
+    object-fit: contain;
 }
 
 .cart-item-content {
@@ -17632,6 +17648,7 @@ body {
 
     .product-detail-image {
         min-height: 0;
+        height: clamp(240px, 44vh, 340px);
         aspect-ratio: 4 / 3;
     }
 
