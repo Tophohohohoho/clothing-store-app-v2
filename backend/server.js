@@ -159,10 +159,16 @@ const authRateLimit = createRateLimiter({
     keyPrefix: 'auth',
     getAccountKey: (req) => req.body?.username || req.body?.email,
 });
-const otpRateLimit = createRateLimiter({
+const otpRequestRateLimit = createRateLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 10,
+    keyPrefix: 'otp-request',
+    getAccountKey: (req) => req.body?.email,
+});
+const otpVerifyRateLimit = createRateLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 5,
-    keyPrefix: 'otp',
+    max: 30,
+    keyPrefix: 'otp-verify',
     getAccountKey: (req) => req.body?.email,
 });
 
@@ -170,6 +176,10 @@ const cleanText = (value) => String(value ?? '').trim();
 const cleanPhone = (value) => cleanText(value).replace(/[\s-]/g, '');
 const isBcryptHash = (value) => /^\$2[aby]\$\d{2}\$/.test(String(value || ''));
 const hashPassword = (password) => bcrypt.hash(String(password), PASSWORD_HASH_ROUNDS);
+const VERIFICATION_PURPOSES = {
+    REGISTRATION: 'registration',
+    PASSWORD_RESET: 'password_reset',
+};
 const getMissingSmtpEnvKeys = () => SMTP_REQUIRED_ENV_KEYS.filter((key) => !cleanText(process.env[key]));
 const hasSmtpConfig = () => getMissingSmtpEnvKeys().length === 0;
 const verifyPassword = async (password, storedPassword) => {
@@ -820,7 +830,7 @@ const ORDER_PREPARING_STATUS = 'กำลังเตรียมสินค้
 const ORDER_CANCELLED_STATUS = 'ยกเลิกคำสั่งซื้อ';
 const PAYMENT_PENDING_STATUS = 'รอชำระ';
 const ORDER_PAYMENT_EXPIRY_HOURS = 24;
-const AUTO_CANCEL_PAYMENT_STATUSES = [PAYMENT_PENDING_STATUS, PAYMENT_REJECTED_STATUS, 'ถูกปฏิเสธ', 'หลักฐานไม่ถูกต้อง', 'ไม่พบยอดเงินเข้า', 'สงสัยสลิปปลอม'];
+const AUTO_CANCEL_PAYMENT_STATUSES = [PAYMENT_PENDING_STATUS];
 const STORE_PICKUP_ADDRESS = 'สถานที่: อาคารวิชญาการ มหาวิทยาลัยราชภัฏเลย ที่อยู่: 234 ถ.เลย-เชียงคาน ต.เมือง อ.เมือง จ.เลย 42000';
 const STORE_CONTACT_PHONE = '0812345678';
 const STORE_CONTACT_EMAIL = 'admin@example.com';
@@ -1237,33 +1247,85 @@ const initializeDatabase = async () => {
             KEY idx_order_status_history_order (order_id),
             KEY idx_order_status_history_user (user_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
-        `CREATE TABLE IF NOT EXISTS password_reset_codes (
-            reset_id int NOT NULL AUTO_INCREMENT,
-            user_id int NOT NULL,
-            code_hash varchar(64) NOT NULL,
-            expires_at datetime NOT NULL,
-            used_at datetime DEFAULT NULL,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (reset_id),
-            KEY idx_password_reset_user (user_id),
-            KEY idx_password_reset_expires (expires_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
-        `CREATE TABLE IF NOT EXISTS registration_verification_codes (
+        `CREATE TABLE IF NOT EXISTS verification_codes (
             verification_id int NOT NULL AUTO_INCREMENT,
+            user_id int DEFAULT NULL,
             email varchar(150) NOT NULL,
+            purpose varchar(50) NOT NULL,
             code_hash varchar(64) NOT NULL,
             expires_at datetime NOT NULL,
             verified_at datetime DEFAULT NULL,
             used_at datetime DEFAULT NULL,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (verification_id),
-            KEY idx_registration_verification_email (email),
-            KEY idx_registration_verification_expires (expires_at)
+            KEY idx_verification_user (user_id),
+            KEY idx_verification_email_purpose (email, purpose),
+            KEY idx_verification_expires (expires_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci`,
     ];
 
     for (const schema of schemas) {
         await query(schema);
+    }
+
+    if (await tableExists('registration_verification_codes')) {
+        await query(
+            `INSERT INTO verification_codes
+                (user_id, email, purpose, code_hash, expires_at, verified_at, used_at, created_at)
+             SELECT
+                NULL,
+                LOWER(TRIM(email)),
+                ?,
+                code_hash,
+                expires_at,
+                verified_at,
+                used_at,
+                created_at
+             FROM registration_verification_codes old_codes
+             WHERE NOT EXISTS (
+                SELECT 1
+                FROM verification_codes vc
+                WHERE vc.email = LOWER(TRIM(old_codes.email))
+                    AND vc.purpose = ?
+                    AND vc.code_hash = old_codes.code_hash
+                    AND vc.created_at = old_codes.created_at
+             )`,
+            [VERIFICATION_PURPOSES.REGISTRATION, VERIFICATION_PURPOSES.REGISTRATION],
+        );
+    }
+
+    if (await tableExists('password_reset_codes')) {
+        await query(
+            `INSERT INTO verification_codes
+                (user_id, email, purpose, code_hash, expires_at, verified_at, used_at, created_at)
+             SELECT
+                old_codes.user_id,
+                COALESCE(LOWER(TRIM(u.email)), ''),
+                ?,
+                old_codes.code_hash,
+                old_codes.expires_at,
+                NULL,
+                old_codes.used_at,
+                old_codes.created_at
+             FROM password_reset_codes old_codes
+             JOIN \`user\` u ON u.user_id = old_codes.user_id
+             WHERE NOT EXISTS (
+                SELECT 1
+                FROM verification_codes vc
+                WHERE vc.user_id = old_codes.user_id
+                    AND vc.purpose = ?
+                    AND vc.code_hash = old_codes.code_hash
+                    AND vc.created_at = old_codes.created_at
+             )`,
+            [VERIFICATION_PURPOSES.PASSWORD_RESET, VERIFICATION_PURPOSES.PASSWORD_RESET],
+        );
+    }
+
+    if (await tableExists('registration_verification_codes')) {
+        await query('DROP TABLE registration_verification_codes');
+    }
+    if (await tableExists('password_reset_codes')) {
+        await query('DROP TABLE password_reset_codes');
     }
 
     if (await tableExists('product_color')) {
@@ -1410,7 +1472,7 @@ const initializeDatabase = async () => {
     await query("UPDATE `user` SET role = 'user' WHERE role IS NULL OR role NOT IN ('user', 'admin')");
     await getDefaultCategoryId();
     await migrateLegacyTables();
-    await seedUniversityProducts();
+    // Demo product seeding is disabled because this shop now manages real inventory.
 
     const [admins] = await query('SELECT user_id FROM `user` WHERE role = ? LIMIT 1', ['admin']);
     if (admins.length === 0) {
@@ -1702,7 +1764,7 @@ app.post('/api/logout', requireAuth, async (req, res) => {
     }
 });
 
-app.post('/api/register/otp/request', otpRateLimit, async (req, res) => {
+app.post('/api/register/otp/request', otpRequestRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const fullName = cleanText(req.body.full_name);
@@ -1726,12 +1788,12 @@ app.post('/api/register/otp/request', otpRateLimit, async (req, res) => {
         const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
 
         await query(
-            'UPDATE registration_verification_codes SET used_at = NOW() WHERE email = ? AND used_at IS NULL',
-            [email],
+            'UPDATE verification_codes SET used_at = NOW() WHERE email = ? AND purpose = ? AND used_at IS NULL',
+            [email, VERIFICATION_PURPOSES.REGISTRATION],
         );
         await query(
-            'INSERT INTO registration_verification_codes (email, code_hash, expires_at) VALUES (?, ?, ?)',
-            [email, hashVerificationCode(code), expiresAt],
+            'INSERT INTO verification_codes (email, purpose, code_hash, expires_at) VALUES (?, ?, ?, ?)',
+            [email, VERIFICATION_PURPOSES.REGISTRATION, hashVerificationCode(code), expiresAt],
         );
 
         let mailResult = { sent: false };
@@ -1769,20 +1831,21 @@ app.post('/api/register/otp/request', otpRateLimit, async (req, res) => {
 const findValidRegistrationCode = async ({ email, code }) => {
     const [rows] = await query(
         `SELECT verification_id, email
-         FROM registration_verification_codes
+         FROM verification_codes
          WHERE email = ?
+            AND purpose = ?
             AND code_hash = ?
             AND used_at IS NULL
             AND expires_at > NOW()
          ORDER BY created_at DESC
          LIMIT 1`,
-        [email, hashVerificationCode(code)],
+        [email, VERIFICATION_PURPOSES.REGISTRATION, hashVerificationCode(code)],
     );
 
     return rows[0] || null;
 };
 
-app.post('/api/register/otp/verify', otpRateLimit, async (req, res) => {
+app.post('/api/register/otp/verify', otpVerifyRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -1796,7 +1859,7 @@ app.post('/api/register/otp/verify', otpRateLimit, async (req, res) => {
             return res.status(400).json({ success: false, message: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว' });
         }
 
-        await query('UPDATE registration_verification_codes SET verified_at = NOW() WHERE verification_id = ?', [verificationCode.verification_id]);
+        await query('UPDATE verification_codes SET verified_at = NOW() WHERE verification_id = ?', [verificationCode.verification_id]);
 
         res.json({ success: true, message: 'ยืนยัน OTP สำเร็จ สามารถสมัครสมาชิกได้' });
     } catch (err) {
@@ -1895,7 +1958,7 @@ app.post('/api/register', async (req, res) => {
                 addressPayload.address_type,
             ],
         );
-        await query('UPDATE registration_verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
+        await query('UPDATE verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
         await writeSystemLog(result.insertId, 'สมัครสมาชิก', `สมัครสมาชิก ${normalizedUsername}`);
 
         const createdUserRow = await fetchUserById(result.insertId);
@@ -1912,7 +1975,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-app.post('/api/password-reset/request', otpRateLimit, async (req, res) => {
+app.post('/api/password-reset/request', otpRequestRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
 
@@ -1940,12 +2003,12 @@ app.post('/api/password-reset/request', otpRateLimit, async (req, res) => {
         const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
 
         await query(
-            'UPDATE password_reset_codes SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
-            [user.id],
+            'UPDATE verification_codes SET used_at = NOW() WHERE user_id = ? AND purpose = ? AND used_at IS NULL',
+            [user.id, VERIFICATION_PURPOSES.PASSWORD_RESET],
         );
         await query(
-            'INSERT INTO password_reset_codes (user_id, code_hash, expires_at) VALUES (?, ?, ?)',
-            [user.id, hashResetCode(code), expiresAt],
+            'INSERT INTO verification_codes (user_id, email, purpose, code_hash, expires_at) VALUES (?, ?, ?, ?, ?)',
+            [user.id, user.email, VERIFICATION_PURPOSES.PASSWORD_RESET, hashResetCode(code), expiresAt],
         );
 
         let mailResult = { sent: false };
@@ -1986,23 +2049,24 @@ app.post('/api/password-reset/request', otpRateLimit, async (req, res) => {
 
 const findValidResetCode = async ({ email, code }) => {
     const [rows] = await query(
-        `SELECT pr.reset_id, u.user_id AS user_id
-         FROM password_reset_codes pr
+        `SELECT pr.verification_id, u.user_id AS user_id
+         FROM verification_codes pr
          JOIN \`user\` u ON u.user_id = pr.user_id
          WHERE LOWER(u.email) = ?
+            AND pr.purpose = ?
             AND pr.code_hash = ?
             AND pr.used_at IS NULL
             AND pr.expires_at > NOW()
             AND u.status_user = 1
          ORDER BY pr.created_at DESC
          LIMIT 1`,
-        [email, hashResetCode(code)],
+        [email, VERIFICATION_PURPOSES.PASSWORD_RESET, hashResetCode(code)],
     );
 
     return rows[0] || null;
 };
 
-app.post('/api/password-reset/verify', otpRateLimit, async (req, res) => {
+app.post('/api/password-reset/verify', otpVerifyRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -2022,7 +2086,7 @@ app.post('/api/password-reset/verify', otpRateLimit, async (req, res) => {
     }
 });
 
-app.post('/api/password-reset/complete', otpRateLimit, async (req, res) => {
+app.post('/api/password-reset/complete', otpVerifyRateLimit, async (req, res) => {
     try {
         const email = String(req.body.email || '').trim().toLowerCase();
         const code = String(req.body.code || '').trim();
@@ -2041,7 +2105,7 @@ app.post('/api/password-reset/complete', otpRateLimit, async (req, res) => {
         }
 
         await query('UPDATE `user` SET password = ? WHERE user_id = ?', [await hashPassword(password), resetCode.user_id]);
-        await query('UPDATE password_reset_codes SET used_at = NOW() WHERE reset_id = ?', [resetCode.reset_id]);
+        await query('UPDATE verification_codes SET used_at = NOW() WHERE verification_id = ?', [resetCode.verification_id]);
         await writeSystemLog(resetCode.user_id, 'รีเซ็ตรหัสผ่าน', 'ผู้ใช้รีเซ็ตรหัสผ่านผ่านอีเมล', getAuditRequestMeta(req));
 
         res.json({ success: true, message: 'ตั้งรหัสผ่านใหม่สำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสใหม่' });
@@ -2772,7 +2836,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
                 normalizedRole,
             ],
         );
-        await query('UPDATE registration_verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
+        await query('UPDATE verification_codes SET used_at = NOW(), verified_at = COALESCE(verified_at, NOW()) WHERE verification_id = ?', [verificationCode.verification_id]);
 
         const [createdUsers] = await query(
             'SELECT user_id, username, full_name, email, phone, role, status_user FROM `user` WHERE user_id = ? LIMIT 1',
@@ -3996,7 +4060,7 @@ const performAdminPaymentReview = async (id, payload = {}) => {
             `UPDATE orders
              SET payment_status = ?,
                  order_status = ?,
-                 payment_expires_at = ${cleanAction === 'approve' ? 'NULL' : `DATE_ADD(NOW(), INTERVAL ${ORDER_PAYMENT_EXPIRY_HOURS} HOUR)`}
+                 payment_expires_at = NULL
              WHERE order_id = ?`,
             [review.paymentStatus, nextOrderStatus, id],
         );

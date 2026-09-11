@@ -10,7 +10,7 @@ const EMPTY_FORGOT_FORM = {
 };
 const EMPTY_RESET_CODE_DIGITS = ['', '', '', '', '', ''];
 const REGISTER_OTP_EXPIRES_SECONDS = 10 * 60;
-const REGISTER_OTP_RESEND_SECONDS = 60;
+const REGISTER_OTP_RESEND_SECONDS = 10;
 const EMPTY_THAI_ADDRESS_DATA = {
     provinces: [],
     districts: [],
@@ -349,32 +349,16 @@ function AuthPage({
         clearRegisterFieldErrors('registrationOtp');
     };
 
-    const getFirstEmptyRegisterOtpIndex = () => {
-        const firstEmptyIndex = registerOtpDigits.findIndex((digit) => !digit);
-        return firstEmptyIndex === -1 ? 5 : firstEmptyIndex;
-    };
-
-    const keepRegisterOtpFocusInOrder = (index) => {
-        const firstEmptyIndex = getFirstEmptyRegisterOtpIndex();
-        if (index > firstEmptyIndex) {
-            registerOtpInputRefs.current[firstEmptyIndex]?.focus();
-            return false;
-        }
-        return true;
-    };
-
     const setRegisterOtpAtIndex = (index, value) => {
-        if (!keepRegisterOtpFocusInOrder(index)) return;
-
         const cleanValue = value.replace(/\D/g, '').slice(0, 6);
         if (cleanValue.length > 1) {
             const nextDigits = [...registerOtpDigits];
             cleanValue.split('').forEach((digit, offset) => {
-                const nextIndex = offset;
+                const nextIndex = index + offset;
                 if (nextIndex < 6) nextDigits[nextIndex] = digit;
             });
             setRegisterOtpCode(nextDigits);
-            registerOtpInputRefs.current[Math.min(cleanValue.length, 5)]?.focus();
+            registerOtpInputRefs.current[Math.min(index + cleanValue.length, 5)]?.focus();
             return;
         }
 
@@ -387,23 +371,19 @@ function AuthPage({
         }
     };
 
-    const handleRegisterOtpPaste = (event) => {
+    const handleRegisterOtpPaste = (event, index = 0) => {
         event.preventDefault();
         const pastedCode = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
         if (!pastedCode) return;
 
         const nextDigits = [...registerOtpDigits];
         pastedCode.split('').forEach((digit, offset) => {
-            const nextIndex = offset;
+            const nextIndex = index + offset;
             if (nextIndex < 6) nextDigits[nextIndex] = digit;
         });
 
         setRegisterOtpCode(nextDigits);
-        registerOtpInputRefs.current[Math.min(pastedCode.length, 5)]?.focus();
-    };
-
-    const handleRegisterOtpFocus = (index) => {
-        keepRegisterOtpFocusInOrder(index);
+        registerOtpInputRefs.current[Math.min(index + pastedCode.length, 5)]?.focus();
     };
 
     const handleRegisterOtpKeyDown = (event, index) => {
@@ -777,8 +757,7 @@ function AuthPage({
                                                                 maxLength="1"
                                                                 value={digit}
                                                                 onChange={(event) => setRegisterOtpAtIndex(index, event.target.value)}
-                                                                onPaste={handleRegisterOtpPaste}
-                                                                onFocus={() => handleRegisterOtpFocus(index)}
+                                                                onPaste={(event) => handleRegisterOtpPaste(event, index)}
                                                                 onKeyDown={(event) => handleRegisterOtpKeyDown(event, index)}
                                                                 aria-label={`รหัส OTP หลักที่ ${index + 1}`}
                                                                 aria-invalid={Boolean(registerFieldErrors.registrationOtp)}

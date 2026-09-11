@@ -10667,7 +10667,9 @@ body {
     padding: 0;
     border: 0;
     border-radius: 999px;
-    transition: background 0.2s ease;
+    cursor: pointer;
+    transition: background-color 0.22s ease, box-shadow 0.22s ease;
+    will-change: background-color;
 }
 
 .category-toggle span {
@@ -10679,7 +10681,8 @@ body {
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
-    transition: transform 0.2s ease;
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
 }
 
 .category-toggle.active {
@@ -10695,14 +10698,18 @@ body {
 }
 
 .category-toggle:disabled {
-    cursor: wait;
-    opacity: 0.55;
+    cursor: progress;
+}
+
+.category-toggle.saving {
+    box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.12);
 }
 
 .category-status-text {
     font-size: 0.8rem;
     font-weight: 700;
     white-space: nowrap;
+    transition: color 0.18s ease;
 }
 
 .category-status-text.active {

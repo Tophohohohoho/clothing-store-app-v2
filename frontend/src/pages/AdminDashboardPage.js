@@ -189,6 +189,7 @@ const formatDateTime = (value) => {
 };
 
 const getPaymentExpiryMeta = (order, now = Date.now()) => {
+    if (order?.payment_status !== 'รอชำระ') return null;
     const createdAt = order?.created_at || order?.order_date;
     const fallbackExpiresAt = createdAt ? new Date(new Date(createdAt).getTime() + (24 * 60 * 60 * 1000)) : null;
     const expiresAt = order?.payment_expires_at || fallbackExpiresAt;

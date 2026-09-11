@@ -1329,11 +1329,18 @@ function App() {
 
     const handleToggleProductStatus = async (product) => {
         const nextStatus = Number(product.product_status) === 0 ? 1 : 0;
+        const previousProducts = products;
+        setProducts((current) => current.map((item) => (
+            String(item.id) === String(product.id)
+                ? { ...item, product_status: nextStatus }
+                : item
+        )));
+
         try {
             await productsApi.updateProductStatus(product.id, nextStatus);
-            await fetchProducts(true);
             return { success: true };
         } catch (err) {
+            setProducts(previousProducts);
             return {
                 success: false,
                 message: err.response?.data?.error || 'ไม่สามารถเปลี่ยนสถานะสินค้าได้',
@@ -1434,6 +1441,33 @@ function App() {
             await fetchProducts(true);
             return { success: true };
         } catch (err) {
+            const isMissingRoute = err.response?.status === 404;
+            return {
+                success: false,
+                message: isMissingRoute
+                    ? 'อัปเดตหมวดหมู่สินค้าไม่ได้ เพราะ backend ยังไม่ได้รีสตาร์ทหลังอัปเดตโค้ด'
+                    : err.response?.data?.error || 'อัปเดตหมวดหมู่สินค้าไม่สำเร็จ',
+            };
+        }
+    };
+
+    const handleToggleCategoryStatus = async (category) => {
+        const nextStatus = Number(category.status_category ?? 1) === 1 ? 0 : 1;
+        const previousCategories = categories;
+        setCategories((current) => current.map((item) => (
+            String(item.category_id) === String(category.category_id)
+                ? { ...item, status_category: nextStatus }
+                : item
+        )));
+
+        try {
+            await productsApi.updateCategory(category.category_id, {
+                category_name: category.category_name,
+                status_category: nextStatus,
+            });
+            return { success: true };
+        } catch (err) {
+            setCategories(previousCategories);
             const isMissingRoute = err.response?.status === 404;
             return {
                 success: false,
@@ -2235,6 +2269,7 @@ function App() {
                         onMoveProductsCategory={handleMoveProductsCategory}
                         onAddCategory={handleAddCategory}
                         onUpdateCategory={handleUpdateCategory}
+                        onToggleCategoryStatus={handleToggleCategoryStatus}
                         onDeleteCategory={handleDeleteCategory}
                         onCancelOrder={handleAdminCancelOrder}
                         onUpdateOrderStatus={handleUpdateOrderStatus}

@@ -189,6 +189,7 @@ function AdminAddProductPage({
     categories = [],
     onAddCategory,
     onUpdateCategory,
+    onToggleCategoryStatus,
     onDeleteCategory,
 }) {
     const [showAddForm, setShowAddForm] = useState(false);
@@ -288,12 +289,22 @@ function AdminAddProductPage({
         setCategoryPage(1);
     }, [categorySearch, categoryStatusFilter, categoryPageSize, dateRange]);
     const productCategoryOptions = [...activeCategories].sort((a, b) => a.category_name.localeCompare(b.category_name, 'th'));
-    const categoryFilterOptions = Array.from(new Set(
-        [
-            ...productCategoryOptions.map((category) => category.category_name),
-            ...products.map((product) => product.category_name || 'ทั่วไป'),
-        ].filter(Boolean),
-    )).sort((a, b) => a.localeCompare(b, 'th'));
+    const categoryFilterOptions = useMemo(() => Array.from(new Set(
+        products
+            .filter((product) => {
+                const isActive = Number(product.product_status ?? 1) === 1;
+                return statusFilter === 'all'
+                    || (statusFilter === 'active' ? isActive : !isActive);
+            })
+            .map((product) => String(product.category_name || 'ทั่วไป').trim() || 'ทั่วไป'),
+    )).sort((a, b) => a.localeCompare(b, 'th')), [products, statusFilter]);
+
+    useEffect(() => {
+        if (categoryFilter !== 'all' && !categoryFilterOptions.includes(categoryFilter)) {
+            setCategoryFilter('all');
+        }
+    }, [categoryFilter, categoryFilterOptions]);
+
     const filteredProducts = useMemo(() => {
         const keyword = productSearch.trim().toLocaleLowerCase('th');
         return products.filter((product) => {
@@ -496,12 +507,8 @@ function AdminAddProductPage({
 
     const toggleCategoryStatus = async (category) => {
         setCategoryError('');
-        const nextStatus = Number(category.status_category ?? 1) === 1 ? 0 : 1;
         setCategoryActionId(category.category_id);
-        const result = await onUpdateCategory?.(category.category_id, {
-            category_name: category.category_name,
-            status_category: nextStatus,
-        });
+        const result = await onToggleCategoryStatus?.(category);
         setCategoryActionId(null);
 
         if (!result?.success && result?.message) {
@@ -1041,7 +1048,7 @@ function AdminAddProductPage({
                                                         <div className="category-toggle-wrap">
                                                             <button
                                                                 type="button"
-                                                                className={`category-toggle ${isInactive ? 'inactive' : 'active'}`}
+                                                                className={`category-toggle ${isInactive ? 'inactive' : 'active'} ${isBusy ? 'saving' : ''}`}
                                                                 role="switch"
                                                                 aria-checked={!isInactive}
                                                                 aria-label={`${isInactive ? 'เปิด' : 'ปิด'}ใช้งาน ${product.name}`}
@@ -1255,7 +1262,7 @@ function AdminAddProductPage({
                                                         <div className="category-toggle-wrap">
                                                             <button
                                                                 type="button"
-                                                                className={`category-toggle ${isActive ? 'active' : 'inactive'}`}
+                                                                className={`category-toggle ${isActive ? 'active' : 'inactive'} ${isBusy ? 'saving' : ''}`}
                                                                 role="switch"
                                                                 aria-checked={isActive}
                                                                 aria-label={`${isActive ? 'ปิด' : 'เปิด'}ใช้งาน ${category.category_name}`}
