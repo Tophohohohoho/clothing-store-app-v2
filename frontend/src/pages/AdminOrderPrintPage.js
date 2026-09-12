@@ -2,15 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import * as adminApi from '../api/adminApi';
 import { formatThaiDateTime, formatThaiShortDateTime } from '../utils/date';
 
-const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-});
-const formatDiscountMoney = (value) => {
-    const amount = Number(value) || 0;
-    return `${amount > 0 ? '-' : ''}฿${formatMoney(amount)}`;
-};
-
 const formatDate = (value) => {
     if (!value) return '-';
     return formatThaiDateTime(value, '-');
@@ -112,17 +103,15 @@ function AdminOrderPrintPage({ orderIds }) {
                             <h2>ข้อมูลคำสั่งซื้อ</h2>
                             <dl>
                                 <div><dt>วันที่สั่งซื้อ</dt><dd>{formatDate(order.created_at)}</dd></div>
-                                <div><dt>วิธีรับสินค้า</dt><dd>{order.shipping_method || '-'}</dd></div>
                                 <div><dt>สถานะชำระเงิน</dt><dd>{formatPaymentStatus(order.payment_status) || '-'}</dd></div>
-                                <div><dt>สถานะออเดอร์</dt><dd>{order.status || '-'}</dd></div>
                             </dl>
                         </article>
 
                         <article>
-                            <h2>ข้อมูลลูกค้า</h2>
+                            <h2>ข้อมูลผู้ใช้งาน</h2>
                             <dl>
-                                <div><dt>ชื่อลูกค้า</dt><dd>{order.full_name || receiverName}</dd></div>
-                                <div><dt>Username</dt><dd>{order.username || '-'}</dd></div>
+                                <div><dt>ชื่อผู้รับ</dt><dd>{receiverName}</dd></div>
+                                <div><dt>ชื่อผู้ใช้งาน</dt><dd>{order.username || '-'}</dd></div>
                                 <div><dt>เบอร์โทรศัพท์</dt><dd>{phone}</dd></div>
                             </dl>
                         </article>
@@ -142,13 +131,6 @@ function AdminOrderPrintPage({ orderIds }) {
                                 <p>{addressLine || '-'}</p>
                                 <p>โทร: {phone}</p>
                             </div>
-                            <div>
-                                <h2>ข้อมูลขนส่ง</h2>
-                                <dl>
-                                    <div><dt>บริษัทขนส่ง</dt><dd>{order.shipping_company || order.delivery_company || '-'}</dd></div>
-                                    <div><dt>เลขพัสดุ</dt><dd>{order.tracking_no || '-'}</dd></div>
-                                </dl>
-                            </div>
                         </section>
                     )}
 
@@ -159,34 +141,22 @@ function AdminOrderPrintPage({ orderIds }) {
                                 <tr>
                                     <th>สินค้า</th>
                                     <th className="number">จำนวน</th>
-                                    <th className="number">ราคาต่อชิ้น</th>
-                                    <th className="number">ราคารวม</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {items.length ? items.map((item) => {
                                     const qty = Number(item.quantity || 0);
-                                    const price = Number(item.price || 0);
                                     return (
                                         <tr key={item.order_detail_id || `${item.product_id}-${item.product_name}`}>
                                             <td>{item.product_name || '-'}</td>
                                             <td className="number">{qty.toLocaleString('th-TH')}</td>
-                                            <td className="number">฿{formatMoney(price)}</td>
-                                            <td className="number">฿{formatMoney(qty * price)}</td>
                                         </tr>
                                     );
                                 }) : (
-                                    <tr><td colSpan="4">ไม่มีรายการสินค้า</td></tr>
+                                    <tr><td colSpan="2">ไม่มีรายการสินค้า</td></tr>
                                 )}
                             </tbody>
                         </table>
-                    </section>
-
-                    <section className="print-order-total">
-                        <div><span>ยอดสินค้า</span><strong>฿{formatMoney(order.total_price)}</strong></div>
-                        <div><span>ค่าส่ง</span><strong>฿{formatMoney(order.shipping_fee)}</strong></div>
-                        <div><span>ส่วนลด</span><strong>{formatDiscountMoney(order.discount)}</strong></div>
-                        <div className="grand-total"><span>ยอดรวมทั้งหมด</span><strong>฿{formatMoney(order.final_price ?? order.total_price)}</strong></div>
                     </section>
                 </section>
         );

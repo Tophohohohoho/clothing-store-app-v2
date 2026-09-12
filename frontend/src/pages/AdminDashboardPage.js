@@ -541,16 +541,14 @@ const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
                 <h2>ข้อมูลคำสั่งซื้อ</h2>
                 <dl>
                     <div><dt>วันที่สั่งซื้อ</dt><dd>${escapeHtml(formatDateTime(order.created_at))}</dd></div>
-                    <div><dt>วิธีรับสินค้า</dt><dd>${escapeHtml(order.shipping_method || '-')}</dd></div>
                     <div><dt>สถานะชำระเงิน</dt><dd>${escapeHtml(formatPaymentStatus(order.payment_status) || '-')}</dd></div>
-                    <div><dt>สถานะออเดอร์</dt><dd>${escapeHtml(order.status || '-')}</dd></div>
                 </dl>
             </article>
             <article>
                 <h2>ข้อมูลผู้ใช้งาน</h2>
                 <dl>
-                    <div><dt>ชื่อผู้ใช้งาน</dt><dd>${escapeHtml(order.full_name || receiverName)}</dd></div>
-                    <div><dt>Username</dt><dd>${escapeHtml(order.username || '-')}</dd></div>
+                    <div><dt>ชื่อผู้รับ</dt><dd>${escapeHtml(receiverName)}</dd></div>
+                    <div><dt>ชื่อผู้ใช้งาน</dt><dd>${escapeHtml(order.username || '-')}</dd></div>
                     <div><dt>เบอร์โทรศัพท์</dt><dd>${escapeHtml(phone)}</dd></div>
                 </dl>
             </article>
@@ -566,30 +564,16 @@ const renderShippingSheetHtml = (payload, fallbackOrderId, printTimestamp) => {
                 <p>${escapeHtml(addressLine || '-')}</p>
                 <p>โทร: ${escapeHtml(phone)}</p>
             </div>
-            <div>
-                <h2>ข้อมูลขนส่ง</h2>
-                <dl>
-                    <div><dt>บริษัทขนส่ง</dt><dd>${escapeHtml(order.shipping_company || order.delivery_company || '-')}</dd></div>
-                    <div><dt>เลขพัสดุ</dt><dd>${escapeHtml(order.tracking_no || '-')}</dd></div>
-                </dl>
-            </div>
         </section>`}
         <section class="items">
             <h2>รายการสินค้าในออเดอร์</h2>
             <table>
-                <thead><tr><th>สินค้า</th><th class="number">จำนวน</th><th class="number">ราคาต่อชิ้น</th><th class="number">ราคารวม</th></tr></thead>
+                <thead><tr><th>สินค้า</th><th class="number">จำนวน</th></tr></thead>
                 <tbody>${items.length ? items.map((item) => {
                     const qty = Number(item.quantity || 0);
-                    const price = Number(item.price || 0);
-                    return `<tr><td>${escapeHtml(item.product_name || '-')}</td><td class="number">${qty.toLocaleString('th-TH')}</td><td class="number">฿${formatMoney(price)}</td><td class="number">฿${formatMoney(qty * price)}</td></tr>`;
-                }).join('') : '<tr><td colspan="4">ไม่มีรายการสินค้า</td></tr>'}</tbody>
+                    return `<tr><td>${escapeHtml(item.product_name || '-')}</td><td class="number">${qty.toLocaleString('th-TH')}</td></tr>`;
+                }).join('') : '<tr><td colspan="2">ไม่มีรายการสินค้า</td></tr>'}</tbody>
             </table>
-        </section>
-        <section class="total">
-            <div><span>ยอดสินค้า</span><strong>฿${formatMoney(order.total_price)}</strong></div>
-            <div><span>ค่าส่ง</span><strong>฿${formatMoney(order.shipping_fee)}</strong></div>
-            <div><span>ส่วนลด</span><strong>${formatDiscountMoney(order.discount)}</strong></div>
-            <div class="grand"><span>ยอดรวมทั้งหมด</span><strong>฿${formatMoney(order.final_price ?? order.total_price)}</strong></div>
         </section>
     </section>`;
 };
@@ -621,7 +605,7 @@ const writeShippingPrintDocument = (popup, bodyContent, shouldPrint = true) => {
             dl>div{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px}
             dt{color:#444;font-size:11px;font-weight:700}
             dd{min-width:0;margin:0;color:#000;font-size:12px;font-weight:800;overflow-wrap:anywhere}
-            .shipping{grid-template-columns:1.35fr .75fr}
+            .shipping{grid-template-columns:1fr}
             .pickup{margin-top:12px}
             .pickup strong{display:block;color:#000;font-size:18px}
             .items{margin-top:12px}

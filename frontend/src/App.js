@@ -336,12 +336,6 @@ function SiteFooter({ contact }) {
     );
 }
 
-const formatOrderCode = (orderId) => {
-    const year = new Date().getFullYear();
-    const cleanId = Number(orderId) || 0;
-    return `#ORD-${year}-${String(cleanId).padStart(4, '0')}`;
-};
-
 function OrderSuccessModal({ orderId, onViewOrder, onContinueShopping }) {
     useEffect(() => {
         const previousOverflow = document.body.style.overflow;
@@ -373,7 +367,7 @@ function OrderSuccessModal({ orderId, onViewOrder, onContinueShopping }) {
                 <p id="order-success-description">ขอบคุณสำหรับการสั่งซื้อ ระบบได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว</p>
                 <div className="order-success-code">
                     <span>เลขคำสั่งซื้อ</span>
-                    <strong>{formatOrderCode(orderId)}</strong>
+                    <strong>#{orderId}</strong>
                 </div>
                 <div className="order-success-actions">
                     <button type="button" className="order-success-button primary" onClick={onViewOrder}>

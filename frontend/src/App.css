@@ -12008,7 +12008,7 @@ body {
 }
 
 .print-order-shipping {
-    grid-template-columns: 1.35fr .75fr;
+    grid-template-columns: 1fr;
 }
 
 .print-order-shipping p,
